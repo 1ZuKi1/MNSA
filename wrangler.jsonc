@@ -1,0 +1,45 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "mnsa",
+  // Custom entry: routes bdmnsa.com (public) vs dep.bdmnsa.com (staff) before Astro sees the request.
+  "main": "./src/worker.ts",
+  "compatibility_date": "2026-09-01",
+  "compatibility_flags": ["nodejs_compat"],
+
+  "assets": {
+    "binding": "ASSETS",
+    // HTML navigations go through the Worker so the staff host can never be served a public page.
+    // Hashed build assets, the logo and icons skip the Worker entirely (free, unlimited).
+    "run_worker_first": ["/*", "!/_astro/*", "!/brand/*", "!/favicon.svg", "!/apple-touch-icon.png"]
+  },
+
+  "d1_databases": [
+    {
+      // Everything except photo bytes. Free plan: 500 MB per database.
+      "binding": "DB",
+      "database_name": "mnsa-db",
+      "database_id": "00000000-0000-0000-0000-000000000001",
+      "migrations_dir": "migrations"
+    },
+    {
+      // Photo bytes only, kept apart so they can never crowd out the records.
+      "binding": "MEDIA",
+      "database_name": "mnsa-media",
+      "database_id": "00000000-0000-0000-0000-000000000002",
+      "migrations_dir": "migrations-media"
+    }
+  ],
+
+  "vars": {
+    "PUBLIC_HOST": "bdmnsa.com",
+    "STAFF_HOST": "dep.bdmnsa.com",
+    "MAIL_FROM": "МОХ <no-reply@bdmnsa.com>"
+  },
+
+  // Secrets — set with `wrangler secret put NAME`, never committed:
+  //   SESSION_SECRET      long random string; signs session cookies and hashes login codes
+  //   RESEND_API_KEY      once bdmnsa.com is verified in Resend
+  //   TURNSTILE_SECRET    + TURNSTILE_SITE_KEY as a var
+
+  "observability": { "enabled": true }
+}

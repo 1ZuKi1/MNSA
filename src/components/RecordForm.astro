@@ -1,0 +1,88 @@
+---
+import type { RecordType } from '../lib/record-types';
+import type { DeptRow } from '../lib/db';
+import type { Visibility } from '../lib/types';
+
+interface Props {
+  type: RecordType;
+  title: string;
+  values: Record<string, string>;
+  errors: Record<string, string>;
+  visibility: Visibility;
+  /** Departments this person may file into; omit on edit (department is fixed once created). */
+  depts?: DeptRow[];
+  dept?: string;
+  submitLabel: string;
+  cancelHref: string;
+}
+const { type, title, values, errors, visibility, depts, dept, submitLabel, cancelHref } = Astro.props;
+---
+<form method="post" class="card record-form">
+  <input type="hidden" name="type" value={type.slug} />
+
+  <div class:list={['field', { 'has-error': errors.title }]}>
+    <label for="title" class="req">Гарчиг</label>
+    <input id="title" name="title" type="text" required maxlength="200" value={title} />
+    {errors.title && <span class="error">{errors.title}</span>}
+  </div>
+
+  {
+    depts && (
+      <div class:list={['field', { 'has-error': errors.dept }]}>
+        <label for="dept" class="req">Хэлтэс</label>
+        <select id="dept" name="dept" required>
+          {depts.map((d) => (
+            <option value={d.slug} selected={d.slug === dept}>
+              {d.name_mn}
+            </option>
+          ))}
+        </select>
+        {errors.dept && <span class="error">{errors.dept}</span>}
+      </div>
+    )
+  }
+
+  {
+    type.fields.map((f) => (
+      <div class:list={['field', { 'has-error': errors[f.name] }]}>
+        <label for={`f_${f.name}`} class:list={{ req: f.required }}>
+          {f.label}
+        </label>
+        {f.type === 'textarea' ? (
+          <textarea id={`f_${f.name}`} name={`f_${f.name}`} required={f.required} rows="6">{values[f.name] ?? ''}</textarea>
+        ) : (
+          <input
+            id={`f_${f.name}`}
+            name={`f_${f.name}`}
+            type={f.type === 'number' ? 'text' : f.type}
+            inputmode={f.type === 'number' ? 'decimal' : undefined}
+            required={f.required}
+            value={values[f.name] ?? ''}
+          />
+        )}
+        {f.hint && <span class="hint">{f.hint}</span>}
+        {errors[f.name] && <span class="error">{errors[f.name]}</span>}
+      </div>
+    ))
+  }
+
+  <fieldset class="field vis">
+    <legend class="label">Хэн харах вэ?</legend>
+    <label><input type="radio" name="visibility" value="staff" checked={visibility === 'staff'} /> Бүх ажилтан <span class="muted small">(үндсэн)</span></label>
+    <label><input type="radio" name="visibility" value="dept" checked={visibility === 'dept'} /> Зөвхөн манай хэлтэс ба удирдлага</label>
+  </fieldset>
+
+  <div class="btn-row actions">
+    <button class="btn btn-primary" type="submit" name="then" value="save">{submitLabel}</button>
+    <button class="btn" type="submit" name="then" value="submit">Хадгалаад хянуулахаар илгээх</button>
+    <a class="btn btn-quiet" href={cancelHref}>Болих</a>
+  </div>
+  <p class="small muted">Ноорог байхад зөвхөн та, хэлтсийн дарга, Тэргүүн харна. Илгээх үед баримтын дугаар автоматаар олгогдоно.</p>
+</form>
+
+<style>
+  .record-form { max-width: 760px; }
+  .vis { border: 0; padding: 0; margin: 18px 0 0; display: grid; gap: 6px; }
+  .vis label { display: flex; gap: 8px; align-items: center; font-size: 0.93rem; }
+  .actions { margin-top: 22px; }
+</style>

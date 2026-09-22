@@ -1,0 +1,107 @@
+---
+export const prerender = false;
+import Staff from '../../../layouts/Staff.astro';
+import { staffEvents, type StaffEventRow } from '../../../lib/events';
+import { mediaUrl } from '../../../lib/media';
+import { canEditEvents } from '../../../lib/permissions';
+import { fmtDate, fmtDateTime } from '../../../lib/time';
+
+const user = Astro.locals.user!;
+const { upcoming, past } = await staffEvents();
+const editor = canEditEvents(user);
+const STATUS: Record<StaffEventRow['status'], string> = { draft: 'Ноорог', published: 'Нийтлэгдсэн', cancelled: 'Цуцлагдсан' };
+---
+<Staff title="Арга хэмжээ">
+  <div class="page-head">
+    <div>
+      <span class="kicker">Үйл ажиллагаа</span>
+      <h1>Арга хэмжээ</h1>
+    </div>
+    {editor && <a class="btn btn-primary" href="/uil-ajillagaa/shine">+ Шинэ арга хэмжээ</a>}
+  </div>
+
+  <h2>Удахгүй болох</h2>
+  {
+    upcoming.length === 0 ? (
+      <p class="empty">Товлогдсон арга хэмжээ алга.</p>
+    ) : (
+      <div class="events">
+        {upcoming.map((e) => (
+          <a class="card ev" href={`/uil-ajillagaa/${e.id}`}>
+            <div class="ev-date">
+              <span class="d">{fmtDate(e.starts_at).slice(8)}</span>
+              <span class="m">{fmtDate(e.starts_at).slice(0, 7)}</span>
+            </div>
+            <div class="ev-body">
+              <div class="btn-row">
+                <span class={`badge b-${e.status}`}>{STATUS[e.status]}</span>
+                {e.dept_name && <span class="muted small">{e.dept_name}</span>}
+              </div>
+              <h3>{e.title}</h3>
+              <p class="muted small">{fmtDateTime(e.starts_at)}{e.location && ` · ${e.location}`}</p>
+              {e.task_total > 0 && (
+                <div class="progress" title={`${e.task_total - e.task_open}/${e.task_total} дууссан`}>
+                  <span style={`width:${Math.round(((e.task_total - e.task_open) / e.task_total) * 100)}%`} />
+                </div>
+              )}
+              <p class="small">
+                {e.task_total === 0 ? (
+                  <span class="muted">Ажил нэмэгдээгүй</span>
+                ) : (
+                  <>
+                    {e.task_total - e.task_open}/{e.task_total} ажил дууссан
+                    {e.task_unassigned > 0 && <strong class="need"> · {e.task_unassigned} ажилд хүн хэрэгтэй</strong>}
+                  </>
+                )}
+              </p>
+            </div>
+          </a>
+        ))}
+      </div>
+    )
+  }
+
+  <h2 style="margin-top:32px">Өнгөрсөн</h2>
+  {
+    past.length === 0 ? (
+      <p class="empty">Одоогоор алга.</p>
+    ) : (
+      <div class="table-wrap">
+        <table class="t">
+          <thead>
+            <tr><th></th><th>Нэр</th><th>Огноо</th><th>Хэлтэс</th><th>Төлөв</th><th>Ажил</th></tr>
+          </thead>
+          <tbody>
+            {past.map((e) => (
+              <tr>
+                <td style="width:64px">
+                  {e.cover_media_id ? <img class="thumb" src={mediaUrl(e.cover_media_id)} alt="" loading="lazy" /> : <span class="thumb" />}
+                </td>
+                <td><a class="row-link" href={`/uil-ajillagaa/${e.id}`}>{e.title}</a></td>
+                <td class="nowrap num">{fmtDate(e.starts_at)}</td>
+                <td class="nowrap">{e.dept_name ?? '—'}</td>
+                <td><span class={`badge b-${e.status}`}>{STATUS[e.status]}</span></td>
+                <td class="num">{e.task_total - e.task_open}/{e.task_total}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )
+  }
+</Staff>
+
+<style>
+  .events { display: grid; gap: 12px; }
+  .ev { display: grid; grid-template-columns: 64px 1fr; gap: 16px; text-decoration: none; color: var(--ink); }
+  .ev:hover { border-color: var(--maroon); color: var(--ink); }
+  .ev-date { text-align: center; border-right: 1px solid var(--line); padding-right: 12px; }
+  .ev-date .d { display: block; font-size: 1.7rem; font-weight: 700; color: var(--maroon); line-height: 1.1; }
+  .ev-date .m { font-size: 0.78rem; color: var(--ink-3); }
+  .ev h3 { margin: 6px 0 2px; font-size: 1.1rem; }
+  .ev p { margin: 2px 0; }
+  .progress { height: 5px; border-radius: 99px; background: var(--sunk); overflow: hidden; margin: 8px 0 4px; max-width: 280px; }
+  .progress span { display: block; height: 100%; background: var(--ok); }
+  .need { color: var(--warn); }
+  .thumb { display: block; width: 56px; height: 42px; object-fit: cover; border-radius: 4px; background: var(--sunk); }
+</style>

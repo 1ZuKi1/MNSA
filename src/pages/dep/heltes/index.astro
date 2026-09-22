@@ -1,0 +1,47 @@
+---
+export const prerender = false;
+import Staff from '../../../layouts/Staff.astro';
+import { departments, many } from '../../../lib/db';
+import { academicYear } from '../../../lib/time';
+
+const year = academicYear();
+const depts = await departments();
+const counts = await many<{ department_id: number; members: number; head: string | null; records: number }>(
+  `SELECT d.id AS department_id,
+          (SELECT COUNT(*) FROM users u WHERE u.department_id = d.id AND u.status = 'active') AS members,
+          (SELECT GROUP_CONCAT(u.name_mn, ', ') FROM users u WHERE u.department_id = d.id AND u.status = 'active' AND u.role = 'head') AS head,
+          (SELECT COUNT(*) FROM records r WHERE r.department_id = d.id AND r.academic_year = ? AND r.status <> 'draft') AS records
+     FROM departments d`,
+  year,
+);
+const by = new Map(counts.map((c) => [c.department_id, c]));
+---
+<Staff title="Хэлтсүүд">
+  <div class="page-head">
+    <div>
+      <span class="kicker">Бүтэц</span>
+      <h1>Хэлтсүүд</h1>
+    </div>
+  </div>
+  <div class="grid-3">
+    {depts.map((d) => {
+      const c = by.get(d.id);
+      return (
+        <a class="card dept" href={`/heltes/${d.slug}`}>
+          <span class="code">{d.code}</span>
+          <h2>{d.name_mn}</h2>
+          <p class="small muted">{d.is_leadership ? 'Тэргүүн, Удирдах зөвлөл' : c?.head ? `Дарга: ${c.head}` : 'Дарга томилогдоогүй'}</p>
+          <p class="small">{c?.members ?? 0} гишүүн · энэ жил {c?.records ?? 0} баримт бичиг</p>
+        </a>
+      );
+    })}
+  </div>
+</Staff>
+
+<style>
+  .dept { text-decoration: none; color: var(--ink); position: relative; }
+  .dept:hover { border-color: var(--maroon); color: var(--ink); }
+  .dept h2 { margin: 4px 0; }
+  .dept p { margin: 2px 0; }
+  .code { font-size: 0.78rem; font-weight: 700; color: var(--maroon); letter-spacing: 0.06em; }
+</style>

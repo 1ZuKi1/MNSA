@@ -1,0 +1,84 @@
+---
+import '@fontsource-variable/golos-text';
+import '@fontsource-variable/source-serif-4';
+import '../styles/base.css';
+
+interface Props {
+  title?: string;
+  description?: string;
+  image?: string | null;
+}
+const { title, description = 'Бээжингийн Их Сургуулийн Монгол Оюутны Холбооны албан ёсны цахим хуудас.', image } = Astro.props;
+const full = title ? `${title} · Бээжингийн Их Сургуулийн Монгол Оюутны Холбоо` : 'Бээжингийн Их Сургуулийн Монгол Оюутны Холбоо';
+const path = Astro.url.pathname;
+const nav = [
+  { href: '/', label: 'Нүүр' },
+  { href: '/uil-ajillagaa', label: 'Үйл ажиллагаа' },
+];
+const active = (h: string) => (h === '/' ? path === '/' : path.startsWith(h));
+---
+<!doctype html>
+<html lang="mn">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{full}</title>
+    <meta name="description" content={description} />
+    <meta property="og:title" content={title ?? 'МОХ · Бээжингийн Их Сургууль'} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content={image ? new URL(image, Astro.url).href : new URL('/brand/logo-512.png', Astro.url).href} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  </head>
+  <body class="public">
+    <div class="flag" aria-hidden="true"></div>
+    <header class="site">
+      <div class="wrap row-h">
+        <a href="/" class="brand">
+          <img src="/brand/logo.svg" alt="MNSA" width="64" height="49" />
+          <span class="name">Бээжингийн Их Сургуулийн<br />Монгол Оюутны Холбоо</span>
+        </a>
+        <nav aria-label="Үндсэн цэс">
+          {nav.map((n) => <a href={n.href} aria-current={active(n.href) ? 'page' : undefined}>{n.label}</a>)}
+        </nav>
+      </div>
+    </header>
+    <main>
+      <slot />
+    </main>
+    <footer class="site-foot">
+      <div class="wrap foot-grid">
+        <div>
+          <img src="/brand/logo.svg" alt="" width="72" height="55" />
+          <p class="small">Бээжингийн Их Сургуулийн<br />Монгол Оюутны Холбоо</p>
+        </div>
+        <div class="small">
+          <strong>Холбоо барих</strong>
+          <p><a href="mailto:pku_mongolia@163.com">pku_mongolia@163.com</a><br /><a href="https://instagram.com/pku_mongolia" rel="noopener">Instagram · @pku_mongolia</a></p>
+        </div>
+        <div class="small muted">
+          <p>Peking University · MNSA</p>
+          <p>© {new Date().getFullYear()} МОХ</p>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>
+
+<style>
+  .flag { height: 4px; background: linear-gradient(90deg, var(--blue) 0 33.3%, var(--maroon) 33.3% 66.6%, var(--blue) 66.6%); }
+  header.site { background: var(--surface); border-bottom: 1px solid var(--line); }
+  .row-h { display: flex; align-items: center; justify-content: space-between; gap: 20px; min-height: 84px; flex-wrap: wrap; padding-top: 10px; padding-bottom: 10px; }
+  .brand { display: flex; align-items: center; gap: 14px; text-decoration: none; color: var(--ink); }
+  .brand img { width: 64px; height: auto; }
+  .name { font: 600 1.02rem/1.25 var(--font-serif); color: var(--maroon); }
+  nav { display: flex; gap: 4px; }
+  nav a { padding: 8px 14px; border-radius: 999px; color: var(--ink-2); text-decoration: none; font-weight: 550; font-size: 0.95rem; }
+  nav a:hover { background: var(--sunk); color: var(--ink); }
+  nav a[aria-current='page'] { background: var(--maroon); color: #fff; }
+  main { min-height: 60vh; }
+  .site-foot { margin-top: 64px; background: var(--surface); border-top: 1px solid var(--line); padding: 32px 0 40px; }
+  .foot-grid { display: grid; gap: 24px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+  .foot-grid img { width: 72px; height: auto; margin-bottom: 8px; }
+  .foot-grid p { margin: 6px 0 0; }
+</style>

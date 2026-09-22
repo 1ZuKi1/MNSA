@@ -1,0 +1,32 @@
+{
+  "name": "mnsa",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro build && wrangler dev",
+    "test": "vitest run",
+    "typecheck": "astro check",
+    "db:migrate": "wrangler d1 migrations apply mnsa-db --local && wrangler d1 migrations apply mnsa-media --local",
+    "db:seed": "wrangler d1 execute mnsa-db --local --file=./scripts/seed-dev.sql",
+    "db:reset": "node -e \"require('fs').rmSync('.wrangler/state',{recursive:true,force:true})\" && npm run db:migrate && npm run db:seed",
+    "db:migrate:remote": "wrangler d1 migrations apply mnsa-db --remote && wrangler d1 migrations apply mnsa-media --remote",
+    "deploy": "astro build && wrangler deploy"
+  },
+  "dependencies": {
+    "@astrojs/cloudflare": "^14.3.3",
+    "@fontsource-variable/golos-text": "^5.3.0",
+    "@fontsource-variable/source-serif-4": "^5.3.0",
+    "astro": "^7.3.4"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.10",
+    "@cloudflare/workers-types": "^5.20260922.1",
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.1",
+    "wrangler": "^4.136.3"
+  },
+  "description": "Бээжингийн Их Сургуулийн Монгол Оюутны Холбоо — bdmnsa.com + dep.bdmnsa.com"
+}

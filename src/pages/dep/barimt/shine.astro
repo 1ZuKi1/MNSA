@@ -1,0 +1,84 @@
+---
+export const prerender = false;
+import Staff from '../../../layouts/Staff.astro';
+import RecordForm from '../../../components/RecordForm.astro';
+import { departments } from '../../../lib/db';
+import { readRecordForm } from '../../../lib/forms';
+import { clientIp, withFlash } from '../../../lib/http';
+import { canCreateRecordIn } from '../../../lib/permissions';
+import { getRecordType, RECORD_TYPE_LIST } from '../../../lib/record-types';
+import { createRecord, getRecord, submitRecord } from '../../../lib/records';
+import type { DeptSlug } from '../../../lib/types';
+
+const user = Astro.locals.user!;
+const allDepts = await departments();
+const depts = allDepts.filter((d) => canCreateRecordIn(user, d.slug as DeptSlug));
+if (!depts.length) return Astro.redirect(withFlash('/barimt', 'denied', 'err'));
+
+let type = getRecordType(Astro.url.searchParams.get('type') ?? '');
+let title = '';
+let values: Record<string, string> = {};
+let errors: Record<string, string> = {};
+let visibility: 'staff' | 'dept' = 'staff';
+let dept = user.dept && depts.some((d) => d.slug === user.dept) ? user.dept : depts[0].slug;
+
+if (Astro.request.method === 'POST') {
+  const form = readRecordForm(await Astro.request.formData());
+  if (form) {
+    ({ type, title, values, errors, visibility } = form);
+    dept = (form.dept || dept) as DeptSlug;
+    if (!depts.some((d) => d.slug === dept)) errors.dept = 'Энэ хэлтэст бичих эрх танд байхгүй.';
+    if (form.ok && !errors.dept) {
+      const ip = clientIp(Astro.request);
+      const id = await createRecord(user, { type: form.type, dept: dept as DeptSlug, title, values, visibility }, ip);
+      if (form.then === 'submit') {
+        await submitRecord(user, (await getRecord(id))!, ip);
+        return Astro.redirect(withFlash(`/barimt/${id}`, 'submitted'));
+      }
+      return Astro.redirect(withFlash(`/barimt/${id}`, 'created'));
+    }
+  }
+}
+---
+<Staff title="Шинэ баримт бичиг">
+  <div class="page-head">
+    <div>
+      <span class="kicker"><a href="/barimt">Баримт бичиг</a></span>
+      <h1>{type ? type.label : 'Шинэ баримт бичиг'}</h1>
+    </div>
+  </div>
+
+  {
+    !type ? (
+      <div class="grid-3">
+        {RECORD_TYPE_LIST.map((t) => (
+          <a class="card type-card" href={`/barimt/shine?type=${t.slug}`}>
+            <h2>{t.label}</h2>
+            <p class="muted small">{t.description}</p>
+          </a>
+        ))}
+      </div>
+    ) : (
+      <>
+        <p class="muted" style="max-width:760px">{type.description}</p>
+        <RecordForm
+          type={type}
+          title={title}
+          values={values}
+          errors={errors}
+          visibility={visibility}
+          depts={depts}
+          dept={dept}
+          submitLabel="Ноорог хадгалах"
+          cancelHref="/barimt"
+        />
+      </>
+    )
+  }
+</Staff>
+
+<style>
+  .type-card { text-decoration: none; color: var(--ink); transition: border-color 0.12s, transform 0.12s; }
+  .type-card:hover { border-color: var(--maroon); transform: translateY(-1px); color: var(--ink); }
+  .type-card h2 { color: var(--maroon); }
+</style>

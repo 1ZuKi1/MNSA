@@ -1,0 +1,109 @@
+---
+/**
+ * The September ritual (Idea 1): accounts expire by default, and the President confirms who stays.
+ * Doing nothing is the safe outcome — anyone not renewed simply stops working on 30 September.
+ */
+export const prerender = false;
+import Staff from '../../../layouts/Staff.astro';
+import { clientIp, str, withFlash } from '../../../lib/http';
+import { archiveLapsed, asMemberLike, nextTerm, renewalCandidates, renewMembers } from '../../../lib/members';
+import * as P from '../../../lib/permissions';
+import { academicYear, fmtDate, now } from '../../../lib/time';
+import { ROLE_LABEL } from '../../../lib/types';
+
+const user = Astro.locals.user!;
+if (!P.canManageMembers(user)) return Astro.redirect(withFlash('/gishuud', 'denied', 'err'));
+
+if (Astro.request.method === 'POST') {
+  const fd = await Astro.request.formData();
+  const ip = clientIp(Astro.request);
+  if (str(fd, 'action', 20) === 'archive') {
+    await archiveLapsed(user.id);
+    return Astro.redirect(withFlash('/gishuud/shine-jil', 'saved'));
+  }
+  const ids = fd.getAll('renew').map((v) => Number(v)).filter(Number.isInteger);
+  await renewMembers(user, ids, ip);
+  return Astro.redirect(withFlash('/gishuud/shine-jil', 'renewed'));
+}
+
+const rows = await renewalCandidates();
+const t = now();
+const lapsed = rows.filter((m) => (m.term_ends_at ?? 0) < t).length;
+// President may renew their own term; otherwise the usual member-change rule applies (a deputy renews heads and members).
+const canRenew = (id: number) => (user.role === 'president' && id === user.id) || P.canModifyMember(user, asMemberLike(rows.find((r) => r.id === id)!));
+---
+<Staff title="Шинэ жилийн бүртгэл">
+  <div class="page-head">
+    <div>
+      <span class="kicker"><a href="/gishuud">Гишүүд</a> · {academicYear()}</span>
+      <h1>Шинэ жилийн бүртгэл</h1>
+    </div>
+  </div>
+
+  <div class="card explain">
+    <p>Ажлын орчны эрх жил бүрийн <strong>9-р сарын 30-нд</strong> автоматаар дуусна. Үргэлжлүүлэн ажиллах хүмүүсийг энд тэмдэглэж сунгана уу.</p>
+    <p class="small muted" style="margin:0">Тэмдэглээгүй хүмүүсийн эрх хугацаа нь дуусахад өөрөө хаагдана — хэнийг хасахаа санах шаардлагагүй. Тэдний бичсэн бүх баримт хэвээр үлдэнэ.</p>
+  </div>
+
+  {
+    rows.length === 0 ? (
+      <p class="empty">Ойрын 60 хоногт эрх нь дуусах хүн алга.</p>
+    ) : (
+      <form method="post">
+        <div class="table-wrap">
+          <table class="t">
+            <thead>
+              <tr>
+                <th style="width:40px"><input type="checkbox" id="all" aria-label="Бүгдийг сонгох" /></th>
+                <th>Нэр</th>
+                <th>Хэлтэс</th>
+                <th>Эрх</th>
+                <th>Одоо дуусах</th>
+                <th>Сунгавал</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((m) => {
+                const ok = canRenew(m.id);
+                const gone = (m.term_ends_at ?? 0) < t;
+                return (
+                  <tr>
+                    <td>{ok && <input type="checkbox" name="renew" value={m.id} class="pick" aria-label={m.name_mn} />}</td>
+                    <td><strong>{m.name_mn}</strong>{m.id === user.id && <span class="muted small"> (та)</span>}</td>
+                    <td class="nowrap">{m.dept_name ?? '—'}</td>
+                    <td class="nowrap">{ROLE_LABEL[m.role]}</td>
+                    <td class:list={['nowrap num', { lapsed: gone }]}>{fmtDate(m.term_ends_at)}{gone && ' · дууссан'}</td>
+                    <td class="nowrap num muted">{fmtDate(nextTerm(m.term_ends_at))}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <div class="btn-row" style="margin-top:16px">
+          <button class="btn btn-primary" type="submit">Сонгосон хүмүүсийн эрхийг сунгах</button>
+          <a class="btn btn-quiet" href="/gishuud">Буцах</a>
+        </div>
+      </form>
+    )
+  }
+
+  {lapsed > 0 && (
+    <form method="post" class="card" style="margin-top:24px">
+      <input type="hidden" name="action" value="archive" />
+      <h3>Хугацаа нь дууссан {lapsed} хүн</h3>
+      <p class="small muted">Тэд аль хэдийн нэвтэрч чадахгүй байгаа. Жагсаалтаас гаргаж, «идэвхгүй» болгох бол дарна уу.</p>
+      <button class="btn btn-sm" type="submit">Идэвхгүй болгох</button>
+    </form>
+  )}
+</Staff>
+
+<script>
+  const all = document.getElementById('all') as HTMLInputElement | null;
+  all?.addEventListener('change', () => document.querySelectorAll<HTMLInputElement>('.pick').forEach((c) => (c.checked = all.checked)));
+</script>
+
+<style>
+  .explain { margin-bottom: 20px; border-left: 4px solid var(--gold); }
+  .lapsed { color: var(--bad); font-weight: 600; }
+</style>

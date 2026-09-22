@@ -1,0 +1,122 @@
+---
+/**
+ * Claiming an invite. The President typed only the name and student ID; the invitee types their own email,
+ * then proves they own it with a code. A mistyped address can therefore never receive a working account.
+ */
+export const prerender = false;
+import Staff from '../../../layouts/Staff.astro';
+import { codeRateOk, issueCode, looksLikeEmail, normalizeEmail, verifyCode } from '../../../lib/auth';
+import { one } from '../../../lib/db';
+import { stashDevCode, takeDevCode, clearDevCode } from '../../../lib/devcode';
+import { clientIp, str } from '../../../lib/http';
+import { inviteCodeMail, sendMail } from '../../../lib/mailer';
+import { claimInvite, EmailTaken, inviteByToken, setInvitePendingEmail } from '../../../lib/members';
+import { setSessionCookie, signSession } from '../../../lib/session';
+import { fmtDate, termEnd } from '../../../lib/time';
+import { ROLE_LABEL } from '../../../lib/types';
+
+const token = Astro.params.token ?? '';
+const inv = await inviteByToken(token);
+const ip = clientIp(Astro.request);
+let step: 'email' | 'code' = inv?.pending_email && Astro.url.searchParams.get('step') === 'code' ? 'code' : 'email';
+let email = inv?.pending_email ?? '';
+let error = '';
+
+if (inv && Astro.request.method === 'POST') {
+  const fd = await Astro.request.formData();
+  const action = str(fd, 'action', 20);
+  if (action === 'email') {
+    email = normalizeEmail(str(fd, 'email', 254));
+    if (!looksLikeEmail(email)) error = 'И-мэйл хаягаа зөв оруулна уу.';
+    else if (/(^|\.)pku\.edu\.cn$/.test(email.split('@')[1] ?? ''))
+      error = 'Их сургуулийн хаяг төгсөхөд хаагддаг тул хувийн и-мэйл хаягаа оруулна уу.';
+    else if (await one(`SELECT 1 FROM users WHERE email = ?`, email)) error = 'Энэ хаяг бүртгэлтэй байна. Өөр хаяг оруулна уу, эсвэл Тэргүүнд хандана уу.';
+    else if (!(await codeRateOk(email, ip))) error = 'Хэт олон удаа код хүслээ. 15 минутын дараа дахин оролдоно уу.';
+    else {
+      await setInvitePendingEmail(inv.id, email);
+      const code = await issueCode(email, `invite:${inv.id}`);
+      await sendMail(inviteCodeMail(email, code, inv.name_mn));
+      stashDevCode(Astro.cookies, Astro.url, code);
+      return Astro.redirect(`/urilga/${token}?step=code`);
+    }
+  }
+  if (action === 'verify' && inv.pending_email) {
+    step = 'code';
+    email = inv.pending_email;
+    const r = await verifyCode(email, `invite:${inv.id}`, str(fd, 'code', 20));
+    if (r === 'ok') {
+      try {
+        const userId = await claimInvite(inv, email, ip);
+        setSessionCookie(Astro.cookies, Astro.url, await signSession(userId, 1));
+        clearDevCode(Astro.cookies);
+        return Astro.redirect('/?ok=created');
+      } catch (e) {
+        if (e instanceof EmailTaken) error = 'Энэ хаяг аль хэдийн бүртгэлтэй байна.';
+        else throw e;
+      }
+    } else {
+      error = r === 'wrong' ? 'Код буруу байна.' : 'Кодын хугацаа дууссан эсвэл хэт олон удаа буруу оруулсан байна. Хаягаа дахин оруулж шинэ код авна уу.';
+      if (r !== 'wrong') step = 'email';
+    }
+  }
+}
+const devCode = step === 'code' ? takeDevCode(Astro.cookies, Astro.url) : null;
+---
+<Staff title="Урилга" bare>
+  <section class="claim">
+    <div class="card">
+      <img src="/brand/logo.svg" alt="MNSA" class="logo" width="110" height="84" />
+      {
+        !inv ? (
+          <>
+            <h1>Урилга хүчингүй байна</h1>
+            <p class="muted">Энэ холбоос аль хэдийн ашиглагдсан, цуцлагдсан, эсвэл 72 цагийн хугацаа нь дууссан байна. Тэргүүнээс шинэ урилга авна уу.</p>
+          </>
+        ) : (
+          <>
+            <h1>Тавтай морил, {inv.name_mn}</h1>
+            <p class="muted small center">Таныг МОХ-ны ажлын орчинд урьж байна.</p>
+            <dl class="kv invite-kv">
+              <dt>Хэлтэс</dt><dd>{inv.dept_name ?? '—'}</dd>
+              <dt>Эрх</dt><dd>{ROLE_LABEL[inv.role]}</dd>
+              <dt>Хүчинтэй</dt><dd>{fmtDate(termEnd())} хүртэл</dd>
+            </dl>
+            {error && <p class="flash err">{error}</p>}
+            {step === 'email' ? (
+              <form method="post" class="stack">
+                <input type="hidden" name="action" value="email" />
+                <div class="field">
+                  <label for="email">Таны и-мэйл хаяг</label>
+                  <input id="email" name="email" type="email" required autocomplete="email" value={email} autofocus />
+                  <span class="hint">Хувийн хаяг ашиглана уу (Gmail, QQ, 163 гэх мэт). Нууц үг хэрэггүй — нэвтрэх бүрт код ирнэ.</span>
+                </div>
+                <button class="btn btn-primary wide" type="submit">Код авах</button>
+              </form>
+            ) : (
+              <form method="post" class="stack">
+                <input type="hidden" name="action" value="verify" />
+                <p class="small"><strong>{email}</strong> хаяг руу код илгээлээ.</p>
+                {devCode && <p class="flash info small">Туршилтын горим: код <strong class="num">{devCode}</strong></p>}
+                <div class="field">
+                  <label for="code">Код</label>
+                  <input id="code" name="code" class="code-input" inputmode="numeric" autocomplete="one-time-code" maxlength="7" required autofocus />
+                </div>
+                <button class="btn btn-primary wide" type="submit">Бүртгэлээ баталгаажуулах</button>
+                <p class="small"><a href={`/urilga/${token}`}>Хаягаа засах</a></p>
+              </form>
+            )}
+          </>
+        )
+      }
+    </div>
+  </section>
+</Staff>
+
+<style>
+  .claim { max-width: 440px; margin: 48px auto 0; }
+  .logo { width: 110px; height: auto; margin: 0 auto 16px; }
+  .claim h1 { text-align: center; font-size: 1.3rem; }
+  .wide { width: 100%; min-height: 44px; }
+  .center { text-align: center; }
+  .invite-kv { margin: 0 auto 18px; width: max-content; }
+</style>

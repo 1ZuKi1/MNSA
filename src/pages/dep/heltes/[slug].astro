@@ -1,0 +1,93 @@
+---
+export const prerender = false;
+import Staff from '../../../layouts/Staff.astro';
+import { deptBySlug, many } from '../../../lib/db';
+import { membersOfDept } from '../../../lib/members';
+import { canCreateRecordIn } from '../../../lib/permissions';
+import { getRecordType } from '../../../lib/record-types';
+import { listRecords } from '../../../lib/records';
+import { academicYear, fmtDate, fmtDateTime, now } from '../../../lib/time';
+import { ROLE_LABEL, STATUS_LABEL, type DeptSlug } from '../../../lib/types';
+
+const user = Astro.locals.user!;
+const dept = await deptBySlug(Astro.params.slug ?? '');
+if (!dept) return new Response(null, { status: 404 });
+const year = Astro.url.searchParams.get('year') ?? academicYear();
+const [members, records, events] = await Promise.all([
+  membersOfDept(dept.id),
+  listRecords(user, { dept: dept.slug, year, limit: 200 }),
+  many<{ id: number; title: string; starts_at: number; status: string }>(
+    `SELECT id, title, starts_at, status FROM events WHERE department_id = ? AND ends_at >= ? AND status <> 'cancelled' ORDER BY starts_at`,
+    dept.id,
+    now(),
+  ),
+]);
+const mine = user.dept === dept.slug;
+const canWrite = canCreateRecordIn(user, dept.slug as DeptSlug);
+---
+<Staff title={dept.name_mn}>
+  <div class="page-head">
+    <div>
+      <span class="kicker"><a href="/heltes">Хэлтсүүд</a> · {dept.code}</span>
+      <h1>{dept.name_mn}</h1>
+      {mine && <span class="badge plain b-blue">Таны хэлтэс</span>}
+    </div>
+    {canWrite && <a class="btn btn-primary" href="/barimt/shine">+ Баримт бичиг</a>}
+  </div>
+
+  <div class="layout-side">
+    <section>
+      <div class="card-head"><h2>Баримт бичиг · {year}</h2></div>
+      {
+        records.length === 0 ? (
+          <p class="empty">Энэ жил баримт бичиг алга.</p>
+        ) : (
+          <div class="table-wrap">
+            <table class="t">
+              <thead><tr><th>Дугаар</th><th>Гарчиг</th><th>Төрөл</th><th>Төлөв</th><th>Огноо</th></tr></thead>
+              <tbody>
+                {records.map((r) => (
+                  <tr>
+                    <td class="nowrap num small">{r.number ?? '—'}</td>
+                    <td><a class="row-link" href={`/barimt/${r.id}`}>{r.title}</a></td>
+                    <td class="nowrap">{getRecordType(r.type)?.label}</td>
+                    <td><span class={`badge b-${r.status}`}>{STATUS_LABEL[r.status]}</span></td>
+                    <td class="nowrap num muted">{fmtDate(r.updated_at)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
+      }
+      {!canWrite && <p class="small muted" style="margin-top:10px">Та энэ хэлтсийн баримтыг уншиж болно, харин засах эрхгүй.</p>}
+    </section>
+
+    <aside class="stack">
+      <div class="card">
+        <h3>Бүрэлдэхүүн</h3>
+        {members.length === 0 ? <p class="muted small">Одоогоор гишүүн алга.</p> : (
+          <ul class="people">
+            {members.map((m) => (
+              <li><strong>{m.name_mn}</strong><span class="muted small">{ROLE_LABEL[m.role]}{m.is_deputy ? ' · орлогч' : ''}</span></li>
+            ))}
+          </ul>
+        )}
+      </div>
+      {events.length > 0 && (
+        <div class="card">
+          <h3>Зохион байгуулах арга хэмжээ</h3>
+          <ul class="people">
+            {events.map((e) => <li><a href={`/uil-ajillagaa/${e.id}`}>{e.title}</a><span class="muted small">{fmtDateTime(e.starts_at)}</span></li>)}
+          </ul>
+        </div>
+      )}
+    </aside>
+  </div>
+</Staff>
+
+<style>
+  .people { list-style: none; margin: 0; padding: 0; }
+  .people li { display: grid; padding: 7px 0; border-top: 1px solid var(--line); }
+  .people li:first-child { border-top: 0; }
+</style>

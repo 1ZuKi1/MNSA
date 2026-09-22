@@ -1,0 +1,59 @@
+---
+export const prerender = false;
+import Staff from '../../../layouts/Staff.astro';
+import EventForm from '../../../components/EventForm.astro';
+import { departments } from '../../../lib/db';
+import { createEvent } from '../../../lib/events';
+import { readEventForm, type EventFormValues } from '../../../lib/forms';
+import { clientIp, int, withFlash } from '../../../lib/http';
+import * as P from '../../../lib/permissions';
+import { getRecordType } from '../../../lib/record-types';
+import { asRecordLike, fieldsOf, getRecord } from '../../../lib/records';
+
+const user = Astro.locals.user!;
+if (!P.canEditEvents(user)) return Astro.redirect(withFlash('/uil-ajillagaa', 'denied', 'err'));
+const depts = (await departments()).filter((d) => !d.is_leadership);
+
+// Prefill from an approved event request (Хүсэлт): the request is the permission, the event is its public face.
+const fromId = int(Astro.url.searchParams.get('from'));
+const source = fromId ? await getRecord(fromId) : null;
+const sourceOk = !!source && source.status === 'approved' && !!getRecordType(source.type)?.createsEvent && P.canReadRecord(user, asRecordLike(source));
+const sf = sourceOk ? fieldsOf(source!) : {};
+
+let values: EventFormValues = {
+  title: sourceOk ? source!.title : '',
+  summary: sf.purpose?.split('\n')[0]?.slice(0, 300) ?? '',
+  body: sf.purpose ?? '',
+  startDate: sf.event_date ?? '',
+  startTime: '18:00',
+  endDate: sf.event_date ?? '',
+  endTime: '21:00',
+  location: sf.venue ?? '',
+  dept: sourceOk && source!.dept_slug !== 'udirdlaga' ? source!.dept_slug : '',
+};
+let errors: Record<string, string> = {};
+
+if (Astro.request.method === 'POST') {
+  const form = readEventForm(await Astro.request.formData(), depts.map((d) => d.slug));
+  ({ values, errors } = form);
+  if (form.ok) {
+    const id = await createEvent(user, { ...form.input, sourceRecordId: sourceOk ? source!.id : null }, clientIp(Astro.request));
+    return Astro.redirect(withFlash(`/uil-ajillagaa/${id}`, 'created'));
+  }
+}
+---
+<Staff title="Шинэ арга хэмжээ">
+  <div class="page-head">
+    <div>
+      <span class="kicker"><a href="/uil-ajillagaa">Арга хэмжээ</a></span>
+      <h1>Шинэ арга хэмжээ</h1>
+    </div>
+  </div>
+  {sourceOk && (
+    <p class="flash info">
+      «<a href={`/barimt/${source!.id}`}>{source!.title}</a>» ({source!.number}) батлагдсан хүсэлтээс мэдээллийг бөглөв.
+    </p>
+  )}
+  <p class="muted" style="max-width:760px">Ноорог хэлбэрээр хадгалагдана. Нийтлэх хүртэл зөвхөн ажлын орчинд харагдана.</p>
+  <EventForm values={values} errors={errors} depts={depts} submitLabel="Ноорог үүсгэх" cancelHref="/uil-ajillagaa" />
+</Staff>

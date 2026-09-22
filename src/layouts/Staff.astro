@@ -1,0 +1,125 @@
+---
+import '@fontsource-variable/golos-text';
+import '../styles/base.css';
+import { cleanStaffPath } from '../lib/hosts';
+import { canSeeAudit } from '../lib/permissions';
+import { ROLE_LABEL } from '../lib/types';
+import { flashFrom } from '../lib/http';
+
+interface Props {
+  title: string;
+  /** Pages like login render without the nav. */
+  bare?: boolean;
+  wide?: boolean;
+}
+const { title, bare = false, wide = false } = Astro.props;
+const user = Astro.locals.user;
+const here = cleanStaffPath(Astro.url.pathname);
+const flash = flashFrom(Astro.url);
+
+const nav = user
+  ? [
+      { href: '/', label: 'Самбар' },
+      { href: '/barimt', label: 'Баримт бичиг' },
+      { href: '/uil-ajillagaa', label: 'Арга хэмжээ' },
+      { href: '/heltes', label: 'Хэлтсүүд' },
+      { href: '/oroltsoo', label: 'Оролцоо' },
+      { href: '/gishuud', label: 'Гишүүд' },
+      ...(canSeeAudit(user) ? [{ href: '/burtgel', label: 'Бүртгэл' }] : []),
+    ]
+  : [];
+const active = (href: string) => (href === '/' ? here === '/' : here === href || here.startsWith(href + '/'));
+---
+<!doctype html>
+<html lang="mn">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>{title} · МОХ ажлын орчин</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <slot name="head" />
+  </head>
+  <body class:list={['staff', { bare }]}>
+    <header class="bar">
+      <div class:list={['wrap', 'bar-inner']}>
+        <a class="brand" href="/">
+          <img src="/brand/logo.svg" alt="" width="44" height="33" />
+          <span>
+            <strong>МОХ</strong>
+            <small>Ажлын орчин</small>
+          </span>
+        </a>
+        {
+          user && (
+            <div class="who">
+              <span class="who-name">{user.name}</span>
+              <span class="who-role">
+                {ROLE_LABEL[user.role]}
+                {user.isDeputy && ' · орлогч'}
+              </span>
+              <form method="post" action="/gar" class="inline">
+                <button class="btn btn-sm btn-quiet" type="submit">Гарах</button>
+              </form>
+            </div>
+          )
+        }
+      </div>
+      {
+        nav.length > 0 && (
+          <nav class="wrap nav" aria-label="Үндсэн цэс">
+            {nav.map((n) => (
+              <a href={n.href} aria-current={active(n.href) ? 'page' : undefined}>
+                {n.label}
+              </a>
+            ))}
+          </nav>
+        )
+      }
+    </header>
+
+    <main class:list={['wrap', { wide }]}>
+      {flash.ok && <p class="flash ok" role="status">{flash.ok}</p>}
+      {flash.err && <p class="flash err" role="alert">{flash.err}</p>}
+      <slot />
+    </main>
+
+    <footer class="wrap foot small muted">
+      Бээжингийн Их Сургуулийн Монгол Оюутны Холбоо · дотоод ажлын орчин
+    </footer>
+  </body>
+</html>
+
+<style>
+  .bar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+    border-top: 3px solid var(--maroon);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .bar-inner { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 60px; }
+  .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--ink); }
+  .brand img { width: 44px; height: auto; }
+  .brand strong { display: block; font-size: 1.05rem; letter-spacing: 0.04em; color: var(--maroon); line-height: 1.1; }
+  .brand small { display: block; font-size: 0.78rem; color: var(--ink-3); font-weight: 500; }
+  .who { display: flex; align-items: center; gap: 10px; font-size: 0.88rem; }
+  .who-name { font-weight: 600; }
+  .who-role { color: var(--ink-3); }
+  @media (max-width: 640px) { .who-role { display: none; } }
+
+  .nav { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; }
+  .nav::-webkit-scrollbar { display: none; }
+  .nav a {
+    padding: 10px 12px; font-size: 0.92rem; font-weight: 550; color: var(--ink-2);
+    text-decoration: none; white-space: nowrap; border-bottom: 2px solid transparent;
+  }
+  .nav a:hover { color: var(--ink); }
+  .nav a[aria-current='page'] { color: var(--maroon); border-bottom-color: var(--maroon); }
+
+  main { padding-bottom: 48px; min-height: 60vh; }
+  .foot { padding-top: 24px; padding-bottom: 32px; border-top: 1px solid var(--line); }
+  .bare .bar { position: static; }
+</style>

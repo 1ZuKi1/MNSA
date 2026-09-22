@@ -1,0 +1,50 @@
+---
+export const prerender = false;
+import Staff from '../../../../layouts/Staff.astro';
+import EventForm from '../../../../components/EventForm.astro';
+import { departments } from '../../../../lib/db';
+import { getEvent, updateEvent } from '../../../../lib/events';
+import { readEventForm, type EventFormValues } from '../../../../lib/forms';
+import { clientIp, int, withFlash } from '../../../../lib/http';
+import { canEditEvents } from '../../../../lib/permissions';
+import { toDateInput, toTimeInput } from '../../../../lib/time';
+
+const user = Astro.locals.user!;
+const id = int(Astro.params.id);
+const ev = id ? await getEvent(id) : null;
+if (!ev) return new Response(null, { status: 404 });
+const here = `/uil-ajillagaa/${ev.id}`;
+if (!canEditEvents(user)) return Astro.redirect(withFlash(here, 'denied', 'err'));
+const depts = (await departments()).filter((d) => !d.is_leadership);
+
+let values: EventFormValues = {
+  title: ev.title,
+  summary: ev.summary ?? '',
+  body: ev.body ?? '',
+  startDate: toDateInput(ev.starts_at),
+  startTime: toTimeInput(ev.starts_at),
+  endDate: toDateInput(ev.ends_at),
+  endTime: toTimeInput(ev.ends_at),
+  location: ev.location ?? '',
+  dept: ev.dept_slug ?? '',
+};
+let errors: Record<string, string> = {};
+
+if (Astro.request.method === 'POST') {
+  const form = readEventForm(await Astro.request.formData(), depts.map((d) => d.slug));
+  ({ values, errors } = form);
+  if (form.ok) {
+    await updateEvent(user, ev, form.input, clientIp(Astro.request));
+    return Astro.redirect(withFlash(here, 'saved'));
+  }
+}
+---
+<Staff title={`Засах: ${ev.title}`}>
+  <div class="page-head">
+    <div>
+      <span class="kicker"><a href={here}>{ev.title}</a></span>
+      <h1>Засах</h1>
+    </div>
+  </div>
+  <EventForm values={values} errors={errors} depts={depts} submitLabel="Хадгалах" cancelHref={here} />
+</Staff>

@@ -1,0 +1,404 @@
+---
+export const prerender = false;
+import Staff from '../../../layouts/Staff.astro';
+import { departments, many } from '../../../lib/db';
+import {
+  addPhoto, addTask, assignTask, cancelTask, dropAssignment, eventPhotos, eventTasks, finishAssignment, getEvent,
+  removePhoto, setCover, setEventStatus,
+} from '../../../lib/events';
+import { clientIp, int, safeNext, str, withFlash } from '../../../lib/http';
+import { BadImage, mediaUrl, storeImage } from '../../../lib/media';
+import * as P from '../../../lib/permissions';
+import { Denied } from '../../../lib/records';
+import { fmtDate, fmtDateTime, fromLocal, now } from '../../../lib/time';
+import type { DeptSlug } from '../../../lib/types';
+
+const user = Astro.locals.user!;
+const id = int(Astro.params.id);
+const ev = id ? await getEvent(id) : null;
+if (!ev) return new Response(null, { status: 404 });
+const here = `/uil-ajillagaa/${ev.id}`;
+const editor = P.canEditEvents(user);
+const manager = P.canManageTasks(user, ev.dept_slug);
+
+if (Astro.request.method === 'POST') {
+  const fd = await Astro.request.formData();
+  const action = str(fd, 'action', 20);
+  const back = safeNext(str(fd, 'back', 200), here);
+  const ip = clientIp(Astro.request);
+  try {
+    let key = 'saved';
+    switch (action) {
+      case 'publish': await setEventStatus(user, ev, 'published', ip); key = 'published'; break;
+      case 'unpublish': await setEventStatus(user, ev, 'draft', ip); key = 'unpublished'; break;
+      case 'cancel': await setEventStatus(user, ev, 'cancelled', ip); key = 'cancelled'; break;
+      case 'take': await assignTask(user, ev, int(str(fd, 'task')) ?? 0, user.id, ip); key = 'taken'; break;
+      case 'assign': await assignTask(user, ev, int(str(fd, 'task')) ?? 0, int(str(fd, 'user')) ?? 0, ip); key = 'assigned'; break;
+      case 'done': await finishAssignment(user, ev, int(str(fd, 'assignment')) ?? 0, ip); key = 'done'; break;
+      case 'drop': await dropAssignment(user, ev, int(str(fd, 'assignment')) ?? 0, ip); key = 'dropped'; break;
+      case 'cancel_task': await cancelTask(user, ev, int(str(fd, 'task')) ?? 0, ip); key = 'cancelled'; break;
+      case 'add_task': {
+        const title = str(fd, 'title', 200);
+        const due = str(fd, 'due', 10);
+        const dept = str(fd, 'dept', 40);
+        if (!title) return Astro.redirect(withFlash(here, 'invalid', 'err'));
+        const valid = (await departments()).some((d) => d.slug === dept);
+        await addTask(user, ev, { title, dueAt: due ? fromLocal(due, '23:59') : null, dept: valid ? (dept as DeptSlug) : null, notes: str(fd, 'notes', 1000) }, ip);
+        key = 'created';
+        break;
+      }
+      case 'photo': {
+        if (!editor) throw new Denied();
+        const file = fd.get('file');
+        if (!(file instanceof File) || file.size === 0) return Astro.redirect(withFlash(here, 'invalid', 'err'));
+        const mediaId = await storeImage(file, user.id, int(str(fd, 'w')) ?? undefined, int(str(fd, 'h')) ?? undefined);
+        await addPhoto(user, ev, mediaId, str(fd, 'caption', 300), ip);
+        key = 'photo';
+        break;
+      }
+      case 'remove_photo': await removePhoto(user, ev, int(str(fd, 'photo')) ?? 0, ip); key = 'removed'; break;
+      case 'cover': await setCover(user, ev, str(fd, 'media', 64), ip); break;
+    }
+    return Astro.redirect(withFlash(back, key));
+  } catch (e) {
+    if (e instanceof BadImage) return Astro.redirect(withFlash(here, 'invalid', 'err'));
+    if (e instanceof Denied) return Astro.redirect(withFlash(back, 'denied', 'err'));
+    throw e;
+  }
+}
+
+const [tasks, photos, people, depts] = await Promise.all([
+  eventTasks(ev.id),
+  eventPhotos(ev.id),
+  manager
+    ? many<{ id: number; name_mn: string; dept_name: string | null }>(
+        `SELECT u.id, u.name_mn, d.name_mn AS dept_name FROM users u LEFT JOIN departments d ON d.id = u.department_id
+          WHERE u.status = 'active' AND u.role <> 'maintainer' ORDER BY d.sort_order, u.name_mn`,
+      )
+    : Promise.resolve([]),
+  departments(),
+]);
+const isPast = ev.ends_at < now();
+const publicUrl = `${Astro.url.protocol}//${Astro.url.host.replace(/^dep\./, '')}/uil-ajillagaa/${ev.id}`;
+const STATUS = { draft: 'Ноорог', published: 'Нийтлэгдсэн', cancelled: 'Цуцлагдсан' } as const;
+const TASK = { open: 'Нээлттэй', done: 'Дууссан', cancelled: 'Цуцлагдсан' } as const;
+const doneCount = tasks.filter((t) => t.status === 'done').length;
+---
+<Staff title={ev.title}>
+  <div class="page-head">
+    <div>
+      <span class="kicker"><a href="/uil-ajillagaa">Арга хэмжээ</a> · {isPast ? 'Өнгөрсөн' : 'Удахгүй болох'}</span>
+      <h1>{ev.title}</h1>
+      <div class="btn-row meta">
+        <span class={`badge b-${ev.status}`}>{STATUS[ev.status]}</span>
+        {ev.status === 'published' && <a class="small" href={publicUrl} target="_blank" rel="noopener">Нийтийн хуудсанд харах ↗</a>}
+      </div>
+    </div>
+    {
+      editor && (
+        <form method="post" class="btn-row">
+          <a class="btn" href={`${here}/zasah`}>Засах</a>
+          {ev.status !== 'published' && <button class="btn btn-ok" name="action" value="publish">Нийтлэх</button>}
+          {ev.status === 'published' && <button class="btn" name="action" value="unpublish">Нийтлэлээс буцаах</button>}
+          {ev.status !== 'cancelled' && !isPast && <button class="btn btn-danger" name="action" value="cancel">Цуцлах</button>}
+        </form>
+      )
+    }
+  </div>
+
+  <section class="card facts">
+    <dl>
+      <div><dt>Хэзээ</dt><dd>{fmtDateTime(ev.starts_at)} – {fmtDate(ev.ends_at) === fmtDate(ev.starts_at) ? fmtDateTime(ev.ends_at).slice(11) : fmtDateTime(ev.ends_at)}</dd></div>
+      <div><dt>Хаана</dt><dd>{ev.location ?? '—'}</dd></div>
+      <div><dt>Зохион байгуулах</dt><dd>{ev.dept_name ?? 'Холбоо бүхэлдээ'}</dd></div>
+      <div><dt>Нийтэлсэн</dt><dd>{ev.publisher_name ? `${ev.publisher_name} · ${fmtDate(ev.published_at)}` : '—'}</dd></div>
+      {ev.source_record_id && <div><dt>Хүсэлт</dt><dd><a href={`/barimt/${ev.source_record_id}`}>Батлагдсан хүсэлт →</a></dd></div>}
+    </dl>
+    {ev.summary && <p class="summary">{ev.summary}</p>}
+    {ev.body && <details class="body"><summary class="small">Дэлгэрэнгүй</summary><p class="pre small">{ev.body}</p></details>}
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2>Ажлууд</h2>
+      <span class="small muted">{doneCount}/{tasks.length} дууссан</span>
+    </div>
+    {
+      tasks.length === 0 ? (
+        <p class="empty">Ажил нэмэгдээгүй байна.{manager && ' Доороос нэмнэ үү.'}</p>
+      ) : (
+        <div class="tasks" role="table" aria-label="Ажлууд">
+          <div class="task head" role="row">
+            <span role="columnheader">Ажил</span>
+            <span role="columnheader">Хугацаа</span>
+            <span role="columnheader">Хэлтэс</span>
+            <span role="columnheader">Төлөв</span>
+            <span role="columnheader">Хариуцагч</span>
+          </div>
+          {tasks.map((t) => {
+            const active = t.assignees.filter((x) => x.status === 'active');
+            const mine = active.find((x) => x.user_id === user.id);
+            const open = t.status === 'open';
+            return (
+              <div class:list={['task', { done: t.status === 'done' }]} role="row">
+                <span class="t-title" role="cell">
+                  <strong>{t.title}</strong>
+                  {t.notes && <span class="muted small">{t.notes}</span>}
+                </span>
+                <span class="t-due num" role="cell"><span class="lbl">Хугацаа </span>{fmtDate(t.due_at)}</span>
+                <span class="t-dept" role="cell"><span class="lbl">· </span>{t.dept_name ?? '—'}</span>
+                <span class="t-status" role="cell"><span class={`badge b-${t.status}`}>{TASK[t.status]}</span></span>
+                <span class="t-who" role="cell">
+                  <span class="names">
+                    {t.assignees.length === 0 && <span class="muted">Хүн хэрэгтэй</span>}
+                    {t.assignees.map((x) => (
+                      <span class:list={['who', { me: x.user_id === user.id }]}>
+                        {x.status === 'done' && '✓ '}
+                        {x.user_name}
+                        {x.volunteered === 1 && <span title="Сайн дураар авсан"> ✋</span>}
+                      </span>
+                    ))}
+                  </span>
+                  <span class="acts">
+                    {open && !mine && P.canTakeTask(user) && (
+                      <form method="post" class="inline">
+                        <input type="hidden" name="task" value={t.id} />
+                        <button class:list={['btn btn-sm', active.length ? 'btn-quiet' : 'btn-blue']} name="action" value="take">
+                          {active.length ? '+ Нэгдэх' : 'Би хийнэ'}
+                        </button>
+                      </form>
+                    )}
+                    {mine && (
+                      <form method="post" class="inline">
+                        <input type="hidden" name="assignment" value={mine.id} />
+                        <button class="btn btn-sm btn-ok" name="action" value="done">Дууссан</button>
+                        <button class="btn btn-sm btn-quiet" name="action" value="drop">Орхих</button>
+                      </form>
+                    )}
+                    {manager && open && (
+                      <details class="more">
+                        <summary class="btn btn-sm btn-quiet" aria-label="Удирдах">⋯</summary>
+                        <div class="pop card stack" style="--stack:10px">
+                          <form method="post" class="stack" style="--stack:6px">
+                            <input type="hidden" name="task" value={t.id} />
+                            <label class="label" for={`as_${t.id}`}>Хуваарилах</label>
+                            <select id={`as_${t.id}`} name="user">
+                              {people.filter((p) => !active.some((x) => x.user_id === p.id)).map((p) => (
+                                <option value={p.id}>{p.name_mn}{p.dept_name ? ` — ${p.dept_name}` : ''}</option>
+                              ))}
+                            </select>
+                            <button class="btn btn-sm" name="action" value="assign">Хуваарилах</button>
+                          </form>
+                          {active.filter((x) => x.user_id !== user.id).map((x) => (
+                            <form method="post" class="btn-row">
+                              <input type="hidden" name="assignment" value={x.id} />
+                              <span class="small grow">{x.user_name}</span>
+                              <button class="btn btn-sm btn-ok" name="action" value="done">Дууссан</button>
+                              <button class="btn btn-sm btn-quiet" name="action" value="drop">Хасах</button>
+                            </form>
+                          ))}
+                          <form method="post">
+                            <input type="hidden" name="task" value={t.id} />
+                            <button class="btn btn-sm btn-danger" name="action" value="cancel_task">Ажлыг цуцлах</button>
+                          </form>
+                        </div>
+                      </details>
+                    )}
+                  </span>
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )
+    }
+    <p class="small muted legend">✋ — сайн дураар авсан. Бүх хуваарилалт жилийн оролцооны бүртгэлд хадгалагдана.</p>
+
+    {
+      manager && ev.status !== 'cancelled' && (
+        <details class="add-task" open={tasks.length === 0}>
+          <summary class="btn btn-sm">+ Ажил нэмэх</summary>
+          <form method="post" class="stack" style="--stack:12px; margin-top:12px">
+            <input type="hidden" name="action" value="add_task" />
+            <div class="field">
+              <label for="t_title" class="req">Ажил</label>
+              <input id="t_title" name="title" type="text" required maxlength="200" placeholder="Жишээ нь: Зурагт хуудас хийх" />
+            </div>
+            <div class="row">
+              <div class="field">
+                <label for="t_due">Хугацаа</label>
+                <input id="t_due" name="due" type="date" />
+              </div>
+              <div class="field">
+                <label for="t_dept">Хэлтэс</label>
+                <select id="t_dept" name="dept">
+                  <option value="">—</option>
+                  {depts.filter((d) => !d.is_leadership).map((d) => <option value={d.slug}>{d.name_mn}</option>)}
+                </select>
+              </div>
+            </div>
+            <div class="field">
+              <label for="t_notes">Тэмдэглэл</label>
+              <input id="t_notes" name="notes" type="text" maxlength="1000" />
+            </div>
+            <div><button class="btn btn-primary" type="submit">Нэмэх</button></div>
+          </form>
+        </details>
+      )
+    }
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2>Зураг</h2>
+      <span class="small muted">{photos.length}</span>
+    </div>
+    {
+      photos.length === 0 ? (
+        <p class="empty">Зураг алга.{isPast && editor && ' Арга хэмжээ өнгөрсөн тул зургаа нэмээрэй — нийтийн хуудсанд харагдана.'}</p>
+      ) : (
+        <div class="photos">
+          {photos.map((p) => (
+            <figure>
+              <img src={mediaUrl(p.media_id)} alt={p.caption ?? ''} loading="lazy" />
+              {ev.cover_media_id === p.media_id && <span class="badge plain b-maroon cover">Нүүр зураг</span>}
+              {p.caption && <figcaption>{p.caption}</figcaption>}
+              {editor && (
+                <form method="post" class="photo-actions">
+                  <input type="hidden" name="photo" value={p.id} />
+                  <input type="hidden" name="media" value={p.media_id} />
+                  {ev.cover_media_id !== p.media_id && <button class="linkish small" name="action" value="cover">нүүр зураг болгох</button>}
+                  <button class="linkish small danger" name="action" value="remove_photo">устгах</button>
+                </form>
+              )}
+            </figure>
+          ))}
+        </div>
+      )
+    }
+    {
+      editor && (
+        <form method="post" enctype="multipart/form-data" class="upload" data-photo-form>
+          <input type="hidden" name="action" value="photo" />
+          <input type="hidden" name="w" value="" />
+          <input type="hidden" name="h" value="" />
+          <div class="row">
+            <div class="field">
+              <label for="file">Зураг нэмэх</label>
+              <input id="file" name="file" type="file" accept="image/jpeg,image/png,image/webp" required />
+              <span class="hint" data-status>Утасны зураг ч болно — илгээхээс өмнө автоматаар жижигрүүлнэ.</span>
+            </div>
+            <div class="field">
+              <label for="caption">Тайлбар</label>
+              <input id="caption" name="caption" type="text" maxlength="300" />
+            </div>
+          </div>
+          <button class="btn" type="submit" style="margin-top:12px">Байршуулах</button>
+        </form>
+      )
+    }
+  </section>
+</Staff>
+
+<script>
+  // Shrink photos in the browser before upload: fast from Beijing, and keeps each photo well under D1's 2 MB row limit.
+  const MAX = 1600;
+  async function shrink(file: File): Promise<{ file: File; w: number; h: number }> {
+    const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });
+    const scale = Math.min(1, MAX / Math.max(bmp.width, bmp.height));
+    const w = Math.round(bmp.width * scale);
+    const h = Math.round(bmp.height * scale);
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    canvas.getContext('2d')!.drawImage(bmp, 0, 0, w, h);
+    const encode = (type: string, q: number) => new Promise<Blob | null>((r) => canvas.toBlob(r, type, q));
+    let q = 0.82;
+    let blob = await encode('image/webp', q);
+    const type = blob?.type === 'image/webp' ? 'image/webp' : 'image/jpeg'; // Safari can't encode WebP
+    if (type === 'image/jpeg') blob = await encode(type, q);
+    while (blob && blob.size > 450_000 && q > 0.5) blob = await encode(type, (q -= 0.1));
+    if (!blob) throw new Error('encode failed');
+    const name = file.name.replace(/\.[^.]+$/, '') + (type === 'image/webp' ? '.webp' : '.jpg');
+    return { file: new File([blob], name, { type }), w, h };
+  }
+
+  document.querySelectorAll<HTMLFormElement>('form[data-photo-form]').forEach((form) => {
+    const input = form.querySelector<HTMLInputElement>('input[type=file]')!;
+    const status = form.querySelector<HTMLElement>('[data-status]')!;
+    const button = form.querySelector<HTMLButtonElement>('button[type=submit]')!;
+    input.addEventListener('change', async () => {
+      const f = input.files?.[0];
+      if (!f) return;
+      button.disabled = true;
+      status.textContent = 'Жижигрүүлж байна…';
+      try {
+        const out = await shrink(f);
+        const dt = new DataTransfer();
+        dt.items.add(out.file);
+        input.files = dt.files;
+        (form.elements.namedItem('w') as HTMLInputElement).value = String(out.w);
+        (form.elements.namedItem('h') as HTMLInputElement).value = String(out.h);
+        status.textContent = `${Math.round(f.size / 1024)} KB → ${Math.round(out.file.size / 1024)} KB. Байршуулахад бэлэн.`;
+      } catch {
+        status.textContent = 'Жижигрүүлж чадсангүй — эх файлаар илгээнэ (1.8 MB-аас бага байх ёстой).';
+      } finally {
+        button.disabled = false;
+      }
+    });
+  });
+</script>
+
+<style>
+  .meta { margin-top: 8px; }
+  .card + .card, .facts + .card { margin-top: 16px; }
+  .facts dl { display: grid; gap: 10px 24px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin: 0; }
+  .facts dt { font-size: 0.78rem; color: var(--ink-3); font-weight: 600; }
+  .facts dd { margin: 2px 0 0; font-weight: 550; }
+  .summary { margin: 14px 0 0; color: var(--ink-2); }
+  .body { margin-top: 8px; }
+  .body summary { cursor: pointer; color: var(--blue); }
+  .pre { white-space: pre-wrap; }
+
+  /* Task list: a table on wide screens, stacked cards on phones — the "who" column must never scroll away. */
+  .tasks { border: 1px solid var(--line); border-radius: var(--radius); }
+  .task { display: grid; grid-template-columns: minmax(0, 2.2fr) 0.9fr 1fr 0.8fr minmax(0, 2.4fr); gap: 12px; align-items: start; padding: 12px 14px; border-top: 1px solid var(--line); }
+  .task.head { border-top: 0; background: var(--sunk); font-size: 0.76rem; font-weight: 650; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.04em; border-radius: var(--radius) var(--radius) 0 0; }
+  .task.done { background: #fbfdfb; }
+  .t-title { display: grid; gap: 2px; }
+  .lbl { display: none; }
+  .t-who { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+  .names { display: flex; flex-direction: column; gap: 2px; }
+  .who.me { font-weight: 650; color: var(--blue-deep); }
+  .acts { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .more { position: relative; }
+  .more summary { list-style: none; font-size: 1.1rem; line-height: 1; }
+  .more summary::-webkit-details-marker { display: none; }
+  .more .pop { position: absolute; right: 0; top: calc(100% + 6px); z-index: 5; width: 280px; }
+  .grow { flex: 1; }
+  @media (max-width: 760px) {
+    .task.head { display: none; }
+    .task { grid-template-columns: 1fr auto; gap: 6px 10px; }
+    .task:first-of-type { border-top: 0; }
+    .t-title { grid-column: 1; }
+    .t-status { grid-column: 2; grid-row: 1; }
+    .t-due, .t-dept { font-size: 0.85rem; color: var(--ink-3); grid-row: 2; }
+    .t-due { grid-column: 1; }
+    .t-dept { grid-column: 2; text-align: right; }
+    .t-due .lbl { display: inline; }
+    .t-who { grid-column: 1 / -1; padding-top: 6px; border-top: 1px dashed var(--line); }
+    .more .pop { right: auto; left: -200px; }
+  }
+
+  .legend { margin: 10px 0 0; }
+  .add-task { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
+  .add-task summary { list-style: none; }
+  .add-task summary::-webkit-details-marker { display: none; }
+  .upload { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
+  .photos figure { position: relative; }
+  .photos .cover { position: absolute; top: 6px; left: 6px; }
+  .photo-actions { display: flex; gap: 10px; margin-top: 2px; }
+  .linkish { background: none; border: 0; padding: 0; color: var(--ink-3); cursor: pointer; text-decoration: underline; font: inherit; }
+  .linkish:hover { color: var(--ink); }
+  .linkish.danger:hover { color: var(--bad); }
+</style>

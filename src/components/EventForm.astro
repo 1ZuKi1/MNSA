@@ -1,0 +1,76 @@
+---
+import type { EventFormValues } from '../lib/forms';
+import type { DeptRow } from '../lib/db';
+
+interface Props {
+  values: EventFormValues;
+  errors: Record<string, string>;
+  depts: DeptRow[];
+  submitLabel: string;
+  cancelHref: string;
+}
+const { values: v, errors, depts, submitLabel, cancelHref } = Astro.props;
+---
+<form method="post" class="card event-form">
+  <div class:list={['field', { 'has-error': errors.title }]}>
+    <label for="title" class="req">Нэр</label>
+    <input id="title" name="title" type="text" required maxlength="200" value={v.title} />
+    {errors.title && <span class="error">{errors.title}</span>}
+  </div>
+
+  <div class="row">
+    <div class:list={['field', { 'has-error': errors.start }]}>
+      <label for="start_date" class="req">Эхлэх</label>
+      <div class="dt">
+        <input id="start_date" name="start_date" type="date" required value={v.startDate} />
+        <input name="start_time" type="time" value={v.startTime} aria-label="Эхлэх цаг" />
+      </div>
+      {errors.start && <span class="error">{errors.start}</span>}
+    </div>
+    <div class:list={['field', { 'has-error': errors.end }]}>
+      <label for="end_date">Дуусах</label>
+      <div class="dt">
+        <input id="end_date" name="end_date" type="date" value={v.endDate} />
+        <input name="end_time" type="time" value={v.endTime} aria-label="Дуусах цаг" />
+      </div>
+      {errors.end && <span class="error">{errors.end}</span>}
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="field">
+      <label for="location">Байршил</label>
+      <input id="location" name="location" type="text" maxlength="200" value={v.location} />
+    </div>
+    <div class="field">
+      <label for="dept">Зохион байгуулах хэлтэс</label>
+      <select id="dept" name="dept">
+        <option value="">— Холбоо бүхэлдээ —</option>
+        {depts.map((d) => <option value={d.slug} selected={d.slug === v.dept}>{d.name_mn}</option>)}
+      </select>
+      <span class="hint">Тухайн хэлтсийн дарга ажлуудыг удирдах эрхтэй болно.</span>
+    </div>
+  </div>
+
+  <div class="field">
+    <label for="summary">Товч танилцуулга</label>
+    <input id="summary" name="summary" type="text" maxlength="400" value={v.summary} />
+    <span class="hint">Нийтийн хуудасны жагсаалтад харагдана. Нэг, хоёр өгүүлбэр.</span>
+  </div>
+
+  <div class="field">
+    <label for="body">Дэлгэрэнгүй</label>
+    <textarea id="body" name="body" rows="8">{v.body}</textarea>
+    <span class="hint">Өнгөрсөн арга хэмжээнд: юу болсон, хэдэн хүн оролцсон, ямар үр дүнтэй болсон.</span>
+  </div>
+
+  <div class="btn-row" style="margin-top:20px">
+    <button class="btn btn-primary" type="submit">{submitLabel}</button>
+    <a class="btn btn-quiet" href={cancelHref}>Болих</a>
+  </div>
+</form>
+
+<style>
+  .event-form { max-width: 760px; }
+  .dt { display: grid; grid-template-columns: 1fr 110px; gap: 8px; }
+</style>

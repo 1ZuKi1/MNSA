@@ -1,0 +1,58 @@
+---
+export const prerender = false;
+import Staff from '../../layouts/Staff.astro';
+import { many } from '../../lib/db';
+import { canSeeAudit } from '../../lib/permissions';
+import { fmtDateTime } from '../../lib/time';
+
+const user = Astro.locals.user!;
+if (!canSeeAudit(user)) return new Response(null, { status: 404 });
+
+const rows = await many<{ id: number; action: string; entity_type: string | null; entity_id: string | null; detail: string | null; ip: string | null; created_at: number; actor: string | null }>(
+  `SELECT a.id, a.action, a.entity_type, a.entity_id, a.detail, a.ip, a.created_at, u.name_mn AS actor
+     FROM audit_log a LEFT JOIN users u ON u.id = a.actor_id ORDER BY a.id DESC LIMIT 300`,
+);
+
+const LABEL: Record<string, string> = {
+  login: 'Нэвтэрсэн', 'login.locked': 'Код олон удаа буруу',
+  'record.create': 'Баримт үүсгэсэн', 'record.edit': 'Баримт зассан', 'record.submit': 'Хянуулахаар илгээсэн',
+  'record.approve': 'Баталсан', 'record.reject': 'Буцаасан', 'record.withdraw': 'Эргүүлэн татсан', 'record.void': 'Хүчингүй болгосон',
+  'event.create': 'Арга хэмжээ үүсгэсэн', 'event.edit': 'Арга хэмжээ зассан', 'event.published': 'Нийтэлсэн', 'event.draft': 'Нийтлэлээс буцаасан',
+  'event.cancelled': 'Арга хэмжээ цуцалсан', 'event.photo': 'Зураг нэмсэн', 'event.photo.remove': 'Зураг устгасан', 'event.cover': 'Нүүр зураг сольсон',
+  'task.create': 'Ажил нэмсэн', 'task.take': 'Ажил авсан', 'task.assign': 'Ажил хуваарилсан', 'task.done': 'Ажил дуусгасан',
+  'task.drop': 'Ажлаас гарсан', 'task.cancel': 'Ажил цуцалсан',
+  'invite.create': 'Урилга үүсгэсэн', 'invite.claim': 'Урилгаар бүртгүүлсэн', 'invite.revoke': 'Урилга цуцалсан',
+  'member.change': 'Эрх өөрчилсөн', 'member.remove': 'Гишүүн хассан', 'member.deputy': 'Орлогч томилсон',
+  'member.email': 'И-мэйл сольсон', 'member.renew': 'Эрх сунгасан', 'member.archive-lapsed': 'Хугацаа дууссаныг идэвхгүй болгосон',
+};
+const href = (t: string | null, id: string | null) =>
+  !id ? null : t === 'record' ? `/barimt/${id}` : t === 'event' ? `/uil-ajillagaa/${id}` : null;
+---
+<Staff title="Бүртгэл">
+  <div class="page-head">
+    <div>
+      <span class="kicker">Устгах, засах боломжгүй</span>
+      <h1>Үйлдлийн бүртгэл</h1>
+    </div>
+  </div>
+  <p class="muted small">Сүүлийн 300 үйлдэл. Энэ бүртгэлийг ажлын орчноос хэн ч, тэр дундаа Тэргүүн ч өөрчилж чадахгүй.</p>
+  <div class="table-wrap">
+    <table class="t">
+      <thead><tr><th>Хэзээ</th><th>Хэн</th><th>Юу</th><th>Хаана</th>{user.role !== 'board' && <th>IP</th>}</tr></thead>
+      <tbody>
+        {rows.map((r) => {
+          const h = href(r.entity_type, r.entity_id);
+          return (
+            <tr>
+              <td class="nowrap num small">{fmtDateTime(r.created_at)}</td>
+              <td class="nowrap">{r.actor ?? <span class="muted">—</span>}</td>
+              <td>{LABEL[r.action] ?? r.action}</td>
+              <td class="small">{h ? <a href={h}>{r.entity_type} #{r.entity_id}</a> : r.entity_id ? `${r.entity_type} #${r.entity_id}` : ''}</td>
+              {user.role !== 'board' && <td class="small muted num">{r.ip ?? ''}</td>}
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  </div>
+</Staff>

@@ -1,0 +1,146 @@
+---
+/**
+ * The official document. This is what replaces the Word template:
+ * browser print → "Save as PDF". No PDF library, no Worker CPU, perfect Mongolian Cyrillic.
+ */
+export const prerender = false;
+import '@fontsource-variable/source-serif-4';
+import '@fontsource-variable/golos-text';
+import { int } from '../../../../lib/http';
+import * as P from '../../../../lib/permissions';
+import { getRecordType } from '../../../../lib/record-types';
+import { asRecordLike, fieldsOf, getRecord, recordHistory } from '../../../../lib/records';
+import { fmtDate, fmtLong } from '../../../../lib/time';
+import { STATUS_LABEL, STEP_LABEL } from '../../../../lib/types';
+
+const user = Astro.locals.user!;
+const id = int(Astro.params.id);
+const rec = id ? await getRecord(id) : null;
+if (!rec || !rec.number || !P.canReadRecord(user, asRecordLike(rec))) return new Response(null, { status: 404 });
+const type = getRecordType(rec.type)!;
+const f = fieldsOf(rec);
+const history = await recordHistory(rec.id);
+
+// The latest approval per step (a resubmission after rejection restarts the chain).
+const lastSubmit = Math.max(...history.filter((h) => h.action === 'submit').map((h) => h.id), 0);
+const approvals = type.chain
+  .filter((s) => P.stepApplies(s, rec.dept_slug))
+  .map((s) => ({ step: s, by: history.filter((h) => h.id > lastSubmit && h.step === s && (h.action === 'approve' || h.action === 'auto')).at(-1) ?? null }));
+const final = rec.status === 'approved';
+const bodyFields = type.fields.filter((x) => x.name !== 'recipient' && x.name !== 'attachments_note');
+---
+<!doctype html>
+<html lang="mn">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="robots" content="noindex" />
+    <title>{rec.number} — {rec.title}</title>
+  </head>
+  <body>
+    <div class="toolbar">
+      <button onclick="window.print()">Хэвлэх / PDF хадгалах</button>
+      <a href={`/barimt/${rec.id}`}>← Буцах</a>
+      {!final && <span class="warn">Энэ баримт бичиг хараахан батлагдаагүй ({STATUS_LABEL[rec.status]}).</span>}
+    </div>
+
+    <article class:list={['sheet', { draft: !final }]}>
+      <header class="letterhead">
+        <img src="/brand/logo.svg" alt="" class="lh-logo" />
+        <div>
+          <div class="lh-name">Бээжингийн Их Сургуулийн<br />Монгол Оюутны Холбоо</div>
+          <div class="lh-sub">Peking University · MNSA · bdmnsa.com</div>
+        </div>
+      </header>
+      <div class="rule"></div>
+
+      <div class="ref">
+        <div><span>Дугаар:</span> {rec.number}</div>
+        <div><span>Огноо:</span> {fmtDate(rec.decided_at ?? rec.submitted_at)}</div>
+      </div>
+
+      {f.recipient && <div class="to">{f.recipient}</div>}
+
+      <h1 class="title">{rec.title}</h1>
+      {type.slug !== 'albn-bichig' && <div class="kind">{type.label} · {rec.dept_name}</div>}
+
+      <div class="content">
+        {
+          bodyFields.map((x) =>
+            f[x.name] ? (
+              type.slug === 'albn-bichig' ? (
+                <p class="para">{f[x.name]}</p>
+              ) : (
+                <section>
+                  <h2>{x.label}</h2>
+                  <p class="para">{f[x.name]}</p>
+                </section>
+              )
+            ) : null,
+          )
+        }
+      </div>
+
+      {f.attachments_note && <p class="attach"><strong>Хавсралт:</strong> {f.attachments_note}</p>}
+
+      <table class="signs">
+        <tbody>
+          <tr>
+            <td>Боловсруулсан</td>
+            <td>{rec.dept_name}</td>
+            <td class="who">{rec.author_name}</td>
+            <td class="when">{fmtDate(rec.submitted_at)}</td>
+          </tr>
+          {approvals.map((a) => (
+            <tr>
+              <td>{a.step === 'president' ? 'Баталсан' : 'Хянасан'}</td>
+              <td>{STEP_LABEL[a.step]}</td>
+              <td class="who">{a.by ? a.by.actor_name : '—'}</td>
+              <td class="when">{a.by ? fmtDate(a.by.created_at) : ''}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <footer class="foot">
+        Баримтыг МОХ-ны цахим бүртгэлд {fmtLong(rec.submitted_at)} бүртгэв. Батлалтын бүрэн түүх dep.bdmnsa.com/barimt/{rec.id} хаягт хадгалагдана.
+      </footer>
+    </article>
+  </body>
+</html>
+
+<style is:global>
+  @page { size: A4; margin: 18mm 20mm 20mm; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #e9e6e1; color: #111; font: 11.5pt/1.55 'Source Serif 4 Variable', Georgia, serif; }
+  .toolbar { position: sticky; top: 0; display: flex; gap: 16px; align-items: center; padding: 10px 20px; background: #fff; border-bottom: 1px solid #ddd; font: 14px 'Golos Text Variable', system-ui, sans-serif; }
+  .toolbar button { font: inherit; font-weight: 600; padding: 7px 14px; border-radius: 6px; border: 1px solid #8e0000; background: #8e0000; color: #fff; cursor: pointer; }
+  .toolbar .warn { color: #8a5a00; }
+  .sheet { position: relative; width: 210mm; min-height: 297mm; margin: 20px auto; padding: 18mm 20mm 20mm; background: #fff; box-shadow: 0 2px 16px rgba(0,0,0,.12); }
+  .sheet.draft::before { content: 'НООРОГ'; position: absolute; inset: 0; display: grid; place-items: center; font: 700 96pt 'Golos Text Variable', sans-serif; color: rgba(142,0,0,.07); transform: rotate(-24deg); pointer-events: none; }
+  .letterhead { display: flex; gap: 14px; align-items: center; }
+  .lh-logo { width: 62px; height: auto; }
+  .lh-name { font: 650 13pt/1.25 'Golos Text Variable', sans-serif; color: #8e0000; letter-spacing: .01em; }
+  .lh-sub { font: 8.5pt 'Golos Text Variable', sans-serif; color: #555; margin-top: 2px; }
+  .rule { height: 3px; margin: 10px 0 18px; background: linear-gradient(90deg, #005faf 0 33%, #8e0000 33% 67%, #005faf 67%); }
+  .ref { display: flex; justify-content: space-between; font: 10pt 'Golos Text Variable', sans-serif; }
+  .ref span { color: #666; }
+  .to { margin: 20px 0 0 50%; font-weight: 600; }
+  .title { font-size: 14pt; text-align: center; margin: 26px 0 4px; }
+  .kind { text-align: center; color: #555; font: 9.5pt 'Golos Text Variable', sans-serif; }
+  .content { margin-top: 18px; }
+  .content h2 { font: 650 10.5pt 'Golos Text Variable', sans-serif; margin: 14px 0 4px; color: #333; }
+  .para { white-space: pre-wrap; margin: 0 0 10px; text-align: justify; text-indent: 1.2em; }
+  .attach { margin-top: 16px; font-size: 10.5pt; }
+  .signs { width: 100%; margin-top: 30px; border-collapse: collapse; font: 10pt 'Golos Text Variable', sans-serif; }
+  .signs td { padding: 7px 6px; border-bottom: 1px solid #ddd; }
+  .signs td:first-child { color: #666; width: 22%; }
+  .signs .who { font-weight: 600; }
+  .signs .when { text-align: right; color: #444; }
+  .foot { margin-top: 26px; font: 8pt 'Golos Text Variable', sans-serif; color: #777; border-top: 1px solid #eee; padding-top: 8px; }
+  @media print {
+    body { background: #fff; }
+    .toolbar { display: none; }
+    .sheet { width: auto; min-height: 0; margin: 0; padding: 0; box-shadow: none; }
+    .rule { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>

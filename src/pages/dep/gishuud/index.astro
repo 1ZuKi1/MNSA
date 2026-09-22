@@ -1,0 +1,268 @@
+---
+export const prerender = false;
+import Staff from '../../../layouts/Staff.astro';
+import { departments } from '../../../lib/db';
+import { clientIp, int, str, withFlash } from '../../../lib/http';
+import {
+  asMemberLike, changeMember, createInvite, getMember, listMembers, openInvites, recentlyClaimed, removeMember, revokeInvite, setDeputy,
+} from '../../../lib/members';
+import * as P from '../../../lib/permissions';
+import { Denied } from '../../../lib/records';
+import { fmtDate, fmtDateTime, now } from '../../../lib/time';
+import { ROLE_LABEL, type DeptSlug, type Role } from '../../../lib/types';
+
+const user = Astro.locals.user!;
+const manager = P.canManageMembers(user);
+const grantable = P.grantableRoles(user);
+const depts = await departments();
+let inviteLink: string | null = null;
+let inviteName = '';
+let inviteError = '';
+
+if (Astro.request.method === 'POST') {
+  if (!manager) return Astro.redirect(withFlash('/gishuud', 'denied', 'err'));
+  const fd = await Astro.request.formData();
+  const action = str(fd, 'action', 20);
+  const ip = clientIp(Astro.request);
+  try {
+    if (action === 'invite') {
+      const name = str(fd, 'name', 100);
+      const studentId = str(fd, 'student_id', 20);
+      const role = str(fd, 'role', 20) as Role;
+      const dept = str(fd, 'dept', 40) as DeptSlug;
+      if (!name || !/^\d{6,12}$/.test(studentId)) inviteError = 'Нэр болон оюутны дугаарыг (зөвхөн тоо) бүрэн оруулна уу.';
+      else if (!grantable.includes(role)) inviteError = 'Энэ эрхийг олгох боломжгүй.';
+      else if (role !== 'maintainer' && !depts.some((d) => d.slug === dept)) inviteError = 'Хэлтэс сонгоно уу.';
+      else {
+        const token = await createInvite(user, { name, studentId, dept: role === 'maintainer' ? null : dept, role }, ip);
+        // Shown once, on this response only — the raw token is never stored and never put in a URL we log.
+        inviteLink = `${Astro.url.protocol}//${Astro.url.host}/urilga/${token}`;
+        inviteName = name;
+      }
+    } else {
+      const target = await getMember(int(str(fd, 'user')) ?? 0);
+      if (action === 'revoke') await revokeInvite(user, int(str(fd, 'invite')) ?? 0, ip);
+      else if (action === 'deputy') await setDeputy(user, target, ip);
+      else if (action === 'no_deputy') await setDeputy(user, null, ip);
+      else if (!target) throw new Denied();
+      else if (action === 'change') await changeMember(user, target, { role: str(fd, 'role', 20) as Role, dept: (str(fd, 'dept', 40) || null) as DeptSlug | null }, ip);
+      else if (action === 'remove') await removeMember(user, target, ip);
+      const key = { revoke: 'revoked', deputy: 'deputy', no_deputy: 'deputy', change: 'saved', remove: 'removed' }[action] ?? 'saved';
+      return Astro.redirect(withFlash('/gishuud', key));
+    }
+  } catch (e) {
+    if (e instanceof Denied) return Astro.redirect(withFlash('/gishuud', 'denied', 'err'));
+    throw e;
+  }
+}
+
+const [members, invites, claimed] = await Promise.all([
+  listMembers('active'),
+  manager ? openInvites() : Promise.resolve([]),
+  manager ? recentlyClaimed() : Promise.resolve([]),
+]);
+const deputy = members.find((m) => m.is_deputy === 1);
+---
+<Staff title="Гишүүд">
+  <div class="page-head">
+    <div>
+      <span class="kicker">Ажлын орчны эрхтэй хүмүүс</span>
+      <h1>Гишүүд</h1>
+    </div>
+    {manager && <a class="btn" href="/gishuud/shine-jil">Шинэ жилийн бүртгэл</a>}
+  </div>
+
+  {
+    inviteLink && (
+      <div class="card invite-made">
+        <h2>Урилга үүслээ: {inviteName}</h2>
+        <p class="small">Энэ холбоосыг WeChat-аар илгээнэ үү. Нэг удаа ашиглагдах бөгөөд <strong>72 цагийн</strong> дотор хүчинтэй. Холбоос зөвхөн одоо харагдана — дахин үзүүлэх боломжгүй.</p>
+        <div class="copy">
+          <input type="text" readonly value={inviteLink} id="invite-link" />
+          <button class="btn btn-primary" type="button" data-copy="invite-link">Хуулах</button>
+        </div>
+        <p class="small muted">Урилга авсан хүн өөрийн и-мэйл хаягаа өөрөө оруулж, кодоор баталгаажуулна. Ингэснээр хаягийн алдаа гарах боломжгүй.</p>
+      </div>
+    )
+  }
+
+  <div class="table-wrap">
+    <table class="t">
+      <thead>
+        <tr>
+          <th>Нэр</th>
+          <th>Хэлтэс</th>
+          <th>Эрх</th>
+          <th>И-мэйл</th>
+          <th>Эрх дуусах</th>
+          {manager && <th></th>}
+        </tr>
+      </thead>
+      <tbody>
+        {members.map((m) => {
+          const canTouch = P.canModifyMember(user, asMemberLike(m));
+          const expiring = m.term_ends_at !== null && m.term_ends_at - now() < 30 * 86400;
+          return (
+            <tr>
+              <td>
+                <strong>{m.name_mn}</strong>
+                {m.is_deputy === 1 && <span class="badge plain b-blue">орлогч</span>}
+                {m.id === user.id && <span class="muted small"> (та)</span>}
+                <div class="muted small">{m.student_id}</div>
+              </td>
+              <td class="nowrap">{m.dept_name ?? '—'}</td>
+              <td class="nowrap">{ROLE_LABEL[m.role]}</td>
+              <td class="small"><a href={`mailto:${m.email}`}>{m.email}</a></td>
+              <td class:list={['nowrap num small', { warnc: expiring }]}>{fmtDate(m.term_ends_at)}</td>
+              {manager && (
+                <td class="actions">
+                  {canTouch && (
+                    <details class="manage">
+                      <summary class="btn btn-sm">Өөрчлөх</summary>
+                      <div class="pop card">
+                        <form method="post" class="stack" style="--stack:10px">
+                          <input type="hidden" name="user" value={m.id} />
+                          <select name="role" aria-label="Эрх">
+                            {[...new Set([m.role, ...grantable])].map((r) => <option value={r} selected={r === m.role}>{ROLE_LABEL[r]}</option>)}
+                          </select>
+                          <select name="dept" aria-label="Хэлтэс">
+                            <option value="">—</option>
+                            {depts.map((d) => <option value={d.slug} selected={d.slug === m.dept_slug}>{d.name_mn}</option>)}
+                          </select>
+                          <button class="btn btn-sm btn-primary" name="action" value="change">Хадгалах</button>
+                        </form>
+                        {P.canSetDeputy(user) && m.role !== 'maintainer' && m.is_deputy !== 1 && (
+                          <form method="post">
+                            <input type="hidden" name="user" value={m.id} />
+                            <button class="btn btn-sm" name="action" value="deputy">Орлогчоор томилох</button>
+                          </form>
+                        )}
+                        <form method="post">
+                          <input type="hidden" name="user" value={m.id} />
+                          <button class="btn btn-sm btn-danger" name="action" value="remove">Ажлын орчноос хасах</button>
+                        </form>
+                        <p class="small muted" style="margin:0">Хассан ч түүний бичсэн бүх баримт хэвээр үлдэнэ.</p>
+                      </div>
+                    </details>
+                  )}
+                </td>
+              )}
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  </div>
+
+  {
+    manager && (
+      <div class="grid-2" style="margin-top:24px">
+        <form method="post" class="card">
+          <input type="hidden" name="action" value="invite" />
+          <h2>Урилга үүсгэх</h2>
+          <p class="small muted">Нэр, оюутны дугаарыг та оруулна. И-мэйл хаягаа тухайн хүн өөрөө оруулна.</p>
+          {inviteError && <p class="flash err">{inviteError}</p>}
+          <div class="field">
+            <label for="i_name" class="req">Нэр</label>
+            <input id="i_name" name="name" type="text" required maxlength="100" placeholder="Жишээ нь: Б. Болд" />
+          </div>
+          <div class="field">
+            <label for="i_sid" class="req">Оюутны дугаар</label>
+            <input id="i_sid" name="student_id" type="text" inputmode="numeric" required pattern="[0-9]{6,12}" />
+          </div>
+          <div class="row" style="margin-top:14px">
+            <div class="field">
+              <label for="i_role">Эрх</label>
+              <select id="i_role" name="role">
+                {grantable.map((r) => <option value={r} selected={r === 'member'}>{ROLE_LABEL[r]}</option>)}
+              </select>
+            </div>
+            <div class="field">
+              <label for="i_dept">Хэлтэс</label>
+              <select id="i_dept" name="dept">
+                {depts.map((d) => <option value={d.slug}>{d.name_mn}</option>)}
+              </select>
+            </div>
+          </div>
+          <button class="btn btn-primary" type="submit" style="margin-top:16px">Урилгын холбоос үүсгэх</button>
+        </form>
+
+        <div class="stack">
+          <div class="card">
+            <h2>Орлогч</h2>
+            <p class="small muted">Тэргүүн байхгүй үед гишүүн нэмж, хасах эрхтэй нэг хүн.</p>
+            {deputy ? (
+              <form method="post" class="btn-row">
+                <strong>{deputy.name_mn}</strong>
+                {P.canSetDeputy(user) && <button class="btn btn-sm" name="action" value="no_deputy">Цуцлах</button>}
+              </form>
+            ) : (
+              <p class="flash warn small" style="margin:0">Орлогч томилогдоогүй. Гишүүдийн жагсаалтаас «Өөрчлөх» → «Орлогчоор томилох».</p>
+            )}
+          </div>
+
+          <div class="card">
+            <h2>Хүлээгдэж буй урилга</h2>
+            {invites.length === 0 ? <p class="muted small">Алга.</p> : (
+              <ul class="plain">
+                {invites.map((i) => (
+                  <li>
+                    <span>
+                      <strong>{i.name_mn}</strong> · {ROLE_LABEL[i.role]} · {i.dept_name ?? '—'}
+                      <span class="muted small">{i.expires_at < now() ? ' · хугацаа дууссан' : ` · ${fmtDateTime(i.expires_at)} хүртэл`}{i.pending_email && ` · ${i.pending_email} баталгаажуулж байна`}</span>
+                    </span>
+                    <form method="post" class="inline">
+                      <input type="hidden" name="invite" value={i.id} />
+                      <button class="btn btn-sm btn-quiet" name="action" value="revoke">Цуцлах</button>
+                    </form>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {claimed.length > 0 && (
+            <div class="card">
+              <h2>Сүүлд бүртгүүлсэн</h2>
+              <p class="small muted">Зөв хүн зөв хаягаар бүртгүүлснийг шалгана уу.</p>
+              <ul class="plain">
+                {claimed.map((i) => (
+                  <li><span><strong>{i.name_mn}</strong> → {i.claimed_email} <span class="muted small">· {fmtDateTime(i.claimed_at)}</span></span></li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+</Staff>
+
+<script>
+  document.querySelectorAll<HTMLButtonElement>('[data-copy]').forEach((b) =>
+    b.addEventListener('click', async () => {
+      const input = document.getElementById(b.dataset.copy!) as HTMLInputElement;
+      input.select();
+      try {
+        await navigator.clipboard.writeText(input.value);
+        b.textContent = 'Хуулсан ✓';
+      } catch {
+        document.execCommand('copy');
+      }
+    }),
+  );
+</script>
+
+<style>
+  .invite-made { border-color: var(--ok); margin-bottom: 20px; }
+  .copy { display: flex; gap: 8px; }
+  .copy input { font-family: ui-monospace, monospace; font-size: 0.85rem; }
+  .warnc { color: var(--warn); font-weight: 600; }
+  .manage { position: relative; display: inline-block; }
+  .manage summary { list-style: none; }
+  .manage summary::-webkit-details-marker { display: none; }
+  .manage .pop { position: absolute; right: 0; top: calc(100% + 6px); z-index: 5; width: 260px; text-align: left; display: grid; gap: 10px; }
+  .plain { list-style: none; margin: 0; padding: 0; }
+  .plain li { display: flex; justify-content: space-between; gap: 10px; align-items: center; padding: 8px 0; border-top: 1px solid var(--line); font-size: 0.92rem; }
+  .plain li:first-child { border-top: 0; }
+</style>

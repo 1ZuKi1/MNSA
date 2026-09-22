@@ -1,0 +1,57 @@
+---
+// Prerendered at build: free to serve, never touches the database.
+import Public from '../layouts/Public.astro';
+
+const departments = [
+  { name: 'Дотоод хэлтэс', text: 'Гишүүдийн дотоод харилцаа, шинэ оюутныг угтах, хамтын үйл ажиллагаа.' },
+  { name: 'Гадаад хэлтэс', text: 'Бусад холбоо, байгууллагатай хамтран ажиллах, гадаад харилцаа.' },
+  { name: 'Сургалтын хэлтэс', text: 'Хичээл, сургалтын мэдээлэл, семинар, туслалцаа.' },
+  { name: 'Медиа хэлтэс', text: 'Мэдээ, зураг, сошиал сувгууд, холбооны нэр төр.' },
+  { name: 'Эрх зүйн хэлтэс', text: 'Үндсэн дүрэм, баримт бичгийн стандарт, архив.' },
+];
+---
+<Public>
+  <section class="hero">
+    <div class="wrap hero-grid">
+      <div>
+        <p class="eyebrow">Peking University · MNSA</p>
+        <h1>Бээжингийн Их Сургуулийн Монгол Оюутны Холбоо</h1>
+        <p class="lede">
+          Бээжингийн Их Сургуульд суралцаж буй Монгол Улсын иргэн оюутнуудын хамтын ажиллагаа, эв нэгдлийг дэмжих,
+          эрх ашгийг хамгаалах, соёл, боловсролын хөгжилд хувь нэмэр оруулах зорилготой оюутны байгууллага.
+        </p>
+        <div class="btn-row">
+          <a class="btn btn-primary" href="/uil-ajillagaa">Үйл ажиллагаа</a>
+          <a class="btn" href="mailto:pku_mongolia@163.com">Холбоо барих</a>
+        </div>
+      </div>
+      <img class="hero-logo" src="/brand/logo.svg" alt="MNSA лого" width="360" height="274" />
+    </div>
+  </section>
+
+  <section class="wrap depts">
+    <h2>Таван хэлтэс</h2>
+    <div class="grid-3">
+      {departments.map((d) => (
+        <div class="dept">
+          <h3>{d.name}</h3>
+          <p class="muted small">{d.text}</p>
+        </div>
+      ))}
+    </div>
+  </section>
+</Public>
+
+<style>
+  .hero { background: linear-gradient(180deg, var(--surface), var(--paper)); border-bottom: 1px solid var(--line); }
+  .hero-grid { display: grid; gap: 32px; align-items: center; padding-top: clamp(36px, 7vw, 80px); padding-bottom: clamp(36px, 7vw, 80px); }
+  @media (min-width: 860px) { .hero-grid { grid-template-columns: 1.3fr 1fr; } }
+  .eyebrow { font-size: 0.8rem; font-weight: 650; letter-spacing: 0.12em; text-transform: uppercase; color: var(--blue); margin-bottom: 12px; }
+  .hero h1 { font: 650 clamp(1.8rem, 1.2rem + 2.4vw, 2.9rem)/1.15 var(--font-serif); color: var(--ink); letter-spacing: -0.015em; margin-bottom: 18px; }
+  .lede { font-size: 1.08rem; color: var(--ink-2); max-width: 36em; margin-bottom: 24px; }
+  .hero-logo { width: min(360px, 80%); height: auto; justify-self: center; }
+  .depts { padding-top: 48px; }
+  .depts h2 { font: 600 1.5rem var(--font-serif); margin-bottom: 18px; }
+  .dept { padding: 18px 0 0; border-top: 2px solid var(--maroon); }
+  .dept h3 { font: 600 1.08rem var(--font-serif); margin-bottom: 4px; }
+</style>

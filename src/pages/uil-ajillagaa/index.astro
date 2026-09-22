@@ -1,0 +1,93 @@
+---
+// Rendered per request (because "upcoming" depends on today's date) and cached 5 minutes at Cloudflare's edge.
+export const prerender = false;
+import Public from '../../layouts/Public.astro';
+import { publicEvents } from '../../lib/events';
+import { mediaUrl } from '../../lib/media';
+import { fmtDate, fmtDateTime, fmtLong } from '../../lib/time';
+
+const { upcoming, past } = await publicEvents();
+---
+<Public title="Үйл ажиллагаа" description="Бээжингийн Их Сургуулийн Монгол Оюутны Холбооны удахгүй болох болон өнгөрсөн арга хэмжээ.">
+  <div class="wrap">
+    <header class="ph">
+      <h1>Үйл ажиллагаа</h1>
+    </header>
+
+    <section>
+      <h2>Удахгүй болох</h2>
+      {
+        upcoming.length === 0 ? (
+          <p class="empty">Одоогоор зарлагдсан арга хэмжээ алга. Instagram хуудсаа дагаарай.</p>
+        ) : (
+          <div class="up">
+            {upcoming.map((e) => (
+              <a class="up-card" href={`/uil-ajillagaa/${e.id}`}>
+                <div class="cal">
+                  <span class="d">{fmtDate(e.starts_at).slice(8)}</span>
+                  <span class="m">{Number(fmtDate(e.starts_at).slice(5, 7))}-р сар</span>
+                </div>
+                <div>
+                  <h3>{e.title}</h3>
+                  <p class="muted small">{fmtDateTime(e.starts_at)}{e.location && ` · ${e.location}`}</p>
+                  {e.summary && <p>{e.summary}</p>}
+                </div>
+              </a>
+            ))}
+          </div>
+        )
+      }
+    </section>
+
+    <section style="margin-top:48px">
+      <h2>Өнгөрсөн</h2>
+      {
+        past.length === 0 ? (
+          <p class="empty">Одоогоор алга.</p>
+        ) : (
+          <div class="past">
+            {past.map((e) => (
+              <a class="past-card" href={`/uil-ajillagaa/${e.id}`}>
+                {e.cover_media_id ? (
+                  <img src={mediaUrl(e.cover_media_id)} alt="" loading="lazy" />
+                ) : (
+                  <div class="noimg"><img src="/brand/logo.svg" alt="" /></div>
+                )}
+                <div class="pc-body">
+                  <p class="muted small">{fmtLong(e.starts_at)}</p>
+                  <h3>{e.title}</h3>
+                  {e.summary && <p class="small">{e.summary}</p>}
+                  {e.publisher_name && <p class="muted small by">Нийтэлсэн: {e.publisher_name}</p>}
+                </div>
+              </a>
+            ))}
+          </div>
+        )
+      }
+    </section>
+  </div>
+</Public>
+
+<style>
+  .ph { padding: 40px 0 8px; }
+  .ph h1 { font: 650 2rem var(--font-serif); }
+  h2 { font: 600 1.35rem var(--font-serif); margin: 20px 0 14px; }
+  .up { display: grid; gap: 12px; }
+  .up-card { display: grid; grid-template-columns: 76px 1fr; gap: 18px; padding: 18px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); text-decoration: none; color: var(--ink); box-shadow: var(--shadow); }
+  .up-card:hover { border-color: var(--maroon); color: var(--ink); }
+  .cal { text-align: center; border-radius: 8px; background: var(--maroon); color: #fff; padding: 8px 4px; align-self: start; }
+  .cal .d { display: block; font-size: 1.8rem; font-weight: 700; line-height: 1; }
+  .cal .m { font-size: 0.75rem; }
+  .up-card h3 { font: 600 1.15rem var(--font-serif); margin: 0 0 4px; }
+  .up-card p { margin: 4px 0 0; }
+  .past { display: grid; gap: 18px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); }
+  .past-card { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; text-decoration: none; color: var(--ink); }
+  .past-card:hover { border-color: var(--maroon); color: var(--ink); }
+  .past-card > img, .noimg { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; background: var(--sunk); }
+  .noimg { display: grid; place-items: center; }
+  .noimg img { width: 30%; opacity: 0.35; }
+  .pc-body { padding: 14px 16px 16px; }
+  .pc-body h3 { font: 600 1.05rem var(--font-serif); margin: 2px 0 6px; }
+  .pc-body p { margin: 0 0 6px; }
+  .by { margin-top: 8px !important; }
+</style>

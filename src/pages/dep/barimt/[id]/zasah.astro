@@ -1,0 +1,60 @@
+---
+export const prerender = false;
+import Staff from '../../../../layouts/Staff.astro';
+import RecordForm from '../../../../components/RecordForm.astro';
+import { readRecordForm } from '../../../../lib/forms';
+import { clientIp, int, withFlash } from '../../../../lib/http';
+import * as P from '../../../../lib/permissions';
+import { getRecordType } from '../../../../lib/record-types';
+import { asRecordLike, Conflict, fieldsOf, getRecord, submitRecord, updateRecord } from '../../../../lib/records';
+
+const user = Astro.locals.user!;
+const id = int(Astro.params.id);
+const rec = id ? await getRecord(id) : null;
+if (!rec || !P.canReadRecord(user, asRecordLike(rec))) return new Response(null, { status: 404 });
+const here = `/barimt/${rec.id}`;
+if (!P.canEditRecord(user, asRecordLike(rec))) return Astro.redirect(withFlash(here, 'denied', 'err'));
+const type = getRecordType(rec.type)!;
+
+let title = rec.title;
+let values = fieldsOf(rec);
+let errors: Record<string, string> = {};
+let visibility = rec.visibility;
+
+if (Astro.request.method === 'POST') {
+  const form = readRecordForm(await Astro.request.formData(), type)!;
+  ({ title, values, errors, visibility } = form);
+  if (form.ok) {
+    const ip = clientIp(Astro.request);
+    try {
+      await updateRecord(user, rec, { title, values, visibility }, ip);
+    } catch (e) {
+      if (e instanceof Conflict) return Astro.redirect(withFlash(here, 'conflict', 'err'));
+      throw e;
+    }
+    if (form.then === 'submit') {
+      await submitRecord(user, (await getRecord(rec.id))!, ip);
+      return Astro.redirect(withFlash(here, 'submitted'));
+    }
+    return Astro.redirect(withFlash(here, 'saved'));
+  }
+}
+---
+<Staff title={`Засах: ${rec.title}`}>
+  <div class="page-head">
+    <div>
+      <span class="kicker"><a href={here}>{rec.number ?? 'Ноорог'}</a> · {type.label} · {rec.dept_name}</span>
+      <h1>Засах</h1>
+    </div>
+  </div>
+  <RecordForm
+    type={type}
+    title={title}
+    values={values}
+    errors={errors}
+    visibility={visibility}
+    submitLabel="Хадгалах"
+    cancelHref={here}
+  />
+  <p class="small muted">Хадгалах бүрт шинэ хувилбар үүсэх бөгөөд өмнөх хувилбарууд устахгүй.</p>
+</Staff>

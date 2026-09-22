@@ -1,0 +1,192 @@
+---
+export const prerender = false;
+import Staff from '../../layouts/Staff.astro';
+import { taskBoardFor, staffEvents } from '../../lib/events';
+import { openInvites, renewalCandidates } from '../../lib/members';
+import { canManageMembers, canTakeTask } from '../../lib/permissions';
+import { getRecordType } from '../../lib/record-types';
+import { awaitingMe, myDrafts } from '../../lib/records';
+import { fmtDate, fmtDateTime, now } from '../../lib/time';
+import { ROLE_LABEL, STATUS_LABEL } from '../../lib/types';
+
+const user = Astro.locals.user!;
+const manager = canManageMembers(user);
+const [waiting, drafts, board, events, renewals, invites] = await Promise.all([
+  awaitingMe(user),
+  myDrafts(user),
+  taskBoardFor(user),
+  staffEvents(),
+  manager ? renewalCandidates() : Promise.resolve([]),
+  manager ? openInvites() : Promise.resolve([]),
+]);
+const soon = events.upcoming.slice(0, 4);
+const daysLeft = user.termEndsAt ? Math.ceil((user.termEndsAt - now()) / 86400) : null;
+---
+<Staff title="Самбар">
+  <div class="page-head">
+    <div>
+      <span class="kicker">{ROLE_LABEL[user.role]}</span>
+      <h1>Сайн байна уу, {user.name.split('. ').at(-1)}</h1>
+    </div>
+    <div class="btn-row">
+      <a class="btn btn-primary" href="/barimt/shine">+ Баримт бичиг</a>
+    </div>
+  </div>
+
+  {daysLeft !== null && daysLeft <= 30 && (
+    <p class="flash warn">Таны эрхийн хугацаа {daysLeft} хоногийн дараа ({fmtDate(user.termEndsAt)}) дуусна. Тэргүүн сунгаагүй бол нэвтрэх боломжгүй болно.</p>
+  )}
+  {manager && renewals.length > 0 && (
+    <p class="flash info">
+      {renewals.length} хүний эрхийн хугацаа удахгүй дуусна. <a href="/gishuud/shine-jil">Шинэ жилийн бүртгэл хийх →</a>
+    </p>
+  )}
+
+  <div class="grid-2">
+    <section class="card" style={waiting.length ? 'border-color: var(--gold-deep)' : ''}>
+      <div class="card-head">
+        <h2>Таны шийдвэр хүлээж буй</h2>
+        <span class="badge plain b-in_review">{waiting.length}</span>
+      </div>
+      {
+        waiting.length === 0 ? (
+          <p class="empty">Одоогоор таны шийдвэр хүлээж буй зүйл алга.</p>
+        ) : (
+          <ul class="list">
+            {waiting.map((r) => (
+              <li>
+                <a href={`/barimt/${r.id}`}>{r.title}</a>
+                <span class="muted small">{getRecordType(r.type)?.label} · {r.dept_name} · {r.author_name} · {fmtDate(r.submitted_at)}</span>
+              </li>
+            ))}
+          </ul>
+        )
+      }
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>Миний ажлууд</h2>
+        <a class="small" href="/oroltsoo">Миний оролцоо →</a>
+      </div>
+      {
+        board.mine.length === 0 ? (
+          <p class="empty">Танд одоогоор хүлээн авсан ажил алга.</p>
+        ) : (
+          <ul class="list">
+            {board.mine.map((t) => (
+              <li>
+                <a href={`/uil-ajillagaa/${t.event_id}`}>{t.task_title}</a>
+                <span class="muted small">{t.event_title} · хугацаа {fmtDate(t.due_at ?? t.starts_at)}</span>
+              </li>
+            ))}
+          </ul>
+        )
+      }
+    </section>
+
+    {canTakeTask(user) && (
+      <section class="card">
+        <div class="card-head">
+          <h2>Хүн хэрэгтэй ажлууд</h2>
+          <span class="badge plain b-blue">{board.open.length}</span>
+        </div>
+        {board.open.length === 0 ? (
+          <p class="empty">Бүх ажилд хариуцагч бий.</p>
+        ) : (
+          <ul class="list">
+            {board.open.map((t) => (
+              <li class="take">
+                <span>
+                  <strong>{t.task_title}</strong>
+                  <span class="muted small">{t.event_title} · {fmtDate(t.due_at ?? t.starts_at)}</span>
+                </span>
+                <form method="post" action={`/uil-ajillagaa/${t.event_id}`}>
+                  <input type="hidden" name="action" value="take" />
+                  <input type="hidden" name="task" value={t.task_id} />
+                  <input type="hidden" name="back" value="/" />
+                  <button class="btn btn-sm btn-blue">Би хийнэ</button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    )}
+
+    <section class="card">
+      <div class="card-head">
+        <h2>Миний ноорог</h2>
+      </div>
+      {
+        drafts.length === 0 ? (
+          <p class="empty">Ноорог алга.</p>
+        ) : (
+          <ul class="list">
+            {drafts.map((r) => (
+              <li>
+                <a href={`/barimt/${r.id}`}>{r.title}</a>
+                <span class="small">
+                  <span class={`badge b-${r.status}`}>{STATUS_LABEL[r.status]}</span>
+                  <span class="muted"> {getRecordType(r.type)?.label} · {fmtDate(r.updated_at)}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )
+      }
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>Удахгүй болох арга хэмжээ</h2>
+        <a class="small" href="/uil-ajillagaa">Бүгд →</a>
+      </div>
+      {
+        soon.length === 0 ? (
+          <p class="empty">Товлогдсон арга хэмжээ алга.</p>
+        ) : (
+          <ul class="list">
+            {soon.map((e) => (
+              <li>
+                <a href={`/uil-ajillagaa/${e.id}`}>{e.title}</a>
+                <span class="muted small">
+                  {fmtDateTime(e.starts_at)} · {e.status === 'draft' ? 'ноорог' : 'нийтлэгдсэн'}
+                  {e.task_unassigned > 0 && <strong class="need"> · {e.task_unassigned} ажилд хүн хэрэгтэй</strong>}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )
+      }
+    </section>
+
+    {manager && invites.length > 0 && (
+      <section class="card">
+        <div class="card-head">
+          <h2>Хүлээгдэж буй урилга</h2>
+          <a class="small" href="/gishuud">Гишүүд →</a>
+        </div>
+        <ul class="list">
+          {invites.slice(0, 5).map((i) => (
+            <li>
+              <span>{i.name_mn}</span>
+              <span class="muted small">{i.dept_name ?? '—'} · {i.expires_at < now() ? 'хугацаа дууссан' : `${fmtDateTime(i.expires_at)} хүртэл`}</span>
+            </li>
+          ))}
+        </ul>
+      </section>
+    )}
+  </div>
+</Staff>
+
+<style>
+  .list { list-style: none; margin: 0; padding: 0; }
+  .list li { display: grid; gap: 2px; padding: 9px 0; border-top: 1px solid var(--line); }
+  .list li:first-child { border-top: 0; padding-top: 0; }
+  .list a { font-weight: 550; text-decoration: none; color: var(--ink); }
+  .list a:hover { color: var(--blue); text-decoration: underline; }
+  .list li.take { grid-template-columns: 1fr auto; align-items: center; gap: 12px; }
+  .list li.take span { display: grid; gap: 2px; }
+  .need { color: var(--warn); font-weight: 600; }
+</style>

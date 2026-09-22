@@ -1,0 +1,115 @@
+---
+export const prerender = false;
+import Staff from '../../../layouts/Staff.astro';
+import { departments } from '../../../lib/db';
+import { canCreateRecordIn } from '../../../lib/permissions';
+import { getRecordType, RECORD_TYPE_LIST } from '../../../lib/record-types';
+import { listRecords } from '../../../lib/records';
+import { academicYear, fmtDate } from '../../../lib/time';
+import { STATUS_LABEL, type DeptSlug, type RecordStatus } from '../../../lib/types';
+
+const user = Astro.locals.user!;
+const sp = Astro.url.searchParams;
+const filter = {
+  status: sp.get('status') ?? '',
+  dept: sp.get('dept') ?? '',
+  type: sp.get('type') ?? '',
+  year: sp.get('year') ?? '',
+  q: (sp.get('q') ?? '').trim(),
+};
+const rows = await listRecords(user, { ...filter, limit: 200 });
+const depts = await departments();
+const canCreate = depts.some((d) => canCreateRecordIn(user, d.slug as DeptSlug));
+const cur = academicYear();
+const years = [cur, `${Number(cur.slice(0, 4)) - 1}-${cur.slice(0, 4)}`];
+
+const link = (patch: Record<string, string>) => {
+  const q = new URLSearchParams({ ...filter, ...patch });
+  for (const [k, v] of [...q]) if (!v) q.delete(k);
+  const s = q.toString();
+  return s ? `/barimt?${s}` : '/barimt';
+};
+const statuses: (RecordStatus | '')[] = ['', 'draft', 'in_review', 'approved', 'rejected', 'void'];
+---
+<Staff title="Баримт бичиг">
+  <div class="page-head">
+    <div>
+      <span class="kicker">Холбооны нэгдсэн архив</span>
+      <h1>Баримт бичиг</h1>
+    </div>
+    {canCreate && <a class="btn btn-primary" href="/barimt/shine">+ Шинэ баримт бичиг</a>}
+  </div>
+
+  <nav class="pills" aria-label="Төлөв">
+    {statuses.map((s) => (
+      <a class="pill" href={link({ status: s })} aria-current={filter.status === s ? 'true' : undefined}>
+        {s ? STATUS_LABEL[s] : 'Бүгд'}
+      </a>
+    ))}
+  </nav>
+
+  <form class="filters" method="get">
+    {filter.status && <input type="hidden" name="status" value={filter.status} />}
+    <select name="dept" aria-label="Хэлтэс">
+      <option value="">Бүх хэлтэс</option>
+      {depts.map((d) => <option value={d.slug} selected={filter.dept === d.slug}>{d.name_mn}</option>)}
+    </select>
+    <select name="type" aria-label="Төрөл">
+      <option value="">Бүх төрөл</option>
+      {RECORD_TYPE_LIST.map((t) => <option value={t.slug} selected={filter.type === t.slug}>{t.label}</option>)}
+    </select>
+    <select name="year" aria-label="Хичээлийн жил">
+      <option value="">Бүх жил</option>
+      {years.map((y) => <option value={y} selected={filter.year === y}>{y}</option>)}
+    </select>
+    <input type="search" name="q" placeholder="Гарчиг эсвэл дугаар" value={filter.q} maxlength="20" />
+    <button class="btn" type="submit">Шүүх</button>
+  </form>
+
+  {
+    rows.length === 0 ? (
+      <p class="empty">Энэ шүүлтүүрт тохирох баримт бичиг алга.</p>
+    ) : (
+      <div class="table-wrap">
+        <table class="t">
+          <thead>
+            <tr>
+              <th>Дугаар</th>
+              <th>Гарчиг</th>
+              <th>Төрөл</th>
+              <th>Хэлтэс</th>
+              <th>Боловсруулсан</th>
+              <th>Төлөв</th>
+              <th>Огноо</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr>
+                <td class="nowrap num small">{r.number ?? <span class="muted">—</span>}</td>
+                <td>
+                  <a class="row-link" href={`/barimt/${r.id}`}>{r.title}</a>
+                  {r.visibility === 'dept' && <span class="badge plain b-maroon small" title="Зөвхөн хэлтэс">🔒</span>}
+                </td>
+                <td class="nowrap">{getRecordType(r.type)?.label ?? r.type}</td>
+                <td class="nowrap">{r.dept_name}</td>
+                <td class="nowrap">{r.author_name}</td>
+                <td><span class={`badge b-${r.status}`}>{STATUS_LABEL[r.status]}</span></td>
+                <td class="nowrap num muted">{fmtDate(r.updated_at)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )
+  }
+  <p class="small muted" style="margin-top:12px">
+    Бүх хэлтсийн баримт бичгийг унших боломжтой. Засварлах эрх зөвхөн өөрийн хэлтэст хамаарна.
+  </p>
+</Staff>
+
+<style>
+  .filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; }
+  .filters select, .filters input { width: auto; min-width: 150px; flex: 1 1 150px; }
+  .filters .btn { flex: 0 0 auto; }
+</style>

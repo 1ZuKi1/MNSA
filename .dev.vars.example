@@ -1,0 +1,6 @@
+# Copy to .dev.vars for local development. .dev.vars is git-ignored.
+SESSION_SECRET=dev-only-change-me-0123456789abcdef0123456789abcdef
+# Leave RESEND_API_KEY empty locally: login codes are printed to the terminal.
+RESEND_API_KEY=
+# Shows the login code on the page too — only ever honoured on *.localhost.
+DEV_SHOW_CODES=1

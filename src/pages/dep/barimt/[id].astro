@@ -1,0 +1,201 @@
+---
+export const prerender = false;
+import Staff from '../../../layouts/Staff.astro';
+import { clientIp, int, str, withFlash } from '../../../lib/http';
+import * as P from '../../../lib/permissions';
+import { getRecordType } from '../../../lib/record-types';
+import {
+  asRecordLike, Conflict, decideRecord, Denied, fieldsOf, getRecord, recordHistory, submitRecord, voidRecord, withdrawRecord,
+} from '../../../lib/records';
+import { fmtDateTime } from '../../../lib/time';
+import { STATUS_LABEL, STEP_GEN, STEP_LABEL, ROLE_LABEL } from '../../../lib/types';
+
+const user = Astro.locals.user!;
+const id = int(Astro.params.id);
+const rec = id ? await getRecord(id) : null;
+if (!rec || !P.canReadRecord(user, asRecordLike(rec))) return new Response(null, { status: 404 });
+const type = getRecordType(rec.type)!;
+const here = `/barimt/${rec.id}`;
+
+if (Astro.request.method === 'POST') {
+  const fd = await Astro.request.formData();
+  const action = str(fd, 'action', 20);
+  const comment = str(fd, 'comment', 2000);
+  const ip = clientIp(Astro.request);
+  try {
+    if (action === 'submit') await submitRecord(user, rec, ip);
+    else if (action === 'approve') await decideRecord(user, rec, 'approve', comment, ip);
+    else if (action === 'reject') await decideRecord(user, rec, 'reject', comment, ip);
+    else if (action === 'withdraw') await withdrawRecord(user, rec, ip);
+    else if (action === 'void') await voidRecord(user, rec, comment, ip);
+    const key = { submit: 'submitted', approve: 'approved', reject: 'rejected', withdraw: 'withdrawn', void: 'voided' }[action] ?? 'saved';
+    return Astro.redirect(withFlash(here, key));
+  } catch (e) {
+    const key = e instanceof Denied ? 'denied' : e instanceof Conflict ? 'conflict' : (e as Error).message === 'comment-required' ? 'comment' : 'invalid';
+    if (key === 'invalid') console.error(e);
+    return Astro.redirect(withFlash(here, key, 'err'));
+  }
+}
+
+const like = asRecordLike(rec);
+const can = {
+  edit: P.canEditRecord(user, like),
+  submit: P.canSubmitRecord(user, like),
+  decide: P.canDecideStep(user, like),
+  withdraw: P.canWithdrawRecord(user, like),
+  void: P.canVoidRecord(user, like),
+  makeEvent: type.createsEvent && rec.status === 'approved' && P.canEditEvents(user),
+};
+const standIn = can.decide && rec.awaiting ? !P.isStepOwner(user, rec.awaiting, rec.dept_slug) : false;
+const fields = fieldsOf(rec);
+const history = await recordHistory(rec.id);
+const lastRejection = rec.status === 'rejected' ? [...history].reverse().find((h) => h.action === 'reject') : null;
+
+const chain = type.chain
+  .map((s, i) => ({ s, i }))
+  .filter(({ s }) => P.stepApplies(s, rec.dept_slug))
+  .map(({ s, i }) => ({
+    label: STEP_LABEL[s],
+    state:
+      rec.status === 'approved' || rec.status === 'void' || (rec.status === 'in_review' && i < rec.step)
+        ? 'done'
+        : rec.status === 'in_review' && i === rec.step
+          ? 'now'
+          : '',
+  }));
+
+const ACTION_LABEL: Record<string, string> = {
+  create: 'Үүсгэсэн', edit: 'Зассан', submit: 'Хянуулахаар илгээсэн', auto: 'Автоматаар дамжсан',
+  approve: 'Баталсан', reject: 'Буцаасан', withdraw: 'Эргүүлэн татсан', void: 'Хүчингүй болгосон',
+};
+---
+<Staff title={rec.title}>
+  <div class="page-head">
+    <div>
+      <span class="kicker"><a href="/barimt">Баримт бичиг</a> · {type.label} · {rec.dept_name}</span>
+      <h1>{rec.title}</h1>
+      <div class="btn-row meta">
+        <span class={`badge b-${rec.status}`}>{STATUS_LABEL[rec.status]}</span>
+        {rec.number && <span class="num small">{rec.number}</span>}
+        {rec.visibility === 'dept' && <span class="badge plain b-maroon">🔒 Зөвхөн хэлтэс</span>}
+      </div>
+    </div>
+    <div class="btn-row">
+      {can.edit && <a class="btn" href={`${here}/zasah`}>Засах</a>}
+      {rec.number && <a class="btn" href={`${here}/hevleh`} target="_blank" rel="noopener">Хэвлэх / PDF</a>}
+    </div>
+  </div>
+
+  <div class="layout-side">
+    <div class="stack">
+      {
+        lastRejection && (
+          <div class="flash err">
+            <strong>{lastRejection.actor_name} буцаасан:</strong> {lastRejection.comment}
+          </div>
+        )
+      }
+      <article class="card doc">
+        <dl class="kv">
+          <dt>Хэлтэс</dt><dd>{rec.dept_name}</dd>
+          <dt>Боловсруулсан</dt><dd>{rec.author_name}</dd>
+          <dt>Хичээлийн жил</dt><dd>{rec.academic_year}</dd>
+          <dt>Хувилбар</dt><dd>{rec.version}</dd>
+        </dl>
+        <hr class="divider" />
+        {
+          type.fields.map((f) =>
+            fields[f.name] ? (
+              <section class="doc-field">
+                <h3>{f.label}</h3>
+                <p class="pre">{fields[f.name]}</p>
+              </section>
+            ) : null,
+          )
+        }
+      </article>
+    </div>
+
+    <aside class="stack">
+      <div class="card">
+        <h3>Батлах дараалал</h3>
+        <ol class="chain">
+          {chain.map((c) => <li class={c.state}>{c.label}</li>)}
+        </ol>
+        {rec.status === 'in_review' && rec.awaiting && (
+          <p class="small muted" style="margin:12px 0 0">Одоо <strong>{STEP_GEN[rec.awaiting]}</strong> шийдвэрийг хүлээж байна.</p>
+        )}
+      </div>
+
+      {
+        can.decide && (
+          <form method="post" class="card stack decide">
+            <h3>Таны шийдвэр</h3>
+            {standIn && <p class="flash warn small">Та Тэргүүний хувьд {STEP_GEN[rec.awaiting!].toLowerCase()} оронд шийдвэрлэж байна. Энэ нь бүртгэлд тэмдэглэгдэнэ.</p>}
+            <div class="field">
+              <label for="comment">Тайлбар <span class="muted small">(буцаахад заавал)</span></label>
+              <textarea id="comment" name="comment" rows="3"></textarea>
+            </div>
+            <div class="btn-row">
+              <button class="btn btn-ok" name="action" value="approve">Батлах</button>
+              <button class="btn btn-danger" name="action" value="reject">Буцаах</button>
+            </div>
+          </form>
+        )
+      }
+
+      {
+        (can.submit || can.withdraw || can.void || can.makeEvent) && (
+          <div class="card stack">
+            {can.submit && (
+              <form method="post">
+                <button class="btn btn-primary" name="action" value="submit">Хянуулахаар илгээх</button>
+                {!rec.number && <p class="small muted" style="margin:8px 0 0">Илгээх үед дугаар олгогдоно.</p>}
+              </form>
+            )}
+            {can.withdraw && (
+              <form method="post">
+                <button class="btn" name="action" value="withdraw">Эргүүлэн татах</button>
+              </form>
+            )}
+            {can.makeEvent && <a class="btn btn-blue" href={`/uil-ajillagaa/shine?from=${rec.id}`}>Арга хэмжээ үүсгэх</a>}
+            {can.void && (
+              <details>
+                <summary class="small">Хүчингүй болгох…</summary>
+                <form method="post" class="stack" style="margin-top:10px">
+                  <textarea name="comment" rows="2" placeholder="Шалтгаан" required></textarea>
+                  <button class="btn btn-danger btn-sm" name="action" value="void">Хүчингүй болгох</button>
+                </form>
+              </details>
+            )}
+          </div>
+        )
+      }
+
+      <div class="card">
+        <h3>Түүх</h3>
+        <ul class="timeline">
+          {history.map((h) => (
+            <li class={`t-${h.action}`}>
+              <div>
+                <strong>{h.actor_name}</strong> — {ACTION_LABEL[h.action] ?? h.action}
+                {h.step && <span class="muted"> ({STEP_LABEL[h.step]})</span>}
+              </div>
+              <div class="when">{fmtDateTime(h.created_at)} · {ROLE_LABEL[h.actor_role]}</div>
+              {h.comment && <blockquote>{h.comment}</blockquote>}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </aside>
+  </div>
+</Staff>
+
+<style>
+  .meta { margin-top: 8px; }
+  .doc-field + .doc-field { margin-top: 18px; }
+  .doc-field h3 { font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-3); margin-bottom: 4px; }
+  .pre { white-space: pre-wrap; margin: 0; }
+  .decide { border-color: var(--gold-deep); }
+  details summary { cursor: pointer; color: var(--bad); }
+</style>

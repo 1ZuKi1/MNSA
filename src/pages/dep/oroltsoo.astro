@@ -1,0 +1,116 @@
+---
+export const prerender = false;
+import Staff from '../../layouts/Staff.astro';
+import { participation, participationDetail, yearsWithEvents } from '../../lib/events';
+import { int } from '../../lib/http';
+import { getMember } from '../../lib/members';
+import { canSeeParticipation } from '../../lib/permissions';
+import { academicYear, fmtDate } from '../../lib/time';
+import { ROLE_LABEL } from '../../lib/types';
+
+const user = Astro.locals.user!;
+const years = await yearsWithEvents();
+const year = years.includes(Astro.url.searchParams.get('year') ?? '') ? Astro.url.searchParams.get('year')! : academicYear();
+const seeAll = canSeeParticipation(user);
+
+// Everyone sees their own record; President and board see everyone's.
+const requested = int(Astro.url.searchParams.get('user'));
+const focusId = requested && canSeeParticipation(user, requested) ? requested : seeAll ? null : user.id;
+
+const rows = seeAll ? await participation(year) : await participation(year, user.id);
+const focus = focusId ? await getMember(focusId) : null;
+const detail = focusId ? await participationDetail(focusId, year) : [];
+const zeros = rows.filter((r) => r.volunteered + r.assigned === 0).length;
+const STATUS: Record<string, string> = { active: 'Хийж байгаа', done: 'Дууссан', dropped: 'Орхисон' };
+const link = (p: Record<string, string | number>) => `/oroltsoo?${new URLSearchParams({ year, ...Object.fromEntries(Object.entries(p).map(([k, v]) => [k, String(v)])) })}`;
+---
+<Staff title="Оролцоо">
+  <div class="page-head">
+    <div>
+      <span class="kicker">Арга хэмжээний ажлын бүртгэл</span>
+      <h1>Оролцоо · {year}</h1>
+    </div>
+  </div>
+
+  <nav class="pills" aria-label="Хичээлийн жил">
+    {years.map((y) => <a class="pill" href={`/oroltsoo?year=${y}`} aria-current={y === year ? 'true' : undefined}>{y}</a>)}
+  </nav>
+
+  {
+    seeAll && (
+      <>
+        <p class="muted small" style="max-width:760px">
+          Хэн хэдэн арга хэмжээнд ажилласан, хэдэн ажлыг сайн дураараа авсан, хэдийг нь хуваарилсан, хэдийг дуусгасныг жилээр харуулна.
+          {zeros > 0 && <> Энэ жил ямар ч ажил аваагүй <strong>{zeros}</strong> хүн хүснэгтийн доод хэсэгт байна.</>}
+        </p>
+        <div class="table-wrap">
+          <table class="t">
+            <thead>
+              <tr>
+                <th>Гишүүн</th>
+                <th>Хэлтэс</th>
+                <th class="num">Арга хэмжээ</th>
+                <th class="num">Сайн дураар</th>
+                <th class="num">Хуваарилсан</th>
+                <th class="num">Дууссан</th>
+                <th class="num">Хийж байгаа</th>
+                <th class="num">Орхисон</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr class={r.volunteered + r.assigned === 0 ? 'zero' : ''}>
+                  <td>
+                    <a class="row-link" href={link({ user: r.user_id })}>{r.name}</a>
+                    <div class="muted small">{ROLE_LABEL[r.role]}{r.status !== 'active' && ' · идэвхгүй'}</div>
+                  </td>
+                  <td class="nowrap">{r.dept_name ?? '—'}</td>
+                  <td class="num">{r.events}</td>
+                  <td class="num">{r.volunteered}</td>
+                  <td class="num">{r.assigned}</td>
+                  <td class="num"><strong>{r.done}</strong></td>
+                  <td class="num">{r.active}</td>
+                  <td class="num">{r.dropped || ''}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </>
+    )
+  }
+
+  {
+    focus && (
+      <section class="card" style="margin-top:20px">
+        <div class="card-head">
+          <h2>{focus.id === user.id ? 'Миний оролцоо' : focus.name_mn}</h2>
+          {seeAll && focusId && <a class="small" href={link({})}>× хаах</a>}
+        </div>
+        {detail.length === 0 ? (
+          <p class="empty">{year} оны хичээлийн жилд бүртгэгдсэн ажил алга.</p>
+        ) : (
+          <div class="table-wrap">
+            <table class="t">
+              <thead>
+                <tr><th>Арга хэмжээ</th><th>Огноо</th><th>Ажил</th><th>Хэрхэн</th><th>Төлөв</th></tr>
+              </thead>
+              <tbody>
+                {detail.map((d) => (
+                  <tr>
+                    <td><a class="row-link" href={`/uil-ajillagaa/${d.event_id}`}>{d.event_title}</a></td>
+                    <td class="nowrap num">{fmtDate(d.starts_at)}</td>
+                    <td>{d.task_title}</td>
+                    <td class="nowrap">{d.volunteered ? '✋ Сайн дураар' : 'Хуваарилсан'}</td>
+                    <td><span class={`badge b-${d.status === 'active' ? 'open' : d.status}`}>{STATUS[d.status]}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+    )
+  }
+  {!seeAll && <p class="small muted" style="margin-top:14px">Бүх гишүүний оролцоог Тэргүүн болон Удирдах зөвлөл харна. Та өөрийнхөө бүртгэлийг харж байна.</p>}
+</Staff>
