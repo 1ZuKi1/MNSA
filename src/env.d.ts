@@ -19,6 +19,13 @@ declare namespace Cloudflare {
     TURNSTILE_SECRET?: string;
     /** Local dev only: also shows the login code on screen. Ignored unless the host is *.localhost. */
     DEV_SHOW_CODES?: string;
+    /** 'staff' makes every request a staff request (the workers.dev test deployment has no dep. subdomain). */
+    SITE_MODE?: string;
+    /** '1' on the workers.dev test deployment only: login codes on screen + a red banner. Ignored on any other host. */
+    TEST_MODE?: string;
+    /** Overrides for cross-links between the two sites (test deployment). */
+    PUBLIC_ORIGIN?: string;
+    STAFF_ORIGIN?: string;
   }
 }
 interface Env extends Cloudflare.Env {}

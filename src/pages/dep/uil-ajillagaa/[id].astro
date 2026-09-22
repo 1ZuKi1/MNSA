@@ -12,6 +12,7 @@ import * as P from '../../../lib/permissions';
 import { Denied } from '../../../lib/records';
 import { fmtDate, fmtDateTime, fromLocal, now } from '../../../lib/time';
 import type { DeptSlug } from '../../../lib/types';
+import { publicOrigin } from '../../../lib/site';
 
 const user = Astro.locals.user!;
 const id = int(Astro.params.id);
@@ -79,7 +80,7 @@ const [tasks, photos, people, depts] = await Promise.all([
   departments(),
 ]);
 const isPast = ev.ends_at < now();
-const publicUrl = `${Astro.url.protocol}//${Astro.url.host.replace(/^dep\./, '')}/uil-ajillagaa/${ev.id}`;
+const publicUrl = `${publicOrigin(Astro.url)}/uil-ajillagaa/${ev.id}`;
 const STATUS = { draft: 'Ноорог', published: 'Нийтлэгдсэн', cancelled: 'Цуцлагдсан' } as const;
 const TASK = { open: 'Нээлттэй', done: 'Дууссан', cancelled: 'Цуцлагдсан' } as const;
 const doneCount = tasks.filter((t) => t.status === 'done').length;
@@ -300,53 +301,52 @@ const doneCount = tasks.filter((t) => t.status === 'done').length;
   </section>
 </Staff>
 
-<script>
+<script is:inline>
   // Shrink photos in the browser before upload: fast from Beijing, and keeps each photo well under D1's 2 MB row limit.
-  const MAX = 1600;
-  async function shrink(file: File): Promise<{ file: File; w: number; h: number }> {
-    const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });
-    const scale = Math.min(1, MAX / Math.max(bmp.width, bmp.height));
-    const w = Math.round(bmp.width * scale);
-    const h = Math.round(bmp.height * scale);
-    const canvas = document.createElement('canvas');
-    canvas.width = w;
-    canvas.height = h;
-    canvas.getContext('2d')!.drawImage(bmp, 0, 0, w, h);
-    const encode = (type: string, q: number) => new Promise<Blob | null>((r) => canvas.toBlob(r, type, q));
-    let q = 0.82;
-    let blob = await encode('image/webp', q);
-    const type = blob?.type === 'image/webp' ? 'image/webp' : 'image/jpeg'; // Safari can't encode WebP
-    if (type === 'image/jpeg') blob = await encode(type, q);
-    while (blob && blob.size > 450_000 && q > 0.5) blob = await encode(type, (q -= 0.1));
-    if (!blob) throw new Error('encode failed');
-    const name = file.name.replace(/\.[^.]+$/, '') + (type === 'image/webp' ? '.webp' : '.jpg');
-    return { file: new File([blob], name, { type }), w, h };
-  }
-
-  document.querySelectorAll<HTMLFormElement>('form[data-photo-form]').forEach((form) => {
-    const input = form.querySelector<HTMLInputElement>('input[type=file]')!;
-    const status = form.querySelector<HTMLElement>('[data-status]')!;
-    const button = form.querySelector<HTMLButtonElement>('button[type=submit]')!;
-    input.addEventListener('change', async () => {
-      const f = input.files?.[0];
-      if (!f) return;
-      button.disabled = true;
-      status.textContent = 'Жижигрүүлж байна…';
-      try {
-        const out = await shrink(f);
-        const dt = new DataTransfer();
-        dt.items.add(out.file);
-        input.files = dt.files;
-        (form.elements.namedItem('w') as HTMLInputElement).value = String(out.w);
-        (form.elements.namedItem('h') as HTMLInputElement).value = String(out.h);
-        status.textContent = `${Math.round(f.size / 1024)} KB → ${Math.round(out.file.size / 1024)} KB. Байршуулахад бэлэн.`;
-      } catch {
-        status.textContent = 'Жижигрүүлж чадсангүй — эх файлаар илгээнэ (1.8 MB-аас бага байх ёстой).';
-      } finally {
-        button.disabled = false;
-      }
+  (function () {
+    var MAX = 1600;
+    function encode(canvas, type, q) { return new Promise(function (r) { canvas.toBlob(r, type, q); }); }
+    async function shrink(file) {
+      var bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });
+      var scale = Math.min(1, MAX / Math.max(bmp.width, bmp.height));
+      var w = Math.round(bmp.width * scale), h = Math.round(bmp.height * scale);
+      var canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(bmp, 0, 0, w, h);
+      var q = 0.82;
+      var blob = await encode(canvas, 'image/webp', q);
+      var type = blob && blob.type === 'image/webp' ? 'image/webp' : 'image/jpeg'; // Safari can't encode WebP
+      if (type === 'image/jpeg') blob = await encode(canvas, type, q);
+      while (blob && blob.size > 450000 && q > 0.5) { q -= 0.1; blob = await encode(canvas, type, q); }
+      if (!blob) throw new Error('encode failed');
+      var name = file.name.replace(/\.[^.]+$/, '') + (type === 'image/webp' ? '.webp' : '.jpg');
+      return { file: new File([blob], name, { type: type }), w: w, h: h };
+    }
+    document.querySelectorAll('form[data-photo-form]').forEach(function (form) {
+      var input = form.querySelector('input[type=file]');
+      var status = form.querySelector('[data-status]');
+      var button = form.querySelector('button[type=submit]');
+      input.addEventListener('change', async function () {
+        var f = input.files && input.files[0];
+        if (!f) return;
+        button.disabled = true;
+        status.textContent = 'Жижигрүүлж байна…';
+        try {
+          var out = await shrink(f);
+          var dt = new DataTransfer();
+          dt.items.add(out.file);
+          input.files = dt.files;
+          form.elements.namedItem('w').value = String(out.w);
+          form.elements.namedItem('h').value = String(out.h);
+          status.textContent = Math.round(f.size / 1024) + ' KB → ' + Math.round(out.file.size / 1024) + ' KB. Байршуулахад бэлэн.';
+        } catch (e) {
+          status.textContent = 'Жижигрүүлж чадсангүй — эх файлаар илгээнэ (1.8 MB-аас бага байх ёстой).';
+        } finally {
+          button.disabled = false;
+        }
+      });
     });
-  });
+  })();
 </script>
 
 <style>

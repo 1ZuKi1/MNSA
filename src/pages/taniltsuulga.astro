@@ -1,0 +1,145 @@
+---
+// Static content: prerendered at build, free to serve.
+import Public from '../layouts/Public.astro';
+
+const goals = [
+  'Монгол оюутнуудын эрх ашгийг хамгаалах',
+  'Харилцан ойлголцол, эв нэгдэл, хамтын ажиллагааг дэмжих',
+  'Оюутнуудын соёл, боловсролын хөгжилд дэмжлэг үзүүлэх',
+  'Шинээр элссэн оюутнуудыг Бээжин болон Бээжингийн Их Сургуульд дасан зохицоход дэмжих',
+  'Монголын түүх, соёл, уламжлалыг сурталчлах',
+  'Эрүүл, идэвхтэй амьдралын хэв маягийг дэмжих',
+  'Бусад оюутны байгууллага болон холбогдох байгууллагуудтай хамтран ажиллах',
+];
+const values = [
+  { name: 'Эв нэгдэл', text: 'Бид нэг нэгнийхээ төлөө.' },
+  { name: 'Хариуцлага', text: 'Хэлсэндээ хүрч, хийсэн ажлаа тайлагнана.' },
+  { name: 'Хүндэтгэл', text: 'Хүн бүрийн санаа бодлыг сонсоно.' },
+  { name: 'Ил тод байдал', text: 'Шийдвэр, баримт бичиг нь гишүүдэд нээлттэй.' },
+  { name: 'Хамтын ажиллагаа', text: 'Бусад холбоо, байгууллагатай гар нийлнэ.' },
+  { name: 'Тасралтгүй хөгжил', text: 'Жил бүр өмнөхөөсөө илүү сайн болно.' },
+];
+const depts = [
+  { code: 'ДХ', name: 'Дотоод хэлтэс', text: 'Гишүүдийн хоорондын харилцаа, шинэ оюутныг угтах, холбооны дотоод арга хэмжээ.' },
+  { code: 'ГХ', name: 'Гадаад хэлтэс', text: 'Бусад холбоо, их сургууль, байгууллагатай тогтоох хамтын ажиллагаа.' },
+  { code: 'СХ', name: 'Сургалтын хэлтэс', text: 'Хичээл, сургалт, мэдээлэл, судалгааны дэмжлэг.' },
+  { code: 'МХ', name: 'Медиа хэлтэс', text: 'Мэдээ, зураг, сошиал сувгууд, энэ цахим хуудас.' },
+  { code: 'ЭЗХ', name: 'Эрх зүйн хэлтэс', text: 'Үндсэн дүрэм, баримт бичгийн стандарт, дүрэмтэй нийцэл, архив.' },
+];
+---
+<Public title="Танилцуулга" description="Бээжингийн Их Сургуулийн Монгол Оюутны Холбооны эрхэм зорилго, зорилт, үнэт зүйлс, бүтэц, түүх.">
+  <section class="page-hero">
+    <div class="wrap">
+      <p class="kicker-p">Танилцуулга</p>
+      <h1 class="display">Бид хэн бэ</h1>
+      <p class="lede">
+        Бээжингийн Их Сургуулийн Монгол Оюутны Холбоо нь Бээжингийн Их Сургуульд суралцаж буй Монгол Улсын иргэн оюутнуудын
+        сайн дурын үндсэн дээр байгуулагдсан оюутны байгууллага юм. Гишүүдийн хамтын ажиллагаа, эв нэгдэл, харилцан туслалцааг
+        дэмжихийн зэрэгцээ Монгол оюутнуудын эрх ашгийг хамгаалах, соёл, боловсролын хөгжилд дэмжлэг үзүүлэх, Монголын түүх,
+        соёл, уламжлалыг сурталчлах чиглэлээр үйл ажиллагаа явуулдаг.
+      </p>
+    </div>
+  </section>
+
+  <hr class="hee" />
+
+  <section class="sec" aria-labelledby="mission-h">
+    <div class="wrap">
+      <p class="kicker-p" id="mission-h">Эрхэм зорилго</p>
+      <p class="mission" style="margin-top:18px">
+        Монгол оюутнуудыг нэгтгэж, тэдний эрх ашиг, сайн сайхан байдал, хөгжлийг дэмжсэн тогтвортой, хариуцлагатай,
+        хүртээмжтэй оюутны байгууллагыг төлөвшүүлэх.
+      </p>
+    </div>
+  </section>
+
+  <section class="sec" style="padding-top:0" aria-labelledby="goals-h">
+    <div class="wrap">
+      <div class="sec-head"><h2 id="goals-h" class="sec-title">Үндсэн зорилтууд</h2></div>
+      <ol class="goals">{goals.map((g) => <li>{g}</li>)}</ol>
+    </div>
+  </section>
+
+  <section class="sec night" aria-labelledby="values-h">
+    <div class="wrap" style="position:relative">
+      <p class="kicker-p">Үнэт зүйлс</p>
+      <h2 id="values-h" class="sec-title">Биднийг юу холбодог вэ</h2>
+      <ul class="steps" style="list-style:none">
+        {values.map((v) => <li><b>{v.name}</b><span>{v.text}</span></li>)}
+      </ul>
+    </div>
+  </section>
+
+  <section class="sec" aria-labelledby="org-h">
+    <div class="wrap">
+      <div class="sec-head">
+        <div>
+          <p class="kicker-p">Бүтэц</p>
+          <h2 id="org-h" class="sec-title">Хэрхэн зохион байгуулагддаг вэ</h2>
+        </div>
+        <a class="link-arrow" href="/udirdlaga">Удирдлагын баг</a>
+      </div>
+      <div class="org">
+        <div class="org-top">
+          <div class="org-card lead">
+            <span class="code">ТЭРГҮҮН</span>
+            <h3>Тэргүүн</h3>
+            <p>Холбооны өдөр тутмын үйл ажиллагааг удирдан чиглүүлж, Холбоог дотоод болон гадаад харилцаанд төлөөлнө.</p>
+          </div>
+          <div class="org-card">
+            <span class="code">ЗӨВЛӨЛ</span>
+            <h3>Удирдах Зөвлөл</h3>
+            <p>Холбооны жилийн төлөвлөгөөний хэрэгжилтийг тогтмол хянана.</p>
+          </div>
+        </div>
+        <div class="org-depts">
+          {depts.map((d) => (
+            <div class="org-card">
+              <span class="code">{d.code}</span>
+              <h3>{d.name}</h3>
+              <p>{d.text}</p>
+            </div>
+          ))}
+        </div>
+        <p class="muted" style="margin:6px 0 0">Хэлтэс бүр өөрийн чиг үүргийн хүрээнд ажлаа төлөвлөж, хэрэгжүүлнэ. Хэлтсийн дарга нь хэлтсийнхээ ажлыг удирдан зохион байгуулж, Тэргүүнд тайлагнана.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" style="padding-top:0" aria-labelledby="hist-h">
+    <div class="wrap">
+      <div class="sec-head">
+        <div>
+          <p class="kicker-p">Түүх</p>
+          <h2 id="hist-h" class="sec-title">Замнал</h2>
+        </div>
+      </div>
+      <div class="grid-2" style="align-items:start">
+        <ol class="timeline-p">
+          <li>
+            <time datetime="2025-09-28">2025 оны 9 дүгээр сарын 28</time>
+            <p>Холбооны Үндсэн дүрмийн анхны хувилбар батлагдав — 13 бүлэг, 48 зүйл, 204 заалт.</p>
+          </li>
+          <li>
+            <time datetime="2025-11-08">2025 оны 11 дүгээр сарын 8</time>
+            <p>Үндсэн дүрмийн анхдугаар шинэчилсэн найруулгыг баталж, 13 бүлэг, 53 зүйл, 247 заалттай болгов.</p>
+          </li>
+          <li>
+            <time datetime="2026-09-19">2026 оны 9 дүгээр сарын 19</time>
+            <p>2026–2027 оны хичээлийн жилийн сонгууль амжилттай болж, шинэ удирдлага ажил үүргээ хүлээн авав.</p>
+          </li>
+        </ol>
+        <div>
+          <div class="callout">
+            <strong>Үндсэн дүрэм</strong> — Холбооны үйл ажиллагааны үндэс. Хүчин төгөлдөр найруулга нь 2025 оны 11 дүгээр сарын 8-нд батлагдсан.
+          </div>
+          <div class="stat-row">
+            <div class="stat"><b>13</b><span>бүлэг</span></div>
+            <div class="stat"><b>53</b><span>зүйл</span></div>
+            <div class="stat"><b>247</b><span>заалт</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</Public>

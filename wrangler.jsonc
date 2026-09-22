@@ -10,7 +10,12 @@
     "binding": "ASSETS",
     // HTML navigations go through the Worker so the staff host can never be served a public page.
     // Hashed build assets, the logo and icons skip the Worker entirely (free, unlimited).
-    "run_worker_first": ["/*", "!/_astro/*", "!/brand/*", "!/favicon.svg", "!/apple-touch-icon.png"]
+    // The @/node_modules/src exclusions only matter in `npm run dev`: they let Vite serve its own modules.
+    "run_worker_first": [
+      "/*",
+      "!/_astro/*", "!/brand/*", "!/favicon.svg", "!/apple-touch-icon.png",
+      "!/@vite/*", "!/@fs/*", "!/@id/*", "!/node_modules/*", "!/src/*"
+    ]
   },
 
   "d1_databases": [

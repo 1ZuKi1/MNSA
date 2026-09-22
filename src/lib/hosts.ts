@@ -37,6 +37,8 @@ export function cleanStaffPath(pathname: string): string {
 /** Public paths that are rendered per request and edge-cached. */
 export function publicCacheSeconds(pathname: string): number | null {
   if (pathname.startsWith('/media/')) return 31536000; // photo URLs are content-addressed by random id → immutable
+  // Pages that read the database (events, the team) — 5 minutes at the edge.
+  if (pathname === '/' || pathname === '/udirdlaga') return 300;
   if (pathname === '/uil-ajillagaa' || pathname.startsWith('/uil-ajillagaa/')) return 300;
   return null;
 }

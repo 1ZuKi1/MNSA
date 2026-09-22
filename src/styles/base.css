@@ -21,7 +21,7 @@
   --sunk: #f3efe8;
   --ink: #1c1917;
   --ink-2: #4a4540;
-  --ink-3: #7a736b;
+  --ink-3: #6b645c; /* ≥4.7:1 on every background it is used on (WCAG AA) */
   --line: #e6dfd4;
   --line-strong: #d4cbbd;
 

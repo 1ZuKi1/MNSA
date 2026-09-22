@@ -1,0 +1,100 @@
+---
+// Generated from the members table: when the President adds, moves or removes someone in the staff
+// workspace, this page follows within 5 minutes. Nobody edits HTML when the team changes.
+export const prerender = false;
+import Public from '../layouts/Public.astro';
+import { departments } from '../lib/db';
+import { initials, publicTeam } from '../lib/team';
+import { academicYear } from '../lib/time';
+import type { DeptSlug } from '../lib/types';
+
+const team = await publicTeam();
+const depts = (await departments()).filter((d) => !d.is_leadership);
+const year = academicYear().replace('-', '–');
+// One colour per department, so avatars double as a key.
+const TINT: Record<string, string> = { dotood: '#8e0000', gadaad: '#005faf', surgalt: '#1d6b3a', media: '#7a3e9d', 'erh-zui': '#9a5b00' };
+---
+<Public title="Удирдлагын баг" description={`Бээжингийн Их Сургуулийн Монгол Оюутны Холбооны ${year} оны хичээлийн жилийн удирдлага ба хэлтсүүд.`}>
+  <section class="page-hero">
+    <div class="wrap">
+      <p class="kicker-p">{year} оны хичээлийн жил</p>
+      <h1 class="display">Удирдлагын баг</h1>
+      <p class="lede">Холбоог жил бүр сонгуулиар шинэчлэгддэг удирдлага, таван хэлтсийн гишүүд сайн дурын үндсэн дээр удирдан ажиллуулдаг.</p>
+    </div>
+  </section>
+
+  <hr class="hee" />
+
+  <section class="sec" aria-label="Тэргүүн ба Удирдах Зөвлөл">
+    <div class="wrap">
+      <div class="team-lead">
+        {
+          team.president ? (
+            <div class="pres-card">
+              <span class="avatar" aria-hidden="true">{initials(team.president.name)}</span>
+              <div>
+                <span class="r">Тэргүүн</span>
+                <span class="n" style="display:block">{team.president.name}</span>
+                <p>Холбооны өдөр тутмын үйл ажиллагааг удирдан чиглүүлж, Холбоог дотоод болон гадаад харилцаанд төлөөлнө.</p>
+              </div>
+            </div>
+          ) : (
+            <div class="pres-card"><div><span class="r">Тэргүүн</span><p>Мэдээлэл удахгүй шинэчлэгдэнэ.</p></div></div>
+          )
+        }
+        <div class="board-card">
+          <h2 class="sec-title" style="font-size:1.35rem;margin:0 0 18px">Удирдах Зөвлөл</h2>
+          {
+            team.board.length === 0 ? (
+              <p class="muted">Мэдээлэл удахгүй шинэчлэгдэнэ.</p>
+            ) : (
+              <ul>
+                {team.board.map((m) => (
+                  <li class="person">
+                    <span class="avatar" style="background:var(--night)" aria-hidden="true">{initials(m.name)}</span>
+                    <span><span class="n">{m.name}</span><span class="r">Удирдах Зөвлөлийн гишүүн</span></span>
+                  </li>
+                ))}
+              </ul>
+            )
+          }
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" style="padding-top:0" aria-labelledby="depts-h">
+    <div class="wrap">
+      <div class="sec-head">
+        <div>
+          <p class="kicker-p">Таван хэлтэс</p>
+          <h2 id="depts-h" class="sec-title">Хэлтсүүд</h2>
+        </div>
+        <a class="link-arrow" href="/taniltsuulga#org-h">Хэлтэс бүрийн чиг үүрэг</a>
+      </div>
+      <div class="dept-grid">
+        {depts.map((d) => {
+          const people = team.byDept(d.slug as DeptSlug);
+          return (
+            <article class="dept-card" aria-labelledby={`d-${d.slug}`}>
+              <h3 id={`d-${d.slug}`}>{d.name_mn} <small>{d.code}</small></h3>
+              {people.length === 0 ? (
+                <p class="vacant">Бүрдүүлж байна</p>
+              ) : (
+                <ul>
+                  {people.map((m) => (
+                    <li class="person">
+                      <span class="avatar" style={`background:${TINT[d.slug] ?? 'var(--blue)'}`} aria-hidden="true">{initials(m.name)}</span>
+                      <span><span class="n">{m.name}</span><span class="r">{m.role === 'head' ? 'Хэлтсийн дарга' : 'Гишүүн'}</span></span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </article>
+          );
+        })}
+      </div>
+      <p class="muted small" style="margin-top:22px">Энэ жагсаалт холбооны дотоод бүртгэлээс автоматаар шинэчлэгддэг.</p>
+    </div>
+  </section>
+</Public>

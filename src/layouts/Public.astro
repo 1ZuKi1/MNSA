@@ -1,21 +1,32 @@
 ---
 import '@fontsource-variable/golos-text';
-import '@fontsource-variable/source-serif-4';
+import '@fontsource-variable/source-serif-4/opsz.css';
+import '@fontsource/noto-sans-mongolian/mongolian-400.css';
 import '../styles/base.css';
+import '../styles/public.css';
 
 interface Props {
   title?: string;
   description?: string;
   image?: string | null;
 }
-const { title, description = 'Бээжингийн Их Сургуулийн Монгол Оюутны Холбооны албан ёсны цахим хуудас.', image } = Astro.props;
-const full = title ? `${title} · Бээжингийн Их Сургуулийн Монгол Оюутны Холбоо` : 'Бээжингийн Их Сургуулийн Монгол Оюутны Холбоо';
-const path = Astro.url.pathname;
+const {
+  title,
+  description = 'Бээжингийн Их Сургуульд суралцаж буй Монгол оюутнуудын холбоо — үйл ажиллагаа, удирдлагын баг, холбоо барих мэдээлэл.',
+  image,
+} = Astro.props;
+const NAME = 'Бээжингийн Их Сургуулийн Монгол Оюутны Холбоо';
+const full = title ? `${title} · ${NAME}` : NAME;
+const path = Astro.url.pathname.replace(/\/$/, '') || '/';
 const nav = [
   { href: '/', label: 'Нүүр' },
+  { href: '/taniltsuulga', label: 'Танилцуулга' },
+  { href: '/udirdlaga', label: 'Удирдлагын баг' },
   { href: '/uil-ajillagaa', label: 'Үйл ажиллагаа' },
+  { href: '/holboo-barih', label: 'Холбоо барих' },
 ];
-const active = (h: string) => (h === '/' ? path === '/' : path.startsWith(h));
+const current = (h: string) => (h === '/' ? path === '/' : path === h || path.startsWith(h + '/'));
+const ogImage = new URL(image ?? '/brand/logo-512.png', Astro.url).href;
 ---
 <!doctype html>
 <html lang="mn">
@@ -24,61 +35,93 @@ const active = (h: string) => (h === '/' ? path === '/' : path.startsWith(h));
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{full}</title>
     <meta name="description" content={description} />
-    <meta property="og:title" content={title ?? 'МОХ · Бээжингийн Их Сургууль'} />
+    <meta name="theme-color" content="#0d2138" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="МОХ · Бээжингийн Их Сургууль" />
+    <meta property="og:title" content={title ?? NAME} />
     <meta property="og:description" content={description} />
-    <meta property="og:image" content={image ? new URL(image, Astro.url).href : new URL('/brand/logo-512.png', Astro.url).href} />
+    <meta property="og:image" content={ogImage} />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <script is:inline>document.documentElement.classList.add('js');</script>
   </head>
   <body class="public">
-    <div class="flag" aria-hidden="true"></div>
-    <header class="site">
-      <div class="wrap row-h">
-        <a href="/" class="brand">
-          <img src="/brand/logo.svg" alt="MNSA" width="64" height="49" />
-          <span class="name">Бээжингийн Их Сургуулийн<br />Монгол Оюутны Холбоо</span>
+    <a class="skip" href="#main">Үндсэн агуулга руу шилжих</a>
+
+    <header class="ph-header">
+      <div class="wrap ph-bar">
+        <a href="/" class="ph-brand" aria-label="Нүүр хуудас — Бээжингийн Их Сургуулийн Монгол Оюутны Холбоо">
+          <img src="/brand/logo.svg" alt="" width="58" height="44" />
+          <span>
+            <span class="t1">Бээжингийн Их Сургуулийн</span>
+            <span class="t2">Монгол Оюутны Холбоо</span>
+          </span>
         </a>
-        <nav aria-label="Үндсэн цэс">
-          {nav.map((n) => <a href={n.href} aria-current={active(n.href) ? 'page' : undefined}>{n.label}</a>)}
+        <button class="menu-btn" type="button" aria-expanded="false" aria-controls="site-nav">
+          <span class="bars" aria-hidden="true"></span> Цэс
+        </button>
+        <nav id="site-nav" class="ph-nav" aria-label="Үндсэн цэс">
+          <ul>
+            {nav.map((n) => (
+              <li>
+                <a href={n.href} aria-current={current(n.href) ? 'page' : undefined}>{n.label}</a>
+              </li>
+            ))}
+          </ul>
         </nav>
       </div>
     </header>
-    <main>
+
+    <main id="main" tabindex="-1">
       <slot />
     </main>
-    <footer class="site-foot">
-      <div class="wrap foot-grid">
-        <div>
-          <img src="/brand/logo.svg" alt="" width="72" height="55" />
-          <p class="small">Бээжингийн Их Сургуулийн<br />Монгол Оюутны Холбоо</p>
+
+    <footer class="pf">
+      <div class="wrap">
+        <div class="pf-grid">
+          <div>
+            <div class="pf-badge"><img src="/brand/logo.svg" alt="" width="64" height="49" /></div>
+            <p class="pf-name">Бээжингийн Их Сургуулийн<br />Монгол Оюутны Холбоо</p>
+            <p style="margin-top:10px">Бээжингийн Их Сургуульд суралцаж буй Монгол оюутнуудын сайн дурын байгууллага.</p>
+          </div>
+          <div>
+            <h2>Хуудсууд</h2>
+            <ul>{nav.map((n) => <li><a href={n.href}>{n.label}</a></li>)}</ul>
+          </div>
+          <div>
+            <h2>Холбогдох</h2>
+            <ul>
+              <li><a href="mailto:pku_mongolia@163.com">pku_mongolia@163.com</a></li>
+              <li><a href="https://www.instagram.com/pku_mongolia/" rel="noopener">Instagram · @pku_mongolia</a></li>
+            </ul>
+          </div>
         </div>
-        <div class="small">
-          <strong>Холбоо барих</strong>
-          <p><a href="mailto:pku_mongolia@163.com">pku_mongolia@163.com</a><br /><a href="https://instagram.com/pku_mongolia" rel="noopener">Instagram · @pku_mongolia</a></p>
-        </div>
-        <div class="small muted">
-          <p>Peking University · MNSA</p>
-          <p>© {new Date().getFullYear()} МОХ</p>
+        <div class="pf-bottom">
+          <span>© {new Date().getFullYear()} МОХ</span>
+          <span>Peking University · MNSA</span>
         </div>
       </div>
     </footer>
+
+    <script is:inline>
+      // Mobile menu: a real button with aria-expanded; without JS the nav is simply always shown.
+      (function () {
+        var btn = document.querySelector('.menu-btn');
+        var nav = document.getElementById('site-nav');
+        if (!btn || !nav) return;
+        btn.addEventListener('click', function () {
+          var open = btn.getAttribute('aria-expanded') !== 'true';
+          btn.setAttribute('aria-expanded', String(open));
+          nav.classList.toggle('open', open);
+        });
+        document.addEventListener('keydown', function (e) {
+          if (e.key === 'Escape' && nav.classList.contains('open')) {
+            nav.classList.remove('open');
+            btn.setAttribute('aria-expanded', 'false');
+            btn.focus();
+          }
+        });
+      })();
+    </script>
   </body>
 </html>
-
-<style>
-  .flag { height: 4px; background: linear-gradient(90deg, var(--blue) 0 33.3%, var(--maroon) 33.3% 66.6%, var(--blue) 66.6%); }
-  header.site { background: var(--surface); border-bottom: 1px solid var(--line); }
-  .row-h { display: flex; align-items: center; justify-content: space-between; gap: 20px; min-height: 84px; flex-wrap: wrap; padding-top: 10px; padding-bottom: 10px; }
-  .brand { display: flex; align-items: center; gap: 14px; text-decoration: none; color: var(--ink); }
-  .brand img { width: 64px; height: auto; }
-  .name { font: 600 1.02rem/1.25 var(--font-serif); color: var(--maroon); }
-  nav { display: flex; gap: 4px; }
-  nav a { padding: 8px 14px; border-radius: 999px; color: var(--ink-2); text-decoration: none; font-weight: 550; font-size: 0.95rem; }
-  nav a:hover { background: var(--sunk); color: var(--ink); }
-  nav a[aria-current='page'] { background: var(--maroon); color: #fff; }
-  main { min-height: 60vh; }
-  .site-foot { margin-top: 64px; background: var(--surface); border-top: 1px solid var(--line); padding: 32px 0 40px; }
-  .foot-grid { display: grid; gap: 24px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
-  .foot-grid img { width: 72px; height: auto; margin-bottom: 8px; }
-  .foot-grid p { margin: 6px 0 0; }
-</style>

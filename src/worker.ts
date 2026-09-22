@@ -22,6 +22,24 @@ const STAFF_HEADERS: Record<string, string> = {
   'Cache-Control': 'no-store',
 };
 
+/**
+ * Test deployment only (TEST_MODE=1 on a *.workers.dev host): mark every public page as a test —
+ * a red banner and noindex — including pages that were prerendered at build time.
+ */
+function markAsTest(res: Response): Response {
+  if (!(res.headers.get('content-type') ?? '').includes('text/html')) return res;
+  const out = new HTMLRewriter()
+    .on('body', {
+      element(el) {
+        el.prepend('<div class="test-ribbon" role="note">Туршилтын хувилбар — албан ёсны сайт бус</div>', { html: true });
+      },
+    })
+    .transform(res);
+  const marked = new Response(out.body, out);
+  marked.headers.set('X-Robots-Tag', 'noindex, nofollow');
+  return marked;
+}
+
 function withHeaders(res: Response, headers: Record<string, string>): Response {
   const out = new Response(res.body, res);
   for (const [k, v] of Object.entries(headers)) if (!out.headers.has(k) || k === 'Cache-Control') out.headers.set(k, v);
@@ -33,7 +51,7 @@ export default {
     const url = new URL(request.url);
 
     // ── staff host ──────────────────────────────────────────────────────────
-    if (isStaffHost(url.hostname, env.STAFF_HOST)) {
+    if (env.SITE_MODE === 'staff' || isStaffHost(url.hostname, env.STAFF_HOST)) {
       let req = request;
       if (shouldPrefixStaffPath(url.pathname)) {
         url.pathname = STAFF_PREFIX + (url.pathname === '/' ? '' : url.pathname);
@@ -50,21 +68,24 @@ export default {
       return new Response('Not found', { status: 404, headers: { 'content-type': 'text/plain; charset=utf-8' } });
     }
 
+    const test = env.TEST_MODE === '1' && url.hostname.endsWith('.workers.dev');
+    const finish = (r: Response) => (test ? markAsTest(r) : r);
+
     const ttl = request.method === 'GET' && !isLocalHost(url.hostname) ? publicCacheSeconds(url.pathname) : null;
     if (ttl) {
       // Edge cache: a traffic spike costs one database read per 5 minutes per Cloudflare location, not one per visitor.
       const cache = (caches as unknown as { default: Cache }).default;
       const key = new Request(url.toString(), { method: 'GET' });
       const hit = await cache.match(key);
-      if (hit) return hit;
+      if (hit) return finish(hit);
       const res = await handle(request, env, ctx);
-      if (res.status !== 200) return withHeaders(res, COMMON_HEADERS);
+      if (res.status !== 200) return finish(withHeaders(res, COMMON_HEADERS));
       const cacheControl = ttl > 3600 ? `public, max-age=${ttl}, immutable` : `public, max-age=60, s-maxage=${ttl}`;
       const out = withHeaders(res, { ...COMMON_HEADERS, 'Cache-Control': cacheControl });
       ctx.waitUntil(cache.put(key, out.clone()));
-      return out;
+      return finish(out);
     }
 
-    return withHeaders(await handle(request, env, ctx), COMMON_HEADERS);
+    return finish(withHeaders(await handle(request, env, ctx), COMMON_HEADERS));
   },
 } satisfies ExportedHandler<Env>;

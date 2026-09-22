@@ -6,6 +6,7 @@ import { getRecordType, type RecordType } from './record-types';
 import { academicYear, now } from './time';
 import type { DeptSlug, RecordStatus, Role, SessionUser, Step, Visibility } from './types';
 import { advance } from './workflow';
+import { staffOrigin } from './site';
 
 export interface RecordRow {
   id: number;
@@ -353,7 +354,7 @@ async function notifyStepOwners(r: RecordRow, step: Step) {
   }
   const fresh = await getRecord(r.id);
   for (const { email } of rows) {
-    await sendMail(awaitingDecisionMail(email, r.title, fresh?.number ?? null, `https://dep.bdmnsa.com/barimt/${r.id}`));
+    await sendMail(awaitingDecisionMail(email, r.title, fresh?.number ?? null, `${staffOrigin()}/barimt/${r.id}`));
   }
 }
 

@@ -4,7 +4,7 @@ import Staff from '../../../layouts/Staff.astro';
 import { departments } from '../../../lib/db';
 import { clientIp, int, str, withFlash } from '../../../lib/http';
 import {
-  asMemberLike, changeMember, createInvite, getMember, listMembers, openInvites, recentlyClaimed, removeMember, revokeInvite, setDeputy,
+  asMemberLike, canSetPublic, changeMember, createInvite, getMember, listMembers, openInvites, recentlyClaimed, removeMember, revokeInvite, setDeputy, setShowPublic,
 } from '../../../lib/members';
 import * as P from '../../../lib/permissions';
 import { Denied } from '../../../lib/records';
@@ -20,10 +20,16 @@ let inviteName = '';
 let inviteError = '';
 
 if (Astro.request.method === 'POST') {
-  if (!manager) return Astro.redirect(withFlash('/gishuud', 'denied', 'err'));
   const fd = await Astro.request.formData();
   const action = str(fd, 'action', 20);
   const ip = clientIp(Astro.request);
+  if (action === 'public_on' || action === 'public_off') {
+    const target = await getMember(int(str(fd, 'user')) ?? 0);
+    if (!target || !canSetPublic(user, target)) return Astro.redirect(withFlash('/gishuud', 'denied', 'err'));
+    await setShowPublic(user, target, action === 'public_on', ip);
+    return Astro.redirect(withFlash('/gishuud', 'saved'));
+  }
+  if (!manager) return Astro.redirect(withFlash('/gishuud', 'denied', 'err'));
   try {
     if (action === 'invite') {
       const name = str(fd, 'name', 100);
@@ -95,6 +101,7 @@ const deputy = members.find((m) => m.is_deputy === 1);
           <th>Эрх</th>
           <th>И-мэйл</th>
           <th>Эрх дуусах</th>
+          <th title="Нийтийн «Удирдлагын баг» хуудсанд харагдах эсэх">Нийтэд</th>
           {manager && <th></th>}
         </tr>
       </thead>
@@ -114,6 +121,20 @@ const deputy = members.find((m) => m.is_deputy === 1);
               <td class="nowrap">{ROLE_LABEL[m.role]}</td>
               <td class="small"><a href={`mailto:${m.email}`}>{m.email}</a></td>
               <td class:list={['nowrap num small', { warnc: expiring }]}>{fmtDate(m.term_ends_at)}</td>
+              <td class="nowrap small">
+                {m.role === 'maintainer' ? (
+                  <span class="muted">—</span>
+                ) : canSetPublic(user, m) ? (
+                  <form method="post" class="inline">
+                    <input type="hidden" name="user" value={m.id} />
+                    <button class="btn btn-sm btn-quiet" name="action" value={m.show_public ? 'public_off' : 'public_on'} title={m.show_public ? 'Нийтийн хуудаснаас нуух' : 'Нийтийн хуудсанд харуулах'}>
+                      {m.show_public ? '✓ Харагдана' : 'Нуусан'}
+                    </button>
+                  </form>
+                ) : (
+                  <span>{m.show_public ? '✓' : 'Нуусан'}</span>
+                )}
+              </td>
               {manager && (
                 <td class="actions">
                   {canTouch && (
@@ -238,19 +259,14 @@ const deputy = members.find((m) => m.is_deputy === 1);
   }
 </Staff>
 
-<script>
-  document.querySelectorAll<HTMLButtonElement>('[data-copy]').forEach((b) =>
-    b.addEventListener('click', async () => {
-      const input = document.getElementById(b.dataset.copy!) as HTMLInputElement;
+<script is:inline>
+  document.querySelectorAll('[data-copy]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var input = document.getElementById(b.dataset.copy);
       input.select();
-      try {
-        await navigator.clipboard.writeText(input.value);
-        b.textContent = 'Хуулсан ✓';
-      } catch {
-        document.execCommand('copy');
-      }
-    }),
-  );
+      if (navigator.clipboard) navigator.clipboard.writeText(input.value).then(function () { b.textContent = 'Хуулсан ✓'; });
+    });
+  });
 </script>
 
 <style>

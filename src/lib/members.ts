@@ -19,10 +19,11 @@ export interface MemberRow {
   status: 'active' | 'alumni' | 'suspended';
   term_ends_at: number | null;
   last_login_at: number | null;
+  show_public: number;
 }
 
 const SELECT = `SELECT u.id, u.email, u.name_mn, u.student_id, u.role, u.department_id, d.slug AS dept_slug, d.name_mn AS dept_name,
-                       u.is_deputy, u.status, u.term_ends_at, u.last_login_at
+                       u.is_deputy, u.status, u.term_ends_at, u.last_login_at, u.show_public
                   FROM users u LEFT JOIN departments d ON d.id = u.department_id`;
 
 const ROLE_ORDER = `CASE u.role WHEN 'president' THEN 0 WHEN 'board' THEN 1 WHEN 'head' THEN 2 WHEN 'member' THEN 3 ELSE 4 END`;
@@ -186,6 +187,17 @@ export async function changeEmail(a: SessionUser, m: MemberRow, email: string, i
   await db().batch([
     stmt(`UPDATE users SET email = ?, session_version = session_version + 1 WHERE id = ?`, email, m.id),
     auditStmt(a.id, 'member.email', 'user', m.id, { from: m.email, to: email }, ip),
+  ]);
+}
+
+/** Anyone may hide or show themselves on the public team page; managers may do it for others. */
+export const canSetPublic = (a: SessionUser, m: MemberRow) => a.id === m.id || P.canModifyMember(a, asMemberLike(m));
+
+export async function setShowPublic(a: SessionUser, m: MemberRow, on: boolean, ip: string | null) {
+  if (!canSetPublic(a, m)) throw new Denied();
+  await db().batch([
+    stmt(`UPDATE users SET show_public = ? WHERE id = ?`, on ? 1 : 0, m.id),
+    auditStmt(a.id, on ? 'member.public.show' : 'member.public.hide', 'user', m.id, null, ip),
   ]);
 }
 

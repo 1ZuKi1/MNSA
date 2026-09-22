@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| `bdmnsa.com` | Public site — prerendered, plus the events pages |
+| `bdmnsa.com` | Public site — Нүүр, Танилцуулга, Удирдлагын баг, Үйл ажиллагаа, Холбоо барих |
 | `dep.bdmnsa.com` | Staff workspace — one-time email codes, no passwords |
 
 Astro 7 on Cloudflare Workers, D1 for data, a second D1 database for photos. Runs entirely on Cloudflare's free plan; the only cost is the domain. The full design rationale is in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
@@ -55,7 +55,31 @@ All fictional, on the reserved `.test` domain.
 | `npm run db:reset` | Wipe local data and re-seed. **Stop `npm run dev` first** — deleting the database under a running server breaks it until restart |
 | `npm run preview` | Build for production and run the real Worker locally on :8787 (`dep.localhost:8787` for staff) |
 | `npm run typecheck` | Type-check everything |
-| `bash tests/e2e.sh` | 79-step end-to-end test against `npm run dev` (Git Bash on Windows). Run after `db:reset` |
+| `bash tests/e2e.sh` | end-to-end test against `npm run dev` (Git Bash on Windows). Run after `db:reset` |
+
+---
+
+## Test deployment — before the domain is bought
+
+Puts the whole thing online on free `*.workers.dev` addresses so it can be tried on real phones. Run these in PowerShell **one line at a time** (PowerShell 5 doesn't accept `&&`):
+
+```powershell
+npx wrangler login
+npm run deploy:test
+```
+
+`wrangler login` opens the browser — sign in with the **association** Cloudflare account. `deploy:test` then creates the two databases, loads the demo data, and deploys two Workers from the same build:
+
+| | |
+|---|---|
+| `https://mnsa.<subdomain>.workers.dev` | public site |
+| `https://mnsa-dep.<subdomain>.workers.dev` | staff site |
+
+Both carry a red "test" banner and are hidden from search engines. Because Resend can't send mail without a verified domain, **the login code is shown on the login page** — but only on `*.workers.dev` addresses, never on `bdmnsa.com`. Log in with the demo accounts above. Don't enter real personal data on the test site.
+
+Safe to re-run after every change. It rewrites the two `database_id` values in `wrangler.jsonc` — commit that change.
+
+`*.workers.dev` is usually blocked in mainland China: use the VPN to open the test links.
 
 ---
 
@@ -66,7 +90,13 @@ Do these once, in order. Everything uses the **association's** Cloudflare accoun
 1. **Cloudflare account** on the association email. Two people know the password: the President and the maintainer.
 2. **Buy `bdmnsa.com`** in Cloudflare → Domain Registration. About $10.44/year.
 3. **Log in the CLI:** `npx wrangler login`
-4. **Create the databases** and paste each printed `database_id` into `wrangler.jsonc`:
+4. **Start from empty databases.** If you used the test deployment, its databases hold the demo accounts — delete them and the test staff Worker:
+   ```bash
+   npx wrangler delete --name mnsa-dep
+   npx wrangler d1 delete mnsa-db
+   npx wrangler d1 delete mnsa-media
+   ```
+   Then create fresh ones and paste each printed `database_id` into `wrangler.jsonc`:
    ```bash
    npx wrangler d1 create mnsa-db
    npx wrangler d1 create mnsa-media
@@ -79,13 +109,13 @@ Do these once, in order. Everything uses the **association's** Cloudflare accoun
    ```
 6. **Resend** — add and verify `bdmnsa.com` at resend.com (it gives you DNS records; add them in Cloudflare DNS). Then `npx wrangler secret put RESEND_API_KEY`.
 7. **Turnstile** — Cloudflare → Turnstile → add a widget for `dep.bdmnsa.com`. Put the site key in `wrangler.jsonc` under `vars` as `TURNSTILE_SITE_KEY`, and `npx wrangler secret put TURNSTILE_SECRET`.
-8. **Deploy:** `npm run deploy`
+8. **Deploy:** `npm run deploy` (no test mode: codes go by email, no banner)
 9. **Attach the domains:** Cloudflare → Workers → `mnsa` → Settings → Domains & Routes → add custom domains `bdmnsa.com` and `dep.bdmnsa.com`.
 10. **Create the first President** — the only account that isn't made by invitation:
     ```bash
     npx wrangler d1 execute mnsa-db --remote --command "INSERT INTO users (email, name_mn, student_id, role, department_id, term_ends_at, created_at) VALUES ('president@example.com', 'Б. Нэр', '0000000000', 'president', 1, strftime('%s','2027-09-30 15:59:00'), strftime('%s','now'))"
     ```
-    From then on, the President invites everyone else from *Гишүүд → Урилга үүсгэх*.
+    From then on, the President invites everyone else from *Гишүүд → Урилга үүсгэх*. Everyone added shows up on the public *Удирдлагын баг* page automatically; each person (or the President) can hide themselves with the *Нийтэд* switch on *Гишүүд*.
 11. **Auto-deploy on push:** Cloudflare → Workers → `mnsa` → Settings → Builds → connect `github.com/1ZuKi1/MNSA`. Build command `npm run build`, deploy command `npx wrangler deploy`.
 
 ---
@@ -103,13 +133,16 @@ src/
     records.ts         Documents: create, edit, submit, approve, auto-numbering
     events.ts          Events, task board, participation report, photos
     members.ts         Invites, roles, deputy, annual renewal
+    team.ts            The public team page, built from the member list
+    site.ts            Test-mode switches and the public/staff addresses
     auth.ts session.ts One-time codes and signed-cookie sessions
     db.ts time.ts …    Helpers
   pages/
-    index.astro, uil-ajillagaa/…   public site
+    index.astro taniltsuulga.astro udirdlaga.astro holboo-barih.astro uil-ajillagaa/…   public site
     dep/…                          staff site (served at clean URLs on dep.bdmnsa.com)
 migrations/            Main database schema (+ migrations-media/ for photos)
-scripts/seed-dev.sql   Local demo data only
+scripts/seed-dev.sql   Demo data (local and test deployment only)
+scripts/deploy-test.mjs  `npm run deploy:test`
 tests/                 Unit tests + e2e.sh
 docs/ARCHITECTURE.md   Why everything is the way it is
 ```
@@ -120,7 +153,7 @@ docs/ARCHITECTURE.md   Why everything is the way it is
 
 ## Not built yet
 
-- The rest of the public site (Танилцуулга, Удирдлагын баг, Баримт бичиг, Холбоо барих) — Phase 1 content port. The homepage department blurbs are placeholder text
+- Public text to confirm with the board: the value taglines and department descriptions on *Танилцуулга*, the new-student steps on the homepage, the vertical Mongolian script in the hero
 - Live meeting minutes (Phase 5)
 - The September handover page for the presidency (Phase 6) — renewal of members already works
 - Weekly automatic backup of the database

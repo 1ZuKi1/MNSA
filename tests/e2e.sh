@@ -149,4 +149,21 @@ check "public home renders" "$(curl -s -o /dev/null -w '%{http_code}' -H "$P" $B
 has "staff pages are noindex + no-store" "$(curl -s -D - -o /dev/null -b $J/president.jar -H "$S" $B/)" "no-store"
 check "logout" "$(curl -s -o /dev/null -w '%{http_code}' -b $J/board.jar -H "$S" -H "$O" -X POST $B/gar)" 302
 
+echo "── public site"
+pub(){ curl -s -H "$P" "$B$1"; }
+for pg in / /taniltsuulga /udirdlaga /uil-ajillagaa /holboo-barih; do
+  check "public $pg renders" "$(curl -s -o /dev/null -w '%{http_code}' -H "$P" $B$pg)" 200
+done
+has "nav lists all five pages" "$(pub /)" "Удирдлагын баг"
+has "about page shows the goals" "$(pub /taniltsuulga)" "Үндсэн дүрэм"
+has "team page lists the President" "$(pub /udirdlaga)" "Тэмүүлэн"
+has "team page lists members" "$(pub /udirdlaga)" "Билгүүн"
+hasnt "maintainer is not on the team page" "$(pub /udirdlaga)" "Техникийн"
+has "contact page has the email" "$(pub /holboo-barih)" "pku_mongolia@163.com"
+has "member hides themselves" "$(post $J/dotood2.jar /gishuud -d action=public_off -d user=4)" "ok=saved"
+hasnt "…and is gone from the team page" "$(pub /udirdlaga)" "Билгүүн"
+has "other dept head cannot toggle them" "$(post $J/gadaad.jar /gishuud -d action=public_on -d user=4)" "err=denied"
+has "member shows themselves again" "$(post $J/dotood2.jar /gishuud -d action=public_on -d user=4)" "ok=saved"
+has "…and is back" "$(pub /udirdlaga)" "Билгүүн"
+
 echo; echo "RESULT: $pass passed, $fail failed"

@@ -1,57 +1,170 @@
 ---
-// Prerendered at build: free to serve, never touches the database.
+// Rendered per request (it shows live events) and edge-cached for 5 minutes by the Worker.
+export const prerender = false;
 import Public from '../layouts/Public.astro';
+import Icon from '../components/Icon.astro';
+import { publicEvents } from '../lib/events';
+import { mediaUrl } from '../lib/media';
+import { fmtDate, fmtDateTime, fmtLong } from '../lib/time';
 
-const departments = [
-  { name: 'Дотоод хэлтэс', text: 'Гишүүдийн дотоод харилцаа, шинэ оюутныг угтах, хамтын үйл ажиллагаа.' },
-  { name: 'Гадаад хэлтэс', text: 'Бусад холбоо, байгууллагатай хамтран ажиллах, гадаад харилцаа.' },
-  { name: 'Сургалтын хэлтэс', text: 'Хичээл, сургалтын мэдээлэл, семинар, туслалцаа.' },
-  { name: 'Медиа хэлтэс', text: 'Мэдээ, зураг, сошиал сувгууд, холбооны нэр төр.' },
-  { name: 'Эрх зүйн хэлтэс', text: 'Үндсэн дүрэм, баримт бичгийн стандарт, архив.' },
-];
+const { upcoming, past } = await publicEvents();
+const soon = upcoming.slice(0, 3);
+const recent = past.slice(0, 3);
+const month = (ts: number) => `${Number(fmtDate(ts).slice(5, 7))}-р сар`;
+const values = ['Эв нэгдэл', 'Хариуцлага', 'Хүндэтгэл', 'Ил тод байдал', 'Хамтын ажиллагаа', 'Тасралтгүй хөгжил'];
 ---
 <Public>
-  <section class="hero">
-    <div class="wrap hero-grid">
+  <section class="hero-p">
+    <div class="wrap grid">
       <div>
-        <p class="eyebrow">Peking University · MNSA</p>
-        <h1>Бээжингийн Их Сургуулийн Монгол Оюутны Холбоо</h1>
+        <p class="kicker-p">Peking University · 北京大学</p>
+        <p class="pre">Бээжингийн Их Сургуулийн</p>
+        <h1 class="display">Монгол Оюутны <em>Холбоо</em></h1>
         <p class="lede">
-          Бээжингийн Их Сургуульд суралцаж буй Монгол Улсын иргэн оюутнуудын хамтын ажиллагаа, эв нэгдлийг дэмжих,
-          эрх ашгийг хамгаалах, соёл, боловсролын хөгжилд хувь нэмэр оруулах зорилготой оюутны байгууллага.
+          Бээжингийн Их Сургуульд суралцаж буй Монгол оюутнуудыг нэгтгэж, бие биедээ туслан,
+          эх орныхоо түүх, соёлыг түгээдэг сайн дурын байгууллага.
         </p>
         <div class="btn-row">
-          <a class="btn btn-primary" href="/uil-ajillagaa">Үйл ажиллагаа</a>
-          <a class="btn" href="mailto:pku_mongolia@163.com">Холбоо барих</a>
+          <a class="btn btn-gold" href="#shine">Шинэ оюутан уу?</a>
+          <a class="btn btn-ghost-light" href="/uil-ajillagaa">Үйл ажиллагаа</a>
+        </div>
+        <div class="hero-meta" aria-label="Товч мэдээлэл">
+          <span>Таван хэлтэс</span>
+          <span>Үндсэн дүрэм · 13 бүлэг, 53 зүйл</span>
+          <span>Бээжин, Хайдянь</span>
         </div>
       </div>
-      <img class="hero-logo" src="/brand/logo.svg" alt="MNSA лого" width="360" height="274" />
+      <div class="hero-art" aria-hidden="true">
+        <span class="script" lang="mn-Mong">ᠮᠣᠩᠭᠣᠯ ᠣᠶᠤᠲᠠᠨ ᠤ ᠬᠣᠯᠪᠣᠭ᠎ᠠ</span>
+        <div class="moon">
+          <div class="disc"><img src="/brand/logo.svg" alt="" width="280" height="213" /></div>
+          <div class="sun"></div>
+        </div>
+      </div>
     </div>
   </section>
 
-  <section class="wrap depts">
-    <h2>Таван хэлтэс</h2>
-    <div class="grid-3">
-      {departments.map((d) => (
-        <div class="dept">
-          <h3>{d.name}</h3>
-          <p class="muted small">{d.text}</p>
+  <hr class="hee" />
+
+  <section class="sec" aria-labelledby="soon-h">
+    <div class="wrap">
+      <div class="sec-head">
+        <div>
+          <p class="kicker-p">Хуанли</p>
+          <h2 id="soon-h" class="sec-title">Удахгүй болох</h2>
         </div>
-      ))}
+        <a class="link-arrow" href="/uil-ajillagaa">Бүх арга хэмжээ</a>
+      </div>
+      {
+        soon.length === 0 ? (
+          <p class="empty-p">
+            Одоогоор зарлагдсан арга хэмжээ алга. Шинэ мэдээг <a href="https://www.instagram.com/pku_mongolia/" rel="noopener">Instagram</a> хуудаснаас түрүүлж хараарай.
+          </p>
+        ) : (
+          <div class="ev-list">
+            {soon.map((e) => (
+              <a class="ev-card" href={`/uil-ajillagaa/${e.id}`}>
+                <span class="ev-date" aria-hidden="true">
+                  <b>{Number(fmtDate(e.starts_at).slice(8))}</b>
+                  <span>{month(e.starts_at)}</span>
+                </span>
+                <span>
+                  <h3>{e.title}</h3>
+                  <p class="ev-where">{fmtDateTime(e.starts_at)}{e.location && ` · ${e.location}`}</p>
+                  {e.summary && <p style="margin-top:8px">{e.summary}</p>}
+                </span>
+              </a>
+            ))}
+          </div>
+        )
+      }
+    </div>
+  </section>
+
+  <section class="sec" style="padding-top:0" aria-labelledby="what-h">
+    <div class="wrap">
+      <div class="sec-head">
+        <div>
+          <p class="kicker-p">Бидний тухай</p>
+          <h2 id="what-h" class="sec-title">Бид юу хийдэг вэ</h2>
+        </div>
+        <a class="link-arrow" href="/taniltsuulga">Зорилго, үнэт зүйлс</a>
+      </div>
+      <div class="pillars">
+        <article class="pillar">
+          <div class="ic"><Icon name="unity" /></div>
+          <h3>Нэгдэл</h3>
+          <p>Монгол оюутнуудын эв нэгдэл, харилцан ойлголцол, хамтын ажиллагааг дэмжиж, тэдний эрх ашгийг хамгаална.</p>
+        </article>
+        <article class="pillar">
+          <div class="ic"><Icon name="support" /></div>
+          <h3>Дэмжлэг</h3>
+          <p>Шинээр элссэн оюутнуудыг Бээжин болон Бээжингийн Их Сургуульд дасан зохицоход нь тусалж, суралцах, хөгжихөд нь дэмжлэг үзүүлнэ.</p>
+        </article>
+        <article class="pillar">
+          <div class="ic"><Icon name="culture" /></div>
+          <h3>Соёл</h3>
+          <p>Монголын түүх, соёл, уламжлалыг сурталчилж, эрүүл, идэвхтэй амьдралын хэв маягийг дэмжинэ.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec band-maroon" id="shine" aria-labelledby="new-h">
+    <div class="wrap" style="position:relative">
+      <p class="kicker-p">Шинэ оюутанд</p>
+      <h2 id="new-h" class="sec-title">Бээжинд шинээр ирж байна уу?</h2>
+      <p class="sec-lede">Эхний хэдэн долоо хоногт ихэнх оюутан ижил асуудалтай тулгардаг. Эндээс эхлээрэй — гацвал бидэнд бичээрэй, туслахад бэлэн.</p>
+      <ol class="steps">
+        <li><b>Сургуульдаа бүртгүүлэх</b><span>Гадаад оюутны албанд бүртгүүлж, оюутны карт (校园卡) аваарай.</span></li>
+        <li><b>Түр оршин суух бүртгэл</b><span>Ирснээс хойш 24 цагийн дотор бүртгүүлнэ (住宿登记). Дотуур байранд бол ихэвчлэн сургууль нь бүртгэдэг.</span></li>
+        <li><b>Оршин суух зөвшөөрөл</b><span>X1 визээр ирсэн бол 30 хоногийн дотор оршин суух зөвшөөрөл (居留许可) авах ёстой.</span></li>
+        <li><b>Утас, банк, төлбөр</b><span>Хятад SIM карт, банкны карт авч, WeChat Pay, Alipay-гаа холбоорой.</span></li>
+      </ol>
+      <p class="note">Энэ бол ерөнхий зөвлөмж. Журам өөрчлөгдөж болох тул Гадаад оюутны албаны зааврыг баримтална уу.</p>
+      <div class="btn-row" style="margin-top:26px">
+        <a class="btn btn-gold" href="/holboo-barih">Бидэнд бичих</a>
+        <a class="btn btn-ghost-light" href="https://www.instagram.com/pku_mongolia/" rel="noopener">Instagram</a>
+      </div>
+    </div>
+  </section>
+
+  {
+    recent.length > 0 && (
+      <section class="sec" aria-labelledby="past-h">
+        <div class="wrap">
+          <div class="sec-head">
+            <div>
+              <p class="kicker-p">Дурсамж</p>
+              <h2 id="past-h" class="sec-title">Өнгөрсөн арга хэмжээ</h2>
+            </div>
+            <a class="link-arrow" href="/uil-ajillagaa#past">Бүгдийг үзэх</a>
+          </div>
+          <div class="past-grid">
+            {recent.map((e) => (
+              <a class="past-card" href={`/uil-ajillagaa/${e.id}`}>
+                <div class="img">
+                  {e.cover_media_id ? <img src={mediaUrl(e.cover_media_id)} alt="" loading="lazy" /> : <img class="ph" src="/brand/logo.svg" alt="" />}
+                </div>
+                <div class="body">
+                  <p class="when">{fmtLong(e.starts_at)}</p>
+                  <h3>{e.title}</h3>
+                  {e.summary && <p>{e.summary}</p>}
+                </div>
+              </a>
+            ))}
+          </div>
+        </div>
+      </section>
+    )
+  }
+
+  <section class="sec" style="padding-top:clamp(24px,4vw,48px)" aria-labelledby="val-h">
+    <div class="wrap" style="text-align:center">
+      <p class="kicker-p" id="val-h">Бидний үнэт зүйлс</p>
+      <ul class="values" style="margin-top:18px">
+        {values.map((v) => <li>{v}</li>)}
+      </ul>
     </div>
   </section>
 </Public>
-
-<style>
-  .hero { background: linear-gradient(180deg, var(--surface), var(--paper)); border-bottom: 1px solid var(--line); }
-  .hero-grid { display: grid; gap: 32px; align-items: center; padding-top: clamp(36px, 7vw, 80px); padding-bottom: clamp(36px, 7vw, 80px); }
-  @media (min-width: 860px) { .hero-grid { grid-template-columns: 1.3fr 1fr; } }
-  .eyebrow { font-size: 0.8rem; font-weight: 650; letter-spacing: 0.12em; text-transform: uppercase; color: var(--blue); margin-bottom: 12px; }
-  .hero h1 { font: 650 clamp(1.8rem, 1.2rem + 2.4vw, 2.9rem)/1.15 var(--font-serif); color: var(--ink); letter-spacing: -0.015em; margin-bottom: 18px; }
-  .lede { font-size: 1.08rem; color: var(--ink-2); max-width: 36em; margin-bottom: 24px; }
-  .hero-logo { width: min(360px, 80%); height: auto; justify-self: center; }
-  .depts { padding-top: 48px; }
-  .depts h2 { font: 600 1.5rem var(--font-serif); margin-bottom: 18px; }
-  .dept { padding: 18px 0 0; border-top: 2px solid var(--maroon); }
-  .dept h3 { font: 600 1.08rem var(--font-serif); margin-bottom: 4px; }
-</style>

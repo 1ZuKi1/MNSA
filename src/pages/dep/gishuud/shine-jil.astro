@@ -98,9 +98,13 @@ const canRenew = (id: number) => (user.role === 'president' && id === user.id) |
   )}
 </Staff>
 
-<script>
-  const all = document.getElementById('all') as HTMLInputElement | null;
-  all?.addEventListener('change', () => document.querySelectorAll<HTMLInputElement>('.pick').forEach((c) => (c.checked = all.checked)));
+<script is:inline>
+  (function () {
+    var all = document.getElementById('all');
+    if (all) all.addEventListener('change', function () {
+      document.querySelectorAll('.pick').forEach(function (c) { c.checked = all.checked; });
+    });
+  })();
 </script>
 
 <style>

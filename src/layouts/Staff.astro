@@ -5,6 +5,7 @@ import { cleanStaffPath } from '../lib/hosts';
 import { canSeeAudit } from '../lib/permissions';
 import { ROLE_LABEL } from '../lib/types';
 import { flashFrom } from '../lib/http';
+import { isTestMode } from '../lib/site';
 
 interface Props {
   title: string;
@@ -16,6 +17,7 @@ const { title, bare = false, wide = false } = Astro.props;
 const user = Astro.locals.user;
 const here = cleanStaffPath(Astro.url.pathname);
 const flash = flashFrom(Astro.url);
+const test = isTestMode(Astro.url);
 
 const nav = user
   ? [
@@ -42,6 +44,7 @@ const active = (href: string) => (href === '/' ? here === '/' : here === href ||
     <slot name="head" />
   </head>
   <body class:list={['staff', { bare }]}>
+    {test && <div class="test-strip" role="note">ТУРШИЛТЫН ОРЧИН — жинхэнэ мэдээлэл бүү оруулаарай. Нэвтрэх код дэлгэц дээр харагдана.</div>}
     <header class="bar">
       <div class:list={['wrap', 'bar-inner']}>
         <a class="brand" href="/">
@@ -122,4 +125,5 @@ const active = (href: string) => (href === '/' ? here === '/' : here === href ||
   main { padding-bottom: 48px; min-height: 60vh; }
   .foot { padding-top: 24px; padding-bottom: 32px; border-top: 1px solid var(--line); }
   .bare .bar { position: static; }
+  .test-strip { background: #b3261e; color: #fff; text-align: center; font-size: 0.85rem; font-weight: 600; padding: 6px 12px; }
 </style>

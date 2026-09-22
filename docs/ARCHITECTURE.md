@@ -571,7 +571,7 @@ These aren't technical calls — they belong to whoever holds the office:
 | Phase | Status |
 |---|---|
 | 0 · Project, Cloudflare config, D1 schema, deploy pipeline | ✅ built — needs the domain + account to go live |
-| 1 · Public site redesign | ◐ new design system, homepage and events pages; other pages still to port |
+| 1 · Public site redesign | ✅ Нүүр, Танилцуулга, Удирдлагын баг (generated from the member list), Үйл ажиллагаа, Холбоо барих — WCAG AA, 0 axe violations |
 | 2 · Login, sessions, members, invites, deputy, annual renewal | ✅ |
 | 3 · Records system (3 types, numbering, versions, archive, print-to-PDF) | ✅ |
 | 4 · Approval routing + dashboards | ✅ |
@@ -579,7 +579,7 @@ These aren't technical calls — they belong to whoever holds the office:
 | 5 · Live meeting minutes | not started |
 | 6 · Presidency handover page, weekly backup | not started |
 
-Verified with 31 unit tests (permissions, approval chain, dates) and a 79-step end-to-end test driving every role through the real server, plus a production-build check with `wrangler dev`.
+Verified with 31 unit tests (permissions, approval chain, dates) and a 79-step end-to-end test driving every role through the real server, plus a production-build check with `wrangler dev` and an axe accessibility audit of every public page.
 
 ### Decisions made while building
 
@@ -588,6 +588,9 @@ Verified with 31 unit tests (permissions, approval chain, dates) and a 79-step e
 - **Invite links refuse `@pku.edu.cn` addresses** — they die at graduation.
 - **Photos are shrunk in the browser** to ≤1600 px and usually <450 KB before upload; the server checks the file's real type from its bytes, not its name.
 - **Removing a photo frees its bytes** in the media database.
+- **Test deployment without a domain.** `npm run deploy:test` deploys the same build twice to `*.workers.dev`: `mnsa` (public) and `mnsa-dep` with `SITE_MODE=staff`. `TEST_MODE=1` shows login codes on screen and adds a banner + `noindex` — and it only takes effect on `*.workers.dev` hostnames, so a forgotten variable can never expose codes on `bdmnsa.com`. Going live means fresh databases and deleting `mnsa-dep`.
+- **The public team page is built from the member list** (`show_public`, on by default; each person can hide themselves). No separate list to keep in sync at handover.
+- **Visual identity:** a night-sky hero with the logo as the moon and a gold sun (from the soyombo), the vertical Mongolian script, an алхан хээ ornament as the section divider, maroon for the new-student band. Fonts are self-hosted (Golos Text, Source Serif 4, Noto Sans Mongolian) — Google Fonts is unreliable from mainland China.
 - **Letterhead reads "Peking University · MNSA"** — I did not invent an official Chinese name; add it if one exists.
 
 ---

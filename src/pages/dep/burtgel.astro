@@ -23,7 +23,7 @@ const LABEL: Record<string, string> = {
   'task.drop': 'Ажлаас гарсан', 'task.cancel': 'Ажил цуцалсан',
   'invite.create': 'Урилга үүсгэсэн', 'invite.claim': 'Урилгаар бүртгүүлсэн', 'invite.revoke': 'Урилга цуцалсан',
   'member.change': 'Эрх өөрчилсөн', 'member.remove': 'Гишүүн хассан', 'member.deputy': 'Орлогч томилсон',
-  'member.email': 'И-мэйл сольсон', 'member.renew': 'Эрх сунгасан', 'member.archive-lapsed': 'Хугацаа дууссаныг идэвхгүй болгосон',
+  'member.email': 'И-мэйл сольсон', 'member.public.show': 'Нийтийн хуудсанд харуулсан', 'member.public.hide': 'Нийтийн хуудаснаас нуусан', 'member.renew': 'Эрх сунгасан', 'member.archive-lapsed': 'Хугацаа дууссаныг идэвхгүй болгосон',
 };
 const href = (t: string | null, id: string | null) =>
   !id ? null : t === 'record' ? `/barimt/${id}` : t === 'event' ? `/uil-ajillagaa/${id}` : null;
