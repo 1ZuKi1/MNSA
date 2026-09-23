@@ -22,7 +22,7 @@ export const STAFF_PREFIX = '/dep';
 /** Paths on the staff host that must NOT be mapped under /dep (assets, dev tooling, shared media). */
 export function shouldPrefixStaffPath(pathname: string): boolean {
   if (pathname === STAFF_PREFIX || pathname.startsWith(STAFF_PREFIX + '/')) return false;
-  if (/^\/(_astro|@|node_modules|src|brand|media)(\/|$)/.test(pathname)) return false;
+  if (/^\/(_astro|@|node_modules|src|brand|files|media)(\/|$)/.test(pathname)) return false;
   if (pathname.startsWith('/@') || pathname.startsWith('/__')) return false;
   if (pathname === '/favicon.svg' || pathname === '/apple-touch-icon.png') return false;
   return true;

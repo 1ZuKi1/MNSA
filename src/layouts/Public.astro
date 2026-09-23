@@ -3,6 +3,7 @@ import '@fontsource-variable/golos-text';
 import '@fontsource-variable/source-serif-4/opsz.css';
 import '../styles/base.css';
 import '../styles/public.css';
+import { CONSTITUTION } from '../lib/public-docs';
 
 interface Props {
   title?: string;
@@ -86,7 +87,10 @@ const ogImage = new URL(image ?? '/brand/logo-512.png', Astro.url).href;
           </div>
           <div>
             <h2>Хуудсууд</h2>
-            <ul>{nav.map((n) => <li><a href={n.href}>{n.label}</a></li>)}</ul>
+            <ul>
+              {nav.map((n) => <li><a href={n.href}>{n.label}</a></li>)}
+              <li><a href={CONSTITUTION.href} target="_blank" rel="noopener">Үндсэн дүрэм (PDF)<span class="sr-only"> — шинэ цонхонд</span></a></li>
+            </ul>
           </div>
           <div>
             <h2>Холбогдох</h2>

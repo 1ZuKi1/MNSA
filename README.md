@@ -158,6 +158,8 @@ docs/ARCHITECTURE.md   Why everything is the way it is
 
 **Adding a new kind of document** — add an entry to `RECORD_TYPES` in `src/lib/record-types.ts`: fields, a type letter for the number, an icon, an approval chain and a `print` description (heading, who signs). The form, validation, archive, numbering and the printed page (`components/OfficialDoc.astro`) all follow automatically.
 
+**Updating the Үндсэн дүрэм on the website** — when the Их Хуралдаан adopts a new version, put the PDF in `public/files/` with the adoption date in its name (e.g. `undsen-durem-2027-09-21.pdf`), then change `src/lib/public-docs.ts` (file name, version, date, counts, chapters). Keep the old file so saved links still work. It shows on *Танилцуулга* and in every page's footer.
+
 **Changing who can do what** — change `src/lib/permissions.ts` and its tests in `tests/permissions.test.ts`. Pages never decide permissions themselves.
 
 **Staff page building blocks** — `PageHead` (breadcrumbs, title, actions), `.panel`, `.items` rows, `.table-wrap.cards-sm` (a table that turns into cards on phones), `.stepper`, `.empty`. On any form: `data-confirm="…"` on a button or form asks before submitting, `data-require="fieldId"` on a button makes that field required for that button only, `data-guard` on a form warns before leaving with unsaved changes. Every form submits only once.

@@ -2,6 +2,8 @@
 // Static content: prerendered at build, free to serve.
 import Public from '../layouts/Public.astro';
 import Band from '../components/Band.astro';
+import Icon from '../components/Icon.astro';
+import { CONSTITUTION as C } from '../lib/public-docs';
 
 const goals = [
   'Монгол оюутнуудын эрх ашгийг хамгаалах',
@@ -55,6 +57,7 @@ const history = [
         <li><a href="#butets">Бүтэц</a></li>
         <li><a href="#huvaari">Жилийн хуваарь</a></li>
         <li><a href="#tuuh">Түүх</a></li>
+        <li><a href="#durem">Үндсэн дүрэм</a></li>
       </ul>
     </div>
   </nav>
@@ -78,6 +81,7 @@ const history = [
           сургуулийг оролцуулан), магистр, доктор — Холбооны гишүүн. Тусгайлан бүртгүүлэх шаардлагагүй. Монгол Улсаас түр
           хугацаагаар суралцахаар ирсэн оюутнууд ажиглагч гишүүн байна.
         </p>
+        <p>Холбоо бүх үйл ажиллагаагаа <a href="#durem">Үндсэн дүрмийнхээ</a> дагуу явуулдаг. Бүрэн эхийг хэн ч уншиж, татаж авах боломжтой.</p>
       </div>
       <span class="quote-cap">Эрхэм зорилго</span>
       <p class="quote">
@@ -153,7 +157,34 @@ const history = [
           </li>
         ))}
       </ul>
-      <p class="note"><strong>Үндсэн дүрэм</strong> — 13 бүлэг, 53 зүйл, 247 заалт. Хүчин төгөлдөр найруулга нь 2025 оны 11 дүгээр сарын 8-нд батлагдсан.</p>
+    </div>
+  </section>
+
+  <section class="sec" id="durem" aria-labelledby="durem-h">
+    <div class="wrap">
+      <span class="sec-label">Үндсэн дүрэм</span>
+      <h2 id="durem-h">Холбооны Үндсэн дүрэм</h2>
+      <div class="doc-card">
+        <span class="doc-ic" aria-hidden="true"><Icon name="doc" /><b>PDF</b></span>
+        <div class="doc-body">
+          <h3>Үндсэн дүрэм — {C.version}</h3>
+          <p class="doc-meta">{C.adopted}-нд батлагдсан · {C.counts}</p>
+          <p class="doc-meta">PDF · {C.pages} хуудас · {C.size}</p>
+          <div class="btn-row">
+            <a class="btn btn-primary" href={C.href} target="_blank" rel="noopener">Унших<span class="sr-only"> (PDF, шинэ цонхонд)</span></a>
+            <a class="btn" href={C.href} download={C.download}><Icon name="download" /> Татаж авах<span class="sr-only"> (PDF, {C.size})</span></a>
+          </div>
+        </div>
+      </div>
+
+      <h3 class="sub-h" id="chapters-h">Бүлгүүд</h3>
+      <ol class="numbered chapters" aria-labelledby="chapters-h">
+        {C.chapters.map(([name, arts]) => <li><span>{name}<small>{arts}-р зүйл</small></span></li>)}
+      </ol>
+      <p class="note">
+        Холбооны албан ёсны баримт бичиг Монгол хэл дээр байна (5.1). Гишүүн бүр Холбооны бүх мэдээлэлд нээлттэй хандах эрхтэй
+        (10.1.4). Үндсэн дүрэмд өөрчлөлт оруулах саналаа Холбоонд албан ёсоор гаргана (50.1).
+      </p>
     </div>
   </section>
 </Public>

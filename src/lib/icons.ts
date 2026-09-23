@@ -39,6 +39,7 @@ export const ICONS = {
   trash: '<path d="M4 7h16M10 11v6M14 11v6"/><path d="M6 7l1 13h10l1-13M9 7V4h6v3"/>',
   // a rubber stamp
   stamp: '<path d="M9.5 3.5h5a1 1 0 0 1 1 1v1.2c0 1.4-1.5 2.4-1.5 4.3v1.5h4a2 2 0 0 1 2 2V16H4v-2.5a2 2 0 0 1 2-2h4V10c0-1.9-1.5-2.9-1.5-4.3V4.5a1 1 0 0 1 1-1z"/><path d="M5 20h14"/>',
+  download: '<path d="M12 4v11"/><path d="M7 10.5l5 5 5-5"/><path d="M5 20h14"/>',
   image: '<rect x="3" y="4.5" width="18" height="15" rx="2"/><circle cx="8.5" cy="9.5" r="1.8"/><path d="M21 15.5l-5-5-9.5 9"/>',
   search: '<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>',
   user: '<circle cx="12" cy="8" r="3.8"/><path d="M4.5 20.5v-1a7.5 7.5 0 0 1 15 0v1"/>',

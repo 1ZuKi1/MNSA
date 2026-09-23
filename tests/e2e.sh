@@ -265,6 +265,9 @@ has "about page: the yearly calendar from the constitution" "$(pub /taniltsuulga
 has "newcomer guide: the two deadlines" "$(pub /shine-oyutan)" "24 цагт"
 has "newcomer guide: in the menu" "$(pub /)" 'href="/shine-oyutan"'
 has "contact page: the Gmail address" "$(pub /holboo-barih)" "pkumongolia@gmail.com"
+has "about page links the full constitution" "$(pub /taniltsuulga)" 'href="/files/undsen-durem-2025-11-08.pdf"'
+has "…and so does every page's footer" "$(pub /)" "Үндсэн дүрэм (PDF)"
+check "the constitution PDF is served to everyone" "$(curl -s -o /dev/null -w '%{http_code} %{content_type}' -H "$P" $B/files/undsen-durem-2025-11-08.pdf)" "200 application/pdf"
 has "member hides themselves" "$(post $J/dotood2.jar /gishuud -d action=public_off -d user=4)" "ok=saved"
 hasnt "…and is gone from the team page" "$(pub /udirdlaga)" "Билгүүн"
 has "other dept head cannot toggle them" "$(post $J/gadaad.jar /gishuud -d action=public_on -d user=4)" "err=denied"
