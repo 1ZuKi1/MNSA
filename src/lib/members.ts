@@ -1,6 +1,6 @@
 /** Members, invites, the annual renewal. President (and one deputy) only — see permissions.ts. */
 import { randomToken, sha256Hex } from './crypto';
-import { auditStmt, db, deptBySlug, many, one, stmt } from './db';
+import { auditStmt, db, deptBySlug, many, mediaDb, one, stmt } from './db';
 import * as P from './permissions';
 import { Denied } from './records';
 import { now, termEnd } from './time';
@@ -21,10 +21,11 @@ export interface MemberRow {
   term_ends_at: number | null;
   last_login_at: number | null;
   show_public: number;
+  photo_id: string | null;
 }
 
 const SELECT = `SELECT u.id, u.email, u.name_mn, u.full_name, u.student_id, u.role, u.department_id, d.slug AS dept_slug, d.name_mn AS dept_name,
-                       u.is_deputy, u.status, u.term_ends_at, u.last_login_at, u.show_public
+                       u.is_deputy, u.status, u.term_ends_at, u.last_login_at, u.show_public, u.photo_id
                   FROM users u LEFT JOIN departments d ON d.id = u.department_id`;
 
 const ROLE_ORDER = `CASE u.role WHEN 'president' THEN 0 WHEN 'board' THEN 1 WHEN 'head' THEN 2 WHEN 'member' THEN 3 ELSE 4 END`;
@@ -200,6 +201,24 @@ export async function setShowPublic(a: SessionUser, m: MemberRow, on: boolean, i
     stmt(`UPDATE users SET show_public = ? WHERE id = ?`, on ? 1 : 0, m.id),
     auditStmt(a.id, on ? 'member.public.show' : 'member.public.hide', 'user', m.id, null, ip),
   ]);
+}
+
+// ------------------------------------------------------------------ portrait on the public team page
+
+/**
+ * Who may set someone's photo: the person themselves, whoever may change their account, and the
+ * maintainer (who loads the team's photos at the start of the year). Everything is in the audit log.
+ */
+export const canSetPhoto = (a: SessionUser, m: MemberRow) => canSetPublic(a, m) || a.role === 'maintainer';
+
+/** Replace (or, with null, remove) the portrait. The old image's bytes are freed straight away. */
+export async function setPhoto(a: SessionUser, m: MemberRow, mediaId: string | null, ip: string | null) {
+  if (!canSetPhoto(a, m)) throw new Denied();
+  await db().batch([
+    stmt(`UPDATE users SET photo_id = ? WHERE id = ?`, mediaId, m.id),
+    auditStmt(a.id, mediaId ? 'member.photo' : 'member.photo.remove', 'user', m.id, null, ip),
+  ]);
+  if (m.photo_id && m.photo_id !== mediaId) await mediaDb().prepare(`DELETE FROM media WHERE id = ?`).bind(m.photo_id).run();
 }
 
 // ------------------------------------------------------------------ annual renewal (Idea 1)

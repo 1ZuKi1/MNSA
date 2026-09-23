@@ -3,6 +3,7 @@ export const prerender = false;
 import Staff from '../../../layouts/Staff.astro';
 import PageHead from '../../../components/PageHead.astro';
 import Icon from '../../../components/Icon.astro';
+import PhotoShrink from '../../../components/PhotoShrink.astro';
 import { departments, many } from '../../../lib/db';
 import {
   addPhoto, addTask, assignTask, cancelTask, dropAssignment, eventPhotos, eventTasks, finishAssignment, getEvent,
@@ -348,54 +349,4 @@ const when = `${fmtDateTime(ev.starts_at)} – ${fmtDate(ev.ends_at) === fmtDate
   </div>
 </Staff>
 
-<script is:inline>
-  // Shrink photos in the browser before upload: fast from Beijing, and keeps each photo well under D1's 2 MB row limit.
-  (function () {
-    var MAX = 1600;
-    function encode(canvas, type, q) { return new Promise(function (r) { canvas.toBlob(r, type, q); }); }
-    async function shrink(file) {
-      var bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });
-      var scale = Math.min(1, MAX / Math.max(bmp.width, bmp.height));
-      var w = Math.round(bmp.width * scale), h = Math.round(bmp.height * scale);
-      var canvas = document.createElement('canvas');
-      canvas.width = w; canvas.height = h;
-      canvas.getContext('2d').drawImage(bmp, 0, 0, w, h);
-      var q = 0.82;
-      var blob = await encode(canvas, 'image/webp', q);
-      var type = blob && blob.type === 'image/webp' ? 'image/webp' : 'image/jpeg'; // Safari can't encode WebP
-      if (type === 'image/jpeg') blob = await encode(canvas, type, q);
-      while (blob && blob.size > 450000 && q > 0.5) { q -= 0.1; blob = await encode(canvas, type, q); }
-      if (!blob) throw new Error('encode failed');
-      var name = file.name.replace(/\.[^.]+$/, '') + (type === 'image/webp' ? '.webp' : '.jpg');
-      return { file: new File([blob], name, { type: type }), w: w, h: h };
-    }
-    document.querySelectorAll('form[data-photo-form]').forEach(function (form) {
-      var input = form.querySelector('input[type=file]');
-      var status = form.querySelector('[data-status]');
-      var button = form.querySelector('button[type=submit]');
-      var drop = form.querySelector('.drop');
-      var preview = form.querySelector('[data-preview]');
-      input.addEventListener('change', async function () {
-        var f = input.files && input.files[0];
-        if (!f) return;
-        button.disabled = true;
-        status.textContent = 'Жижигрүүлж байна…';
-        try {
-          var out = await shrink(f);
-          var dt = new DataTransfer();
-          dt.items.add(out.file);
-          input.files = dt.files;
-          form.elements.namedItem('w').value = String(out.w);
-          form.elements.namedItem('h').value = String(out.h);
-          status.textContent = f.name + ': ' + Math.round(f.size / 1024) + ' KB → ' + Math.round(out.file.size / 1024) + ' KB. Байршуулахад бэлэн.';
-          if (preview) { preview.src = URL.createObjectURL(out.file); preview.classList.add('show'); }
-          if (drop) drop.classList.add('has-file');
-        } catch (e) {
-          status.textContent = 'Жижигрүүлж чадсангүй — эх файлаар илгээнэ (1.8 MB-аас бага байх ёстой).';
-        } finally {
-          button.disabled = false;
-        }
-      });
-    });
-  })();
-</script>
+<PhotoShrink />

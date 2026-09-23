@@ -8,8 +8,10 @@ import { departments, one } from '../../../lib/db';
 import { looksLikeEmail, normalizeEmail } from '../../../lib/auth';
 import { clientIp, int, safeNext, str, withFlash } from '../../../lib/http';
 import {
-  canSetPublic, changeEmail, changeMember, createInvite, getMember, listMembers, openInvites, recentlyClaimed, removeMember, revokeInvite, setDeputy, setShowPublic,
+  canSetPhoto, canSetPublic, changeEmail, changeMember, createInvite, getMember, listMembers, openInvites, recentlyClaimed, removeMember, revokeInvite, setDeputy,
+  setPhoto, setShowPublic,
 } from '../../../lib/members';
+import { BadImage, mediaUrl, storeImage } from '../../../lib/media';
 import * as P from '../../../lib/permissions';
 import { Denied } from '../../../lib/records';
 import { fmtDate, fmtDateTime, now } from '../../../lib/time';
@@ -33,6 +35,24 @@ if (Astro.request.method === 'POST') {
     if (!target || !canSetPublic(user, target)) return Astro.redirect(withFlash(back, 'denied', 'err'));
     await setShowPublic(user, target, action === 'public_on', ip);
     return Astro.redirect(withFlash(back, 'saved'));
+  }
+  if (action === 'photo' || action === 'photo_remove') {
+    const target = await getMember(int(str(fd, 'user')) ?? 0);
+    if (!target || target.status !== 'active' || !canSetPhoto(user, target)) return Astro.redirect(withFlash(back, 'denied', 'err'));
+    if (action === 'photo_remove') {
+      await setPhoto(user, target, null, ip);
+      return Astro.redirect(withFlash(back, 'portrait_removed'));
+    }
+    const file = fd.get('file');
+    if (!(file instanceof File) || file.size === 0) return Astro.redirect(withFlash(back, 'invalid', 'err'));
+    try {
+      const mediaId = await storeImage(file, user.id, int(str(fd, 'w')) ?? undefined, int(str(fd, 'h')) ?? undefined);
+      await setPhoto(user, target, mediaId, ip);
+    } catch (e) {
+      if (e instanceof BadImage) return Astro.redirect(withFlash(back, 'image', 'err'));
+      throw e;
+    }
+    return Astro.redirect(withFlash(back, 'portrait'));
   }
   if (!manager) return Astro.redirect(withFlash(back, 'denied', 'err'));
   try {
@@ -88,7 +108,8 @@ const groups = depts
   .map((d) => ({ name: d.name_mn, rows: members.filter((m) => m.department_id === d.id) }))
   .concat([{ name: 'Хэлтэсгүй', rows: members.filter((m) => m.department_id === null) }])
   .filter((g) => g.rows.length > 0);
-const canOpen = (m: (typeof members)[number]) => m.id === user.id || manager;
+// The maintainer opens pages only to load photos (see gishuud/[id]).
+const canOpen = (m: (typeof members)[number]) => m.id === user.id || manager || user.role === 'maintainer';
 ---
 <Staff title="Гишүүд">
   <PageHead title="Гишүүд" sub={`Ажлын орчны эрхтэй ${members.length} хүн. Эрх жил бүрийн 9-р сарын 30-нд дуусна.`}>
@@ -137,7 +158,9 @@ const canOpen = (m: (typeof members)[number]) => m.id === user.id || manager;
               <tr class:list={{ clickable: canOpen(m) }}>
                 <td class="main-cell">
                   <span class="who">
-                    <span class="avatar" aria-hidden="true">{initials(m.name_mn)}</span>
+                    {m.photo_id
+                      ? <span class="avatar photo" aria-hidden="true"><img src={mediaUrl(m.photo_id)} alt="" width="36" height="36" loading="lazy" /></span>
+                      : <span class="avatar" aria-hidden="true">{initials(m.name_mn)}</span>}
                     <span class="who-text">
                       {canOpen(m) ? <a class="row-link" href={`/gishuud/${m.id}`}>{m.name_mn}</a> : <b>{m.name_mn}</b>}
                       {m.id === user.id && <span class="muted small"> (та)</span>}

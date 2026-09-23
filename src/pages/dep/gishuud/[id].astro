@@ -8,9 +8,11 @@ export const prerender = false;
 import Staff from '../../../layouts/Staff.astro';
 import PageHead from '../../../components/PageHead.astro';
 import Icon from '../../../components/Icon.astro';
+import PhotoShrink from '../../../components/PhotoShrink.astro';
 import { departments } from '../../../lib/db';
 import { int } from '../../../lib/http';
-import { asMemberLike, canSetPublic, getMember } from '../../../lib/members';
+import { asMemberLike, canSetPhoto, canSetPublic, getMember } from '../../../lib/members';
+import { mediaUrl } from '../../../lib/media';
 import * as P from '../../../lib/permissions';
 import { initials } from '../../../lib/team';
 import { fmtDate, fmtDateTime, now, relDay } from '../../../lib/time';
@@ -20,12 +22,15 @@ const user = Astro.locals.user!;
 const id = int(Astro.params.id);
 const m = id ? await getMember(id) : null;
 const manager = P.canManageMembers(user);
-if (!m || m.status !== 'active' || (m.id !== user.id && !manager)) return new Response(null, { status: 404 });
+// The maintainer may open anyone's page too — to load the team's photos — but changes nothing else there.
+if (!m || m.status !== 'active' || (m.id !== user.id && !manager && user.role !== 'maintainer')) return new Response(null, { status: 404 });
 
 const depts = await departments();
 const self = m.id === user.id;
 const canTouch = P.canModifyMember(user, asMemberLike(m));
 const canPublic = canSetPublic(user, m) && m.role !== 'maintainer';
+const canPhoto = canSetPhoto(user, m) && m.role !== 'maintainer';
+const photo = mediaUrl(m.photo_id);
 const grantable = P.grantableRoles(user);
 const back = `/gishuud/${m.id}`;
 const expiring = m.term_ends_at !== null && m.term_ends_at - now() < 30 * 86400;
@@ -44,7 +49,9 @@ const expiring = m.term_ends_at !== null && m.term_ends_at - now() < 30 * 86400;
         <div class="panel-head"><h2 id="info-h"><Icon name="user" /> Мэдээлэл</h2></div>
         <div class="panel-body">
           <div class="profile" style="margin-bottom:16px">
-            <span class="avatar lg" aria-hidden="true">{initials(m.name_mn)}</span>
+            {photo
+              ? <span class="avatar lg photo" aria-hidden="true"><img src={photo} alt="" width="64" height="64" /></span>
+              : <span class="avatar lg" aria-hidden="true">{initials(m.name_mn)}</span>}
             <dl class="kv">
               {m.full_name && <><dt>Бүтэн нэр</dt><dd>{m.full_name}</dd></>}
               <dt>И-мэйл</dt><dd>{m.email}</dd>
@@ -57,7 +64,7 @@ const expiring = m.term_ends_at !== null && m.term_ends_at - now() < 30 * 86400;
             {P.canSeeParticipation(user, m.id) && (
               <a class="btn btn-sm" href={`/oroltsoo?user=${m.id}`}><Icon name="chart" /> {self ? 'Миний оролцоо' : 'Оролцоог харах'}</a>
             )}
-            {(m.role === 'president' || m.role === 'head' || m.role === 'member') && (
+            {(self || manager) && (m.role === 'president' || m.role === 'head' || m.role === 'member') && (
               <a class="btn btn-sm" href={`/gishuud/bichig?id=${m.id}`} target="_blank" rel="noopener"><Icon name="print" /> Үүргийн бичиг<span class="sr-only"> (шинэ цонхонд)</span></a>
             )}
           </div>
@@ -108,6 +115,35 @@ const expiring = m.term_ends_at !== null && m.term_ends_at - now() < 30 * 86400;
     </div>
 
     <div>
+      {canPhoto && (
+        <form method="post" action="/gishuud" enctype="multipart/form-data" class="panel" aria-labelledby="ph-h" data-photo-form data-max="900">
+          <input type="hidden" name="user" value={m.id} />
+          <input type="hidden" name="back" value={back} />
+          <input type="hidden" name="w" value="" />
+          <input type="hidden" name="h" value="" />
+          <div class="panel-head"><h2 id="ph-h"><Icon name="image" /> Зураг</h2></div>
+          <div class="panel-body stack" style="--stack:14px">
+            <p class="form-note">Нийтийн «Удирдлагын баг» хуудсанд нэрийн дээр гарна. Нүүр нь тод харагдах, мөрнөөс дээш авсан зураг хамгийн тохиромжтой — дугуй хэлбэрээр тайрч харуулна.</p>
+            <div class="portrait-row">
+              {photo
+                ? <span class="avatar xl photo"><img src={photo} alt={`${m.name_mn}-ийн одоогийн зураг`} width="112" height="112" /></span>
+                : <span class="avatar xl" aria-hidden="true">{initials(m.name_mn)}</span>}
+              <img class="preview" alt="Сонгосон шинэ зураг" data-preview />
+            </div>
+            <label class="drop">
+              <Icon name="image" />
+              <b>{photo ? 'Шинэ зураг сонгох' : 'Зураг сонгох'}</b>
+              <span data-status>Утасны зураг ч болно — илгээхээс өмнө автоматаар жижигрүүлнэ.</span>
+              <input name="file" type="file" accept="image/jpeg,image/png,image/webp" required />
+            </label>
+            <div class="btn-row">
+              <button class="btn btn-primary" type="submit" name="action" value="photo"><Icon name="check" /> Хадгалах</button>
+              {photo && <button class="btn btn-sm" type="submit" name="action" value="photo_remove" formnovalidate data-confirm="Зургийг устгах уу? Нэрийн эхний үсгүүд харагдана.">Зургийг устгах</button>}
+            </div>
+          </div>
+        </form>
+      )}
+
       {canPublic && (
         <form method="post" action="/gishuud" class="panel" aria-labelledby="pub-h">
           <input type="hidden" name="user" value={m.id} />
@@ -154,3 +190,5 @@ const expiring = m.term_ends_at !== null && m.term_ends_at - now() < 30 * 86400;
     </div>
   </div>
 </Staff>
+
+<PhotoShrink />

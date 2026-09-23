@@ -33,7 +33,7 @@ const LABEL: Record<string, string> = {
   'invite.create': 'Урилга үүсгэсэн', 'invite.claim': 'Урилгаар бүртгүүлсэн', 'invite.revoke': 'Урилга цуцалсан',
   'member.change': 'Эрх өөрчилсөн', 'member.remove': 'Гишүүн хассан', 'member.deputy': 'Орлогч томилсон',
   'member.email': 'И-мэйл сольсон', 'member.public.show': 'Нийтийн хуудсанд харуулсан', 'member.public.hide': 'Нийтийн хуудаснаас нуусан', 'member.renew': 'Эрх сунгасан', 'member.archive-lapsed': 'Хугацаа дууссаныг идэвхгүй болгосон',
-  'member.import': 'Жагсаалтаас оруулсан', 'settings.stamp': 'Тамга сольсон', 'settings.stamp.remove': 'Тамга устгасан',
+  'member.import': 'Жагсаалтаас оруулсан', 'member.photo': 'Зураг сольсон', 'member.photo.remove': 'Зураг устгасан', 'settings.stamp': 'Тамга сольсон', 'settings.stamp.remove': 'Тамга устгасан',
 };
 const href = (t: string | null, id: string | null) =>
   !id ? null : t === 'record' ? `/barimt/${id}` : t === 'event' ? `/uil-ajillagaa/${id}` : t === 'user' && P.canManageMembers(user) ? `/gishuud/${id}` : null;

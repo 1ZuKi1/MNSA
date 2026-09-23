@@ -274,4 +274,26 @@ has "other dept head cannot toggle them" "$(post $J/gadaad.jar /gishuud -d actio
 has "member shows themselves again" "$(post $J/dotood2.jar /gishuud -d action=public_on -d user=4)" "ok=saved"
 has "…and is back" "$(pub /udirdlaga)" "Билгүүн"
 
+echo "── team photos"
+# A 1×1 PNG, and a text file pretending to be one.
+printf '%s' 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==' | base64 -d > $J/p.png
+printf 'not an image' > $J/fake.png
+hasnt "no photos yet: initials only" "$(pub /udirdlaga)" 'src="/media/'
+has "member uploads their own photo" "$(post $J/dotood2.jar /gishuud -F action=photo -F user=4 -F back=/gishuud/4 -F "file=@$J/p.png;type=image/png")" "ok=portrait"
+TP=$(pub /udirdlaga)
+has "…it's on the team page" "$TP" 'src="/media/'
+PHOTO=$(echo "$TP" | grep -o '/media/[A-Za-z0-9_-]*' | head -1)
+check "…and served to everyone" "$(curl -s -o /dev/null -w '%{http_code} %{content_type}' -H "$P" $B$PHOTO)" "200 image/png"
+has "team page: President first, in the leadership section" "$TP" 'member lead'
+has "team page: every department has its own block" "$TP" 'id="d-erh-zui"'
+has "a fake image is refused" "$(post $J/dotood2.jar /gishuud -F action=photo -F user=4 -F back=/gishuud/4 -F "file=@$J/fake.png;type=image/png")" "err=image"
+has "other dept head cannot set someone's photo" "$(post $J/gadaad.jar /gishuud -F action=photo -F user=4 -F "file=@$J/p.png;type=image/png")" "err=denied"
+check "maintainer can open a member's page (to load photos)" "$(code $J/dev.jar /gishuud/5)" 200
+has "…and set their photo" "$(post $J/dev.jar /gishuud -F action=photo -F user=5 -F back=/gishuud/5 -F "file=@$J/p.png;type=image/png")" "ok=portrait"
+has "…but still cannot change their role" "$(post $J/dev.jar /gishuud -d action=change -d user=5 -d role=member -d dept=gadaad)" "err=denied"
+hasnt "…and sees no role form there" "$(get $J/dev.jar /gishuud/5)" 'id="role-h"'
+has "photo change is in the audit log" "$(get $J/president.jar /burtgel)" "Зураг сольсон"
+has "member removes their photo" "$(post $J/dotood2.jar /gishuud -d action=photo_remove -d user=4 -d back=/gishuud/4)" "ok=portrait_removed"
+check "…its bytes are gone" "$(curl -s -o /dev/null -w '%{http_code}' -H "$P" $B$PHOTO)" 404
+
 echo; echo "RESULT: $pass passed, $fail failed"

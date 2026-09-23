@@ -297,16 +297,45 @@ a.row-in h3 { transition: color var(--t); }
 .quote-cap + .quote { margin-top: 0; }
 
 /* ---------- people ---------- */
-.people { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 14px 28px; }
-.person { display: flex; align-items: center; gap: 12px; }
-.avatar {
-  flex: none; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center;
-  font: 650 0.95rem var(--font-sans); color: #fff; background: var(--blue);
-}
-.avatar.lg { width: 64px; height: 64px; font-size: 1.3rem; background: var(--maroon); }
-.person .n { font-weight: 650; display: block; }
-.person .r { color: var(--ink-3); font-size: 0.9rem; }
 .vacant { color: var(--ink-3); font-style: italic; margin: 0; }
+
+/* ---------- team page: photo on top, name under it, everyone centred ---------- */
+.team-head { text-align: center; }
+.team-head h2 { margin-bottom: clamp(28px, 4vw, 40px); }
+.center { text-align: center; }
+.center .note { margin-left: auto; margin-right: auto; }
+.members {
+  --size: 136px;
+  list-style: none; margin: 0 auto; padding: 0; max-width: 60rem;
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 32px clamp(20px, 3.5vw, 44px);
+}
+.members + .members { margin-top: clamp(32px, 4vw, 44px); }
+.member { width: calc(var(--size) + 28px); display: flex; flex-direction: column; align-items: center; text-align: center; }
+.member.lead { --size: 176px; }
+.portrait {
+  width: var(--size); height: var(--size); border-radius: 50%; overflow: hidden; flex: none;
+  display: grid; place-items: center; margin-bottom: 14px;
+  background: var(--tint, var(--blue)); color: #fff;
+  font: 620 calc(var(--size) * 0.3) / 1 var(--font-display); letter-spacing: 0.02em;
+  box-shadow: 0 0 0 4px var(--ivory), 0 0 0 5px var(--line-strong);
+}
+.portrait img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 25%; display: block; }
+.member .n { font-weight: 650; font-size: 1.02rem; line-height: 1.3; text-wrap: balance; }
+.member.lead .n { font: 620 1.3rem/1.25 var(--font-display); }
+.member .r { color: var(--ink-3); font-size: 0.88rem; line-height: 1.35; margin-top: 3px; }
+.dept { padding: clamp(32px, 4.5vw, 48px) 0; border-top: 1px solid var(--line); }
+.dept:first-of-type { border-top: 0; padding-top: 0; }
+.dept h3 {
+  text-align: center; margin: 0 0 clamp(22px, 3vw, 30px);
+  font: 620 clamp(1.2rem, 1rem + 0.6vw, 1.45rem)/1.25 var(--font-display);
+}
+.dept h3::after { content: ''; display: block; width: 36px; height: 3px; border-radius: 2px; background: var(--tint); margin: 10px auto 0; }
+.team .vacant { margin-bottom: 4px; }
+@media (max-width: 560px) {
+  .members { --size: 104px; gap: 26px 14px; }
+  .member { width: calc(50% - 8px); max-width: 150px; }
+  .member.lead { --size: 136px; width: 100%; max-width: none; }
+}
 
 /* ---------- photo cards (past events) ---------- */
 .cards { display: grid; gap: 20px; grid-template-columns: repeat(3, 1fr); }

@@ -5,6 +5,7 @@ import type { DeptSlug, Role } from './types';
 
 export interface TeamMember {
   name: string;
+  photo: string | null;
   role: Role;
   dept: DeptSlug | null;
   dept_name: string | null;
@@ -12,7 +13,7 @@ export interface TeamMember {
 
 export async function publicTeam() {
   const rows = await many<TeamMember & { sort_order: number | null }>(
-    `SELECT u.name_mn AS name, u.role, d.slug AS dept, d.name_mn AS dept_name, d.sort_order
+    `SELECT u.name_mn AS name, u.photo_id AS photo, u.role, d.slug AS dept, d.name_mn AS dept_name, d.sort_order
        FROM users u LEFT JOIN departments d ON d.id = u.department_id
       WHERE u.status = 'active' AND u.role <> 'maintainer' AND u.show_public = 1
         AND (u.term_ends_at IS NULL OR u.term_ends_at > ?)
