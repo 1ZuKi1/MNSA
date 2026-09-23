@@ -1,15 +1,18 @@
 ---
 export const prerender = false;
 import Staff from '../../../layouts/Staff.astro';
+import PageHead from '../../../components/PageHead.astro';
+import Icon from '../../../components/Icon.astro';
 import { departments } from '../../../lib/db';
 import { canCreateRecordIn } from '../../../lib/permissions';
 import { getRecordType, RECORD_TYPE_LIST } from '../../../lib/record-types';
-import { listRecords } from '../../../lib/records';
-import { academicYear, fmtDate } from '../../../lib/time';
-import { STATUS_LABEL, type DeptSlug, type RecordStatus } from '../../../lib/types';
+import { awaitingMe, listRecords } from '../../../lib/records';
+import { academicYear, fmtDate, relDay } from '../../../lib/time';
+import { STATUS_LABEL, STEP_LABEL, type DeptSlug, type RecordStatus } from '../../../lib/types';
 
 const user = Astro.locals.user!;
 const sp = Astro.url.searchParams;
+const view = sp.get('view') === 'mine' || sp.get('mine') === '1' ? 'mine' : sp.get('view') === 'waiting' ? 'waiting' : 'all';
 const filter = {
   status: sp.get('status') ?? '',
   dept: sp.get('dept') ?? '',
@@ -17,85 +20,111 @@ const filter = {
   year: sp.get('year') ?? '',
   q: (sp.get('q') ?? '').trim(),
 };
-const rows = await listRecords(user, { ...filter, limit: 200 });
-const depts = await departments();
+const [rows, waiting, depts] = await Promise.all([
+  view === 'waiting'
+    ? awaitingMe(user)
+    : listRecords(user, { ...filter, author: view === 'mine' ? user.id : undefined, limit: 300 }),
+  awaitingMe(user),
+  departments(),
+]);
 const canCreate = depts.some((d) => canCreateRecordIn(user, d.slug as DeptSlug));
 const cur = academicYear();
 const years = [cur, `${Number(cur.slice(0, 4)) - 1}-${cur.slice(0, 4)}`];
+const filtered = Object.values(filter).some(Boolean);
 
-const link = (patch: Record<string, string>) => {
-  const q = new URLSearchParams({ ...filter, ...patch });
-  for (const [k, v] of [...q]) if (!v) q.delete(k);
-  const s = q.toString();
-  return s ? `/barimt?${s}` : '/barimt';
-};
 const statuses: (RecordStatus | '')[] = ['', 'draft', 'in_review', 'approved', 'rejected', 'void'];
 ---
 <Staff title="Баримт бичиг">
-  <div class="page-head">
-    <div>
-      <span class="kicker">Холбооны нэгдсэн архив</span>
-      <h1>Баримт бичиг</h1>
-    </div>
-    {canCreate && <a class="btn btn-primary" href="/barimt/shine">+ Шинэ баримт бичиг</a>}
-  </div>
+  <PageHead title="Баримт бичиг" sub="Холбооны нэгдсэн архив. Бүх хэлтсийн баримтыг уншиж болно, засах эрх зөвхөн өөрийн хэлтэст.">
+    <Fragment slot="actions">
+      {canCreate && <a class="btn btn-primary" href="/barimt/shine"><Icon name="plus" /> Шинэ баримт бичиг</a>}
+    </Fragment>
+  </PageHead>
 
-  <nav class="pills" aria-label="Төлөв">
-    {statuses.map((s) => (
-      <a class="pill" href={link({ status: s })} aria-current={filter.status === s ? 'true' : undefined}>
-        {s ? STATUS_LABEL[s] : 'Бүгд'}
+  <nav class="tabs" aria-label="Харах">
+    <a href="/barimt" aria-current={view === 'all' ? 'page' : undefined}>Бүгд</a>
+    <a href="/barimt?view=mine" aria-current={view === 'mine' ? 'page' : undefined}>Миний бичсэн</a>
+    {(waiting.length > 0 || view === 'waiting') && (
+      <a href="/barimt?view=waiting" aria-current={view === 'waiting' ? 'page' : undefined}>
+        Миний шийдвэр хүлээж буй <span class="badge plain b-gold">{waiting.length}</span>
       </a>
-    ))}
+    )}
   </nav>
 
-  <form class="filters" method="get">
-    {filter.status && <input type="hidden" name="status" value={filter.status} />}
-    <select name="dept" aria-label="Хэлтэс">
-      <option value="">Бүх хэлтэс</option>
-      {depts.map((d) => <option value={d.slug} selected={filter.dept === d.slug}>{d.name_mn}</option>)}
-    </select>
-    <select name="type" aria-label="Төрөл">
-      <option value="">Бүх төрөл</option>
-      {RECORD_TYPE_LIST.map((t) => <option value={t.slug} selected={filter.type === t.slug}>{t.label}</option>)}
-    </select>
-    <select name="year" aria-label="Хичээлийн жил">
-      <option value="">Бүх жил</option>
-      {years.map((y) => <option value={y} selected={filter.year === y}>{y}</option>)}
-    </select>
-    <input type="search" name="q" placeholder="Гарчиг эсвэл дугаар" value={filter.q} maxlength="20" />
-    <button class="btn" type="submit">Шүүх</button>
-  </form>
+  {view !== 'waiting' && (
+    <form class="toolbar" method="get" role="search" aria-label="Баримт хайх">
+      {view !== 'all' && <input type="hidden" name="view" value={view} />}
+      <div class="search">
+        <label for="q" class="sr-only">Гарчиг эсвэл дугаараар хайх</label>
+        <Icon name="search" />
+        <input id="q" type="search" name="q" placeholder="Гарчиг эсвэл дугаар…" value={filter.q} maxlength="20" />
+      </div>
+      <label for="f-status" class="sr-only">Төлөв</label>
+      <select id="f-status" name="status">
+        {statuses.map((s) => <option value={s} selected={filter.status === s}>{s ? STATUS_LABEL[s] : 'Бүх төлөв'}</option>)}
+      </select>
+      <label for="f-dept" class="sr-only">Хэлтэс</label>
+      <select id="f-dept" name="dept">
+        <option value="">Бүх хэлтэс</option>
+        {depts.map((d) => <option value={d.slug} selected={filter.dept === d.slug}>{d.name_mn}</option>)}
+      </select>
+      <label for="f-type" class="sr-only">Төрөл</label>
+      <select id="f-type" name="type">
+        <option value="">Бүх төрөл</option>
+        {RECORD_TYPE_LIST.map((t) => <option value={t.slug} selected={filter.type === t.slug}>{t.label}</option>)}
+      </select>
+      <label for="f-year" class="sr-only">Хичээлийн жил</label>
+      <select id="f-year" name="year">
+        <option value="">Бүх жил</option>
+        {years.map((y) => <option value={y} selected={filter.year === y}>{y}</option>)}
+      </select>
+      <button class="btn" type="submit">Шүүх</button>
+    </form>
+  )}
+
+  <p class="result-line" role="status">
+    <span>{rows.length} баримт</span>
+    {filtered && view !== 'waiting' && <a href={view === 'mine' ? '/barimt?view=mine' : '/barimt'}>Шүүлтүүр цэвэрлэх</a>}
+  </p>
 
   {
     rows.length === 0 ? (
-      <p class="empty">Энэ шүүлтүүрт тохирох баримт бичиг алга.</p>
+      <div class="empty">
+        <Icon name="doc" />
+        <b>{view === 'waiting' ? 'Таны шийдвэр хүлээж буй баримт алга.' : 'Энэ шүүлтүүрт тохирох баримт бичиг алга.'}</b>
+      </div>
     ) : (
-      <div class="table-wrap">
+      <div class="table-wrap cards-sm">
         <table class="t">
+          <caption class="sr-only">Баримт бичгийн жагсаалт</caption>
           <thead>
             <tr>
-              <th>Дугаар</th>
-              <th>Гарчиг</th>
-              <th>Төрөл</th>
-              <th>Хэлтэс</th>
-              <th>Боловсруулсан</th>
-              <th>Төлөв</th>
-              <th>Огноо</th>
+              <th scope="col">Гарчиг</th>
+              <th scope="col">Хэлтэс</th>
+              <th scope="col">Боловсруулсан</th>
+              <th scope="col">Төлөв</th>
+              <th scope="col" class="num">Шинэчилсэн</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((r) => (
-              <tr>
-                <td class="nowrap num small">{r.number ?? <span class="muted">—</span>}</td>
-                <td>
+              <tr class="clickable">
+                <td class="main-cell">
                   <a class="row-link" href={`/barimt/${r.id}`}>{r.title}</a>
-                  {r.visibility === 'dept' && <span class="badge plain b-maroon small" title="Зөвхөн хэлтэс">🔒</span>}
+                  <span class="sub">
+                    {getRecordType(r.type)?.label ?? r.type}
+                    {r.number && <> · <span class="num">{r.number}</span></>}
+                    {r.visibility === 'dept' && <> · <span class="tag"><Icon name="lock" /> зөвхөн хэлтэс</span></>}
+                  </span>
+                  <span class="sub m-only">{r.dept_name} · {r.author_name} · {relDay(r.updated_at)}</span>
                 </td>
-                <td class="nowrap">{getRecordType(r.type)?.label ?? r.type}</td>
-                <td class="nowrap">{r.dept_name}</td>
-                <td class="nowrap">{r.author_name}</td>
-                <td><span class={`badge b-${r.status}`}>{STATUS_LABEL[r.status]}</span></td>
-                <td class="nowrap num muted">{fmtDate(r.updated_at)}</td>
+                <td class="nowrap hide-sm">{r.dept_name}</td>
+                <td class="nowrap hide-sm">{r.author_name}</td>
+                <td class="side-cell">
+                  <span class={`badge b-${r.status}`}>{STATUS_LABEL[r.status]}</span>
+                  {r.status === 'in_review' && r.awaiting && <span class="sub hide-sm">{STEP_LABEL[r.awaiting]}</span>}
+                </td>
+                <td class="num nowrap muted hide-sm">{fmtDate(r.updated_at)}</td>
               </tr>
             ))}
           </tbody>
@@ -103,13 +132,4 @@ const statuses: (RecordStatus | '')[] = ['', 'draft', 'in_review', 'approved', '
       </div>
     )
   }
-  <p class="small muted" style="margin-top:12px">
-    Бүх хэлтсийн баримт бичгийг унших боломжтой. Засварлах эрх зөвхөн өөрийн хэлтэст хамаарна.
-  </p>
 </Staff>
-
-<style>
-  .filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; }
-  .filters select, .filters input { width: auto; min-width: 150px; flex: 1 1 150px; }
-  .filters .btn { flex: 0 0 auto; }
-</style>

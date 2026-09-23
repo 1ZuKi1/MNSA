@@ -135,6 +135,11 @@ src/
     members.ts         Invites, roles, deputy, annual renewal
     team.ts            The public team page, built from the member list
     site.ts            Test-mode switches and the public/staff addresses
+    nav.ts             The two counts next to the staff menu (waiting decisions, my tasks)
+    icons.ts           The line icons used on both sites
+  layouts/Staff.astro  Staff frame: sidebar / phone drawer, flash messages, and the form helpers
+                       (ask before destructive actions, submit once, warn about unsaved changes)
+  styles/staff.css     Staff design — one file, every page uses the same pieces
     auth.ts session.ts One-time codes and signed-cookie sessions
     db.ts time.ts …    Helpers
   pages/
@@ -150,6 +155,8 @@ docs/ARCHITECTURE.md   Why everything is the way it is
 **Adding a new kind of document** — add an entry to `RECORD_TYPES` in `src/lib/record-types.ts`: fields and an approval chain. The form, validation, archive, numbering and print layout all follow automatically.
 
 **Changing who can do what** — change `src/lib/permissions.ts` and its tests in `tests/permissions.test.ts`. Pages never decide permissions themselves.
+
+**Staff page building blocks** — `PageHead` (breadcrumbs, title, actions), `.panel`, `.items` rows, `.table-wrap.cards-sm` (a table that turns into cards on phones), `.stepper`, `.empty`. On any form: `data-confirm="…"` on a button or form asks before submitting, `data-require="fieldId"` on a button makes that field required for that button only, `data-guard` on a form warns before leaving with unsaved changes. Every form submits only once.
 
 ## Not built yet
 

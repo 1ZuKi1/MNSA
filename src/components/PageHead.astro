@@ -1,0 +1,33 @@
+---
+/**
+ * The top of every staff page: where you are (breadcrumbs), what this is (h1 + one line),
+ * and the one or two things you can do here (actions slot). Status badges go in the default slot.
+ */
+interface Props {
+  title: string;
+  sub?: string | null;
+  crumbs?: { href: string; label: string }[];
+}
+const { title, sub, crumbs = [] } = Astro.props;
+---
+<header class="page-head">
+  {
+    crumbs.length > 0 && (
+      <nav class="crumbs" aria-label="Та энд байна">
+        <ol>
+          {crumbs.map((c) => (
+            <li><a href={c.href}>{c.label}</a></li>
+          ))}
+        </ol>
+      </nav>
+    )
+  }
+  <div class="page-head-row">
+    <div>
+      <h1>{title}</h1>
+      {sub && <p class="page-sub">{sub}</p>}
+    </div>
+    {Astro.slots.has('actions') && <div class="page-actions"><slot name="actions" /></div>}
+  </div>
+  {Astro.slots.has('default') && <div class="page-meta"><slot /></div>}
+</header>

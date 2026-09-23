@@ -1,0 +1,150 @@
+---
+/**
+ * One person. Everyone can open their own page (to hide themselves from the public team page);
+ * the President and the deputy can open anyone's and change role, department, e-mail, or remove them.
+ * Forms post to /gishuud (one place that changes members) and come back here.
+ */
+export const prerender = false;
+import Staff from '../../../layouts/Staff.astro';
+import PageHead from '../../../components/PageHead.astro';
+import Icon from '../../../components/Icon.astro';
+import { departments } from '../../../lib/db';
+import { int } from '../../../lib/http';
+import { asMemberLike, canSetPublic, getMember } from '../../../lib/members';
+import * as P from '../../../lib/permissions';
+import { initials } from '../../../lib/team';
+import { fmtDate, fmtDateTime, now, relDay } from '../../../lib/time';
+import { ROLE_LABEL } from '../../../lib/types';
+
+const user = Astro.locals.user!;
+const id = int(Astro.params.id);
+const m = id ? await getMember(id) : null;
+const manager = P.canManageMembers(user);
+if (!m || m.status !== 'active' || (m.id !== user.id && !manager)) return new Response(null, { status: 404 });
+
+const depts = await departments();
+const self = m.id === user.id;
+const canTouch = P.canModifyMember(user, asMemberLike(m));
+const canPublic = canSetPublic(user, m) && m.role !== 'maintainer';
+const grantable = P.grantableRoles(user);
+const back = `/gishuud/${m.id}`;
+const expiring = m.term_ends_at !== null && m.term_ends_at - now() < 30 * 86400;
+---
+<Staff title={m.name_mn}>
+  <PageHead title={m.name_mn} crumbs={[{ href: '/gishuud', label: 'Гишүүд' }]}>
+    <span>{ROLE_LABEL[m.role]}</span>
+    {m.dept_name && <span>{m.dept_name}</span>}
+    {m.is_deputy === 1 && <span class="badge plain b-blue">орлогч</span>}
+    {self && <span class="badge plain">та</span>}
+  </PageHead>
+
+  <div class="cols">
+    <div>
+      <section class="panel" aria-labelledby="info-h">
+        <div class="panel-head"><h2 id="info-h"><Icon name="user" /> Мэдээлэл</h2></div>
+        <div class="panel-body">
+          <div class="profile" style="margin-bottom:16px">
+            <span class="avatar lg" aria-hidden="true">{initials(m.name_mn)}</span>
+            <dl class="kv">
+              <dt>И-мэйл</dt><dd>{m.email}</dd>
+              <dt>Оюутны дугаар</dt><dd class="num">{m.student_id ?? '—'}</dd>
+              <dt>Эрх дуусах</dt><dd class:list={{ warnc: expiring }}>{fmtDate(m.term_ends_at)}</dd>
+              <dt>Сүүлд нэвтэрсэн</dt><dd>{m.last_login_at ? `${fmtDateTime(m.last_login_at)} (${relDay(m.last_login_at)})` : 'Нэвтэрч байгаагүй'}</dd>
+            </dl>
+          </div>
+          {P.canSeeParticipation(user, m.id) && (
+            <a class="btn btn-sm" href={`/oroltsoo?user=${m.id}`}><Icon name="chart" /> {self ? 'Миний оролцоо' : 'Оролцоог харах'}</a>
+          )}
+        </div>
+      </section>
+
+      {canTouch && (
+        <form method="post" action="/gishuud" class="panel" aria-labelledby="role-h">
+          <input type="hidden" name="user" value={m.id} />
+          <input type="hidden" name="back" value={back} />
+          <div class="panel-head"><h2 id="role-h"><Icon name="shield" /> Эрх ба хэлтэс</h2></div>
+          <div class="panel-body" style="display:grid;gap:16px">
+            <div class="two">
+              <div class="field">
+                <label for="m_role">Эрх</label>
+                <select id="m_role" name="role">
+                  {[...new Set([m.role, ...grantable])].map((r) => <option value={r} selected={r === m.role}>{ROLE_LABEL[r]}</option>)}
+                </select>
+              </div>
+              <div class="field">
+                <label for="m_dept">Хэлтэс</label>
+                <select id="m_dept" name="dept">
+                  {depts.map((d) => <option value={d.slug} selected={d.slug === m.dept_slug}>{d.name_mn}</option>)}
+                </select>
+              </div>
+            </div>
+            <p class="form-note">Өөрчлөлт шууд хүчин төгөлдөр болно — дахин нэвтрэх шаардлагагүй.</p>
+            <div><button class="btn btn-primary" name="action" value="change">Хадгалах</button></div>
+          </div>
+        </form>
+      )}
+
+      {canTouch && (
+        <form method="post" action="/gishuud" class="panel" aria-labelledby="mail-h">
+          <input type="hidden" name="user" value={m.id} />
+          <input type="hidden" name="back" value={back} />
+          <div class="panel-head"><h2 id="mail-h"><Icon name="mail" /> И-мэйл солих</h2></div>
+          <div class="panel-body" style="display:grid;gap:14px">
+            <div class="field">
+              <label for="m_email">Шинэ и-мэйл</label>
+              <input id="m_email" name="email" type="email" required value={m.email} autocomplete="off" aria-describedby="m_email-hint" />
+              <span class="hint" id="m_email-hint">Хуучин хаягаа ашиглах боломжгүй болсон үед. Тухайн хүн гарч, шинэ хаягаараа дахин нэвтэрнэ.</span>
+            </div>
+            <div><button class="btn" name="action" value="email" data-confirm="И-мэйл хаягийг солих уу?">И-мэйл солих</button></div>
+          </div>
+        </form>
+      )}
+    </div>
+
+    <div>
+      {canPublic && (
+        <form method="post" action="/gishuud" class="panel" aria-labelledby="pub-h">
+          <input type="hidden" name="user" value={m.id} />
+          <input type="hidden" name="back" value={back} />
+          <div class="panel-head"><h2 id="pub-h"><Icon name="globe" /> Нийтийн хуудас</h2></div>
+          <div class="panel-body stack" style="--stack:12px">
+            <p style="margin:0">
+              {m.show_public
+                ? <><Icon name="check" class="inline-ic" /> «Удирдлагын баг» хуудсанд нэр, эрх нь харагдаж байна.</>
+                : 'Нийтийн «Удирдлагын баг» хуудсанд харагдахгүй байна.'}
+            </p>
+            <button class="btn btn-sm" name="action" value={m.show_public ? 'public_off' : 'public_on'}>
+              {m.show_public ? 'Нийтийн хуудаснаас нуух' : 'Нийтийн хуудсанд харуулах'}
+            </button>
+          </div>
+        </form>
+      )}
+
+      {P.canSetDeputy(user) && m.role !== 'maintainer' && m.role !== 'president' && (
+        <form method="post" action="/gishuud" class="panel" aria-labelledby="dp-h">
+          <input type="hidden" name="user" value={m.id} />
+          <input type="hidden" name="back" value={back} />
+          <div class="panel-head"><h2 id="dp-h"><Icon name="user" /> Орлогч</h2></div>
+          <div class="panel-body stack" style="--stack:12px">
+            <p class="form-note">Тэргүүн байхгүй үед гишүүн нэмж, хасах эрхтэй нэг хүн. Нэг л хүн байна.</p>
+            {m.is_deputy === 1
+              ? <button class="btn btn-sm" name="action" value="no_deputy" data-confirm="Орлогчийг цуцлах уу?">Орлогчоос чөлөөлөх</button>
+              : <button class="btn btn-sm" name="action" value="deputy" data-confirm={`«${m.name_mn}» гишүүнийг орлогчоор томилох уу? Өмнөх орлогч чөлөөлөгдөнө.`}>Орлогчоор томилох</button>}
+          </div>
+        </form>
+      )}
+
+      {canTouch && (
+        <form method="post" action="/gishuud" class="panel danger-zone" aria-labelledby="rm-h">
+          <input type="hidden" name="user" value={m.id} />
+          <input type="hidden" name="back" value={back} />
+          <div class="panel-head"><h2 id="rm-h"><Icon name="trash" /> Ажлын орчноос хасах</h2></div>
+          <div class="panel-body stack" style="--stack:12px">
+            <p class="form-note">Тэр даруй нэвтрэх эрхгүй болно. Түүний бичсэн бүх баримт, оролцооны бүртгэл хэвээр үлдэнэ.</p>
+            <button class="btn btn-danger btn-sm" name="action" value="remove" data-confirm={`«${m.name_mn}» гишүүнийг ажлын орчноос хасах уу?`}>Хасах</button>
+          </div>
+        </form>
+      )}
+    </div>
+  </div>
+</Staff>

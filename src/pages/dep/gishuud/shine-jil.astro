@@ -5,6 +5,8 @@
  */
 export const prerender = false;
 import Staff from '../../../layouts/Staff.astro';
+import PageHead from '../../../components/PageHead.astro';
+import Icon from '../../../components/Icon.astro';
 import { clientIp, str, withFlash } from '../../../lib/http';
 import { archiveLapsed, asMemberLike, nextTerm, renewalCandidates, renewMembers } from '../../../lib/members';
 import * as P from '../../../lib/permissions';
@@ -33,33 +35,31 @@ const lapsed = rows.filter((m) => (m.term_ends_at ?? 0) < t).length;
 const canRenew = (id: number) => (user.role === 'president' && id === user.id) || P.canModifyMember(user, asMemberLike(rows.find((r) => r.id === id)!));
 ---
 <Staff title="Шинэ жилийн бүртгэл">
-  <div class="page-head">
-    <div>
-      <span class="kicker"><a href="/gishuud">Гишүүд</a> · {academicYear()}</span>
-      <h1>Шинэ жилийн бүртгэл</h1>
-    </div>
-  </div>
+  <PageHead title="Шинэ жилийн бүртгэл" sub={`${academicYear()} · Үргэлжлүүлэн ажиллах хүмүүсийг тэмдэглэж эрхийг нь сунгана.`} crumbs={[{ href: '/gishuud', label: 'Гишүүд' }]} />
 
-  <div class="card explain">
-    <p>Ажлын орчны эрх жил бүрийн <strong>9-р сарын 30-нд</strong> автоматаар дуусна. Үргэлжлүүлэн ажиллах хүмүүсийг энд тэмдэглэж сунгана уу.</p>
-    <p class="small muted" style="margin:0">Тэмдэглээгүй хүмүүсийн эрх хугацаа нь дуусахад өөрөө хаагдана — хэнийг хасахаа санах шаардлагагүй. Тэдний бичсэн бүх баримт хэвээр үлдэнэ.</p>
+  <div class="flash info" role="note">
+    <Icon name="clock" />
+    <span class="flash-text">
+      Ажлын орчны эрх жил бүрийн <strong>9-р сарын 30-нд</strong> автоматаар дуусна. Тэмдэглээгүй хүмүүсийн эрх хугацаа нь дуусахад
+      өөрөө хаагдана — хэнийг хасахаа санах шаардлагагүй. Тэдний бичсэн бүх баримт хэвээр үлдэнэ.
+    </span>
   </div>
 
   {
     rows.length === 0 ? (
-      <p class="empty">Ойрын 60 хоногт эрх нь дуусах хүн алга.</p>
+      <div class="empty good"><Icon name="check" /><b>Ойрын 60 хоногт эрх нь дуусах хүн алга.</b></div>
     ) : (
-      <form method="post">
-        <div class="table-wrap">
+      <form method="post" class="panel">
+        <div class="table-wrap" style="border:0;box-shadow:none;border-radius:var(--radius-lg) var(--radius-lg) 0 0">
           <table class="t">
+            <caption class="sr-only">Эрх нь удахгүй дуусах хүмүүс</caption>
             <thead>
               <tr>
-                <th style="width:40px"><input type="checkbox" id="all" aria-label="Бүгдийг сонгох" /></th>
-                <th>Нэр</th>
-                <th>Хэлтэс</th>
-                <th>Эрх</th>
-                <th>Одоо дуусах</th>
-                <th>Сунгавал</th>
+                <th scope="col" style="width:44px"><input type="checkbox" id="all" aria-label="Бүгдийг сонгох" /></th>
+                <th scope="col">Нэр</th>
+                <th scope="col">Эрх</th>
+                <th scope="col">Одоо дуусах</th>
+                <th scope="col">Сунгавал</th>
               </tr>
             </thead>
             <tbody>
@@ -68,9 +68,12 @@ const canRenew = (id: number) => (user.role === 'president' && id === user.id) |
                 const gone = (m.term_ends_at ?? 0) < t;
                 return (
                   <tr>
-                    <td>{ok && <input type="checkbox" name="renew" value={m.id} class="pick" aria-label={m.name_mn} />}</td>
-                    <td><strong>{m.name_mn}</strong>{m.id === user.id && <span class="muted small"> (та)</span>}</td>
-                    <td class="nowrap">{m.dept_name ?? '—'}</td>
+                    <td>{ok && <input type="checkbox" name="renew" value={m.id} class="pick" id={`r_${m.id}`} />}</td>
+                    <td>
+                      {ok ? <label for={`r_${m.id}`}><strong>{m.name_mn}</strong></label> : <strong>{m.name_mn}</strong>}
+                      {m.id === user.id && <span class="muted small"> (та)</span>}
+                      <span class="sub">{m.dept_name ?? '—'}</span>
+                    </td>
                     <td class="nowrap">{ROLE_LABEL[m.role]}</td>
                     <td class:list={['nowrap num', { lapsed: gone }]}>{fmtDate(m.term_ends_at)}{gone && ' · дууссан'}</td>
                     <td class="nowrap num muted">{fmtDate(nextTerm(m.term_ends_at))}</td>
@@ -80,8 +83,10 @@ const canRenew = (id: number) => (user.role === 'president' && id === user.id) |
             </tbody>
           </table>
         </div>
-        <div class="btn-row" style="margin-top:16px">
-          <button class="btn btn-primary" type="submit">Сонгосон хүмүүсийн эрхийг сунгах</button>
+        <div class="form-actions">
+          <button class="btn btn-primary" type="submit" data-renew-btn>Сонгосон хүмүүсийн эрхийг сунгах</button>
+          <span class="form-note" data-renew-count aria-live="polite">0 хүн сонгогдсон</span>
+          <span class="grow"></span>
           <a class="btn btn-quiet" href="/gishuud">Буцах</a>
         </div>
       </form>
@@ -89,11 +94,13 @@ const canRenew = (id: number) => (user.role === 'president' && id === user.id) |
   }
 
   {lapsed > 0 && (
-    <form method="post" class="card" style="margin-top:24px">
+    <form method="post" class="panel" style="margin-top:20px" data-confirm={`Хугацаа нь дууссан ${lapsed} хүнийг идэвхгүй болгох уу?`}>
       <input type="hidden" name="action" value="archive" />
-      <h3>Хугацаа нь дууссан {lapsed} хүн</h3>
-      <p class="small muted">Тэд аль хэдийн нэвтэрч чадахгүй байгаа. Жагсаалтаас гаргаж, «идэвхгүй» болгох бол дарна уу.</p>
-      <button class="btn btn-sm" type="submit">Идэвхгүй болгох</button>
+      <div class="panel-head"><h2>Хугацаа нь дууссан {lapsed} хүн</h2></div>
+      <div class="panel-body stack" style="--stack:12px">
+        <p class="form-note">Тэд аль хэдийн нэвтэрч чадахгүй байгаа. Жагсаалтаас гаргаж, «идэвхгүй» болгох бол дарна уу.</p>
+        <button class="btn btn-sm" type="submit">Идэвхгүй болгох</button>
+      </div>
     </form>
   )}
 </Staff>
@@ -101,13 +108,17 @@ const canRenew = (id: number) => (user.role === 'president' && id === user.id) |
 <script is:inline>
   (function () {
     var all = document.getElementById('all');
-    if (all) all.addEventListener('change', function () {
-      document.querySelectorAll('.pick').forEach(function (c) { c.checked = all.checked; });
-    });
+    var picks = Array.prototype.slice.call(document.querySelectorAll('.pick'));
+    var out = document.querySelector('[data-renew-count]');
+    var btn = document.querySelector('[data-renew-btn]');
+    function sync() {
+      var n = picks.filter(function (c) { return c.checked; }).length;
+      if (out) out.textContent = n + ' хүн сонгогдсон';
+      if (btn) btn.disabled = n === 0;
+      if (all) { all.checked = n > 0 && n === picks.length; all.indeterminate = n > 0 && n < picks.length; }
+    }
+    if (all) all.addEventListener('change', function () { picks.forEach(function (c) { c.checked = all.checked; }); sync(); });
+    picks.forEach(function (c) { c.addEventListener('change', sync); });
+    sync();
   })();
 </script>
-
-<style>
-  .explain { margin-bottom: 20px; border-left: 4px solid var(--gold); }
-  .lapsed { color: var(--bad); font-weight: 600; }
-</style>

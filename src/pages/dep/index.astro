@@ -1,192 +1,296 @@
 ---
+/**
+ * The dashboard answers one question first: "what do I need to do?"
+ * Decisions waiting on me, my documents that came back, my event jobs — in that order.
+ * Then the jobs nobody has taken, then what is coming up.
+ */
 export const prerender = false;
 import Staff from '../../layouts/Staff.astro';
+import PageHead from '../../components/PageHead.astro';
+import Icon from '../../components/Icon.astro';
 import { taskBoardFor, staffEvents } from '../../lib/events';
 import { openInvites, renewalCandidates } from '../../lib/members';
-import { canManageMembers, canTakeTask } from '../../lib/permissions';
+import { canCreateRecordIn, canEditEvents, canManageMembers, canTakeTask } from '../../lib/permissions';
 import { getRecordType } from '../../lib/record-types';
 import { awaitingMe, myDrafts } from '../../lib/records';
-import { fmtDate, fmtDateTime, now } from '../../lib/time';
-import { ROLE_LABEL, STATUS_LABEL } from '../../lib/types';
+import { dateKey, dayDiff, fmtDate, fmtDayName, now, relDay } from '../../lib/time';
+import { ROLE_LABEL, type DeptSlug } from '../../lib/types';
+import { departments } from '../../lib/db';
 
 const user = Astro.locals.user!;
 const manager = canManageMembers(user);
-const [waiting, drafts, board, events, renewals, invites] = await Promise.all([
+const [waiting, drafts, board, events, renewals, invites, depts] = await Promise.all([
   awaitingMe(user),
   myDrafts(user),
   taskBoardFor(user),
   staffEvents(),
   manager ? renewalCandidates() : Promise.resolve([]),
   manager ? openInvites() : Promise.resolve([]),
+  departments(),
 ]);
-const soon = events.upcoming.slice(0, 4);
-const daysLeft = user.termEndsAt ? Math.ceil((user.termEndsAt - now()) / 86400) : null;
+const returned = drafts.filter((r) => r.status === 'rejected');
+const plainDrafts = drafts.filter((r) => r.status === 'draft');
+const soon = events.upcoming.slice(0, 5);
+const t = now();
+const daysLeft = user.termEndsAt ? Math.ceil((user.termEndsAt - t) / 86400) : null;
+const todo = waiting.length + returned.length + board.mine.length;
+const canWrite = depts.some((d) => canCreateRecordIn(user, d.slug as DeptSlug));
+const firstName = user.name.split('. ').at(-1);
+const due = (ts: number | null) => (ts === null ? null : dayDiff(ts, t));
 ---
-<Staff title="Самбар">
-  <div class="page-head">
-    <div>
-      <span class="kicker">{ROLE_LABEL[user.role]}</span>
-      <h1>Сайн байна уу, {user.name.split('. ').at(-1)}</h1>
-    </div>
-    <div class="btn-row">
-      <a class="btn btn-primary" href="/barimt/shine">+ Баримт бичиг</a>
-    </div>
-  </div>
+<Staff title="Нүүр">
+  <PageHead title={`Сайн байна уу, ${firstName}`} sub={`${fmtDayName(t)} · ${ROLE_LABEL[user.role]}${user.isDeputy ? ' · орлогч' : ''}`}>
+    <Fragment slot="actions">
+      {canWrite && <a class="btn btn-primary" href="/barimt/shine"><Icon name="plus" /> Баримт бичиг</a>}
+      {canEditEvents(user) && <a class="btn" href="/uil-ajillagaa/shine"><Icon name="plus" /> Арга хэмжээ</a>}
+    </Fragment>
+  </PageHead>
 
   {daysLeft !== null && daysLeft <= 30 && (
-    <p class="flash warn">Таны эрхийн хугацаа {daysLeft} хоногийн дараа ({fmtDate(user.termEndsAt)}) дуусна. Тэргүүн сунгаагүй бол нэвтрэх боломжгүй болно.</p>
+    <div class="flash warn" role="note">
+      <Icon name="clock" />
+      <span class="flash-text">Таны эрх {daysLeft} хоногийн дараа ({fmtDate(user.termEndsAt)}) дуусна. Тэргүүн сунгаагүй бол нэвтрэх боломжгүй болно.</span>
+    </div>
   )}
   {manager && renewals.length > 0 && (
-    <p class="flash info">
-      {renewals.length} хүний эрхийн хугацаа удахгүй дуусна. <a href="/gishuud/shine-jil">Шинэ жилийн бүртгэл хийх →</a>
-    </p>
+    <div class="flash info" role="note">
+      <Icon name="users" />
+      <span class="flash-text">{renewals.length} хүний эрх удахгүй дуусна. <a href="/gishuud/shine-jil">Шинэ жилийн бүртгэл хийх →</a></span>
+    </div>
   )}
 
-  <div class="grid-2">
-    <section class="card" style={waiting.length ? 'border-color: var(--gold-deep)' : ''}>
-      <div class="card-head">
-        <h2>Таны шийдвэр хүлээж буй</h2>
-        <span class="badge plain b-in_review">{waiting.length}</span>
-      </div>
-      {
-        waiting.length === 0 ? (
-          <p class="empty">Одоогоор таны шийдвэр хүлээж буй зүйл алга.</p>
-        ) : (
-          <ul class="list">
-            {waiting.map((r) => (
-              <li>
-                <a href={`/barimt/${r.id}`}>{r.title}</a>
-                <span class="muted small">{getRecordType(r.type)?.label} · {r.dept_name} · {r.author_name} · {fmtDate(r.submitted_at)}</span>
-              </li>
-            ))}
-          </ul>
-        )
-      }
-    </section>
-
-    <section class="card">
-      <div class="card-head">
-        <h2>Миний ажлууд</h2>
-        <a class="small" href="/oroltsoo">Миний оролцоо →</a>
-      </div>
-      {
-        board.mine.length === 0 ? (
-          <p class="empty">Танд одоогоор хүлээн авсан ажил алга.</p>
-        ) : (
-          <ul class="list">
-            {board.mine.map((t) => (
-              <li>
-                <a href={`/uil-ajillagaa/${t.event_id}`}>{t.task_title}</a>
-                <span class="muted small">{t.event_title} · хугацаа {fmtDate(t.due_at ?? t.starts_at)}</span>
-              </li>
-            ))}
-          </ul>
-        )
-      }
-    </section>
-
+  <div class="stats">
+    <a class:list={['stat', { hot: waiting.length > 0 }]} href="#todo">
+      <span class="ic"><Icon name="inbox" /></span>
+      <span><b>{waiting.length}</b><span>шийдвэр хүлээж буй</span></span>
+    </a>
+    <a class:list={['stat', { hot: returned.length > 0 }]} href="#todo">
+      <span class="ic"><Icon name="undo" /></span>
+      <span><b>{returned.length}</b><span>буцаагдсан баримт</span></span>
+    </a>
+    <a class="stat blue" href="#todo">
+      <span class="ic"><Icon name="check" /></span>
+      <span><b>{board.mine.length}</b><span>миний идэвхтэй ажил</span></span>
+    </a>
     {canTakeTask(user) && (
-      <section class="card">
-        <div class="card-head">
-          <h2>Хүн хэрэгтэй ажлууд</h2>
-          <span class="badge plain b-blue">{board.open.length}</span>
-        </div>
-        {board.open.length === 0 ? (
-          <p class="empty">Бүх ажилд хариуцагч бий.</p>
-        ) : (
-          <ul class="list">
-            {board.open.map((t) => (
-              <li class="take">
-                <span>
-                  <strong>{t.task_title}</strong>
-                  <span class="muted small">{t.event_title} · {fmtDate(t.due_at ?? t.starts_at)}</span>
-                </span>
-                <form method="post" action={`/uil-ajillagaa/${t.event_id}`}>
-                  <input type="hidden" name="action" value="take" />
-                  <input type="hidden" name="task" value={t.task_id} />
-                  <input type="hidden" name="back" value="/" />
-                  <button class="btn btn-sm btn-blue">Би хийнэ</button>
-                </form>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-    )}
-
-    <section class="card">
-      <div class="card-head">
-        <h2>Миний ноорог</h2>
-      </div>
-      {
-        drafts.length === 0 ? (
-          <p class="empty">Ноорог алга.</p>
-        ) : (
-          <ul class="list">
-            {drafts.map((r) => (
-              <li>
-                <a href={`/barimt/${r.id}`}>{r.title}</a>
-                <span class="small">
-                  <span class={`badge b-${r.status}`}>{STATUS_LABEL[r.status]}</span>
-                  <span class="muted"> {getRecordType(r.type)?.label} · {fmtDate(r.updated_at)}</span>
-                </span>
-              </li>
-            ))}
-          </ul>
-        )
-      }
-    </section>
-
-    <section class="card">
-      <div class="card-head">
-        <h2>Удахгүй болох арга хэмжээ</h2>
-        <a class="small" href="/uil-ajillagaa">Бүгд →</a>
-      </div>
-      {
-        soon.length === 0 ? (
-          <p class="empty">Товлогдсон арга хэмжээ алга.</p>
-        ) : (
-          <ul class="list">
-            {soon.map((e) => (
-              <li>
-                <a href={`/uil-ajillagaa/${e.id}`}>{e.title}</a>
-                <span class="muted small">
-                  {fmtDateTime(e.starts_at)} · {e.status === 'draft' ? 'ноорог' : 'нийтлэгдсэн'}
-                  {e.task_unassigned > 0 && <strong class="need"> · {e.task_unassigned} ажилд хүн хэрэгтэй</strong>}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )
-      }
-    </section>
-
-    {manager && invites.length > 0 && (
-      <section class="card">
-        <div class="card-head">
-          <h2>Хүлээгдэж буй урилга</h2>
-          <a class="small" href="/gishuud">Гишүүд →</a>
-        </div>
-        <ul class="list">
-          {invites.slice(0, 5).map((i) => (
-            <li>
-              <span>{i.name_mn}</span>
-              <span class="muted small">{i.dept_name ?? '—'} · {i.expires_at < now() ? 'хугацаа дууссан' : `${fmtDateTime(i.expires_at)} хүртэл`}</span>
-            </li>
-          ))}
-        </ul>
-      </section>
+      <a class="stat" href="#open-tasks">
+        <span class="ic"><Icon name="hand" /></span>
+        <span><b>{board.open.length}</b><span>хүн хэрэгтэй ажил</span></span>
+      </a>
     )}
   </div>
-</Staff>
 
-<style>
-  .list { list-style: none; margin: 0; padding: 0; }
-  .list li { display: grid; gap: 2px; padding: 9px 0; border-top: 1px solid var(--line); }
-  .list li:first-child { border-top: 0; padding-top: 0; }
-  .list a { font-weight: 550; text-decoration: none; color: var(--ink); }
-  .list a:hover { color: var(--blue); text-decoration: underline; }
-  .list li.take { grid-template-columns: 1fr auto; align-items: center; gap: 12px; }
-  .list li.take span { display: grid; gap: 2px; }
-  .need { color: var(--warn); font-weight: 600; }
-</style>
+  <div class="cols">
+    <div>
+      <section class:list={['panel', { attention: waiting.length > 0 }]} id="todo" aria-labelledby="todo-h">
+        <div class="panel-head">
+          <h2 id="todo-h"><Icon name="inbox" /> Хийх зүйлс</h2>
+        </div>
+        <div class="panel-body">
+          {todo === 0 ? (
+            <div class="empty good">
+              <Icon name="check" />
+              <b>Одоогоор таныг хүлээж буй зүйл алга.</b>
+              <p>Шинэ шийдвэр, буцаагдсан баримт эсвэл ажил ирвэл энд харагдана.</p>
+            </div>
+          ) : (
+            <>
+              {waiting.length > 0 && (
+                <>
+                  <h3 class="group-label">Таны шийдвэр <span class="n">{waiting.length}</span></h3>
+                  <ul class="items">
+                    {waiting.map((r) => (
+                      <li class="item">
+                        <span class="ic warn"><Icon name="doc" /></span>
+                        <a class="item-title" href={`/barimt/${r.id}#decide`}>{r.title}</a>
+                        <span class="item-meta">
+                          <span>{getRecordType(r.type)?.label}</span>
+                          <span>{r.dept_name}</span>
+                          <span>{r.author_name}</span>
+                          <span>{relDay(r.submitted_at)} ирсэн</span>
+                        </span>
+                        <span class="item-act">
+                          <a class="btn btn-sm btn-primary" href={`/barimt/${r.id}#decide`}>Шийдвэрлэх</a>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+              {returned.length > 0 && (
+                <>
+                  <h3 class="group-label">Буцаагдсан — засаад дахин илгээнэ <span class="n">{returned.length}</span></h3>
+                  <ul class="items">
+                    {returned.map((r) => (
+                      <li class="item">
+                        <span class="ic bad"><Icon name="undo" /></span>
+                        <a class="item-title" href={`/barimt/${r.id}`}>{r.title}</a>
+                        <span class="item-meta">
+                          <span>{getRecordType(r.type)?.label}</span>
+                          <span>{r.number ?? 'дугааргүй'}</span>
+                          <span>{relDay(r.updated_at)} буцаасан</span>
+                        </span>
+                        <span class="item-act">
+                          <a class="btn btn-sm" href={`/barimt/${r.id}/zasah`}><Icon name="edit" /> Засах</a>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+              {board.mine.length > 0 && (
+                <>
+                  <h3 class="group-label">Миний ажлууд <span class="n">{board.mine.length}</span></h3>
+                  <ul class="items">
+                    {board.mine.map((k) => {
+                      const d = due(k.due_at);
+                      const late = d !== null && d < 0;
+                      return (
+                        <li class="item">
+                          <span class:list={['ic', late ? 'bad' : 'blue']}><Icon name="check" /></span>
+                          <a class="item-title" href={`/uil-ajillagaa/${k.event_id}`}>{k.task_title}</a>
+                          <span class="item-meta">
+                            <span>{k.event_title}</span>
+                            {k.due_at ? (
+                              <span class:list={{ overdue: late }}>{late ? `хугацаа ${-d!} хоног хэтэрсэн` : `хугацаа ${relDay(k.due_at)}`}</span>
+                            ) : (
+                              <span>арга хэмжээ {relDay(k.starts_at)}</span>
+                            )}
+                          </span>
+                          <span class="item-act">
+                            <form method="post" action={`/uil-ajillagaa/${k.event_id}`}>
+                              <input type="hidden" name="action" value="done" />
+                              <input type="hidden" name="assignment" value={k.assignment_id} />
+                              <input type="hidden" name="back" value="/" />
+                              <button class="btn btn-sm btn-ok"><Icon name="check" /> Дууссан</button>
+                            </form>
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </>
+              )}
+            </>
+          )}
+        </div>
+      </section>
+
+      {canTakeTask(user) && (
+        <section class="panel" id="open-tasks" aria-labelledby="open-h">
+          <div class="panel-head">
+            <h2 id="open-h"><Icon name="hand" /> Хүн хэрэгтэй ажлууд</h2>
+            <a class="more" href="/uil-ajillagaa">Бүх арга хэмжээ →</a>
+          </div>
+          <div class="panel-body">
+            {board.open.length === 0 ? (
+              <div class="empty good"><Icon name="check" /><p>Бүх ажилд хариуцагч бий.</p></div>
+            ) : (
+              <ul class="items">
+                {board.open.map((k) => (
+                  <li class="item">
+                    <span class="ic"><Icon name="hand" /></span>
+                    <a class="item-title" href={`/uil-ajillagaa/${k.event_id}`}>{k.task_title}</a>
+                    <span class="item-meta">
+                      <span>{k.event_title}</span>
+                      <span>{k.due_at ? `хугацаа ${relDay(k.due_at)}` : `арга хэмжээ ${relDay(k.starts_at)}`}</span>
+                    </span>
+                    <span class="item-act">
+                      <form method="post" action={`/uil-ajillagaa/${k.event_id}`}>
+                        <input type="hidden" name="action" value="take" />
+                        <input type="hidden" name="task" value={k.task_id} />
+                        <input type="hidden" name="back" value="/" />
+                        <button class="btn btn-sm btn-blue">Би хийнэ</button>
+                      </form>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </section>
+      )}
+    </div>
+
+    <div>
+      <section class="panel" aria-labelledby="soon-h">
+        <div class="panel-head">
+          <h2 id="soon-h"><Icon name="calendar" /> Удахгүй болох</h2>
+          <a class="more" href="/uil-ajillagaa">Бүгд →</a>
+        </div>
+        <div class="panel-body">
+          {soon.length === 0 ? (
+            <div class="empty"><Icon name="calendar" /><p>Товлогдсон арга хэмжээ алга.</p></div>
+          ) : (
+            <ul class="items">
+              {soon.map((e) => {
+                const k = dateKey(e.starts_at);
+                return (
+                  <li class="item">
+                    <span class="ic"><Icon name="calendar" /></span>
+                    <a class="item-title" href={`/uil-ajillagaa/${e.id}`}>{e.title}</a>
+                    <span class="item-meta">
+                      <span>{k.day} · {k.sub}</span>
+                      {e.status === 'draft' && <span>ноорог</span>}
+                      {e.task_unassigned > 0 && <span class="need">{e.task_unassigned} ажилд хүн хэрэгтэй</span>}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      </section>
+
+      {canWrite && (
+        <section class="panel" aria-labelledby="drafts-h">
+          <div class="panel-head">
+            <h2 id="drafts-h"><Icon name="edit" /> Миний ноорог</h2>
+            <a class="more" href="/barimt?mine=1">Миний баримтууд →</a>
+          </div>
+          <div class="panel-body">
+            {plainDrafts.length === 0 ? (
+              <div class="empty"><Icon name="doc" /><p>Ноорог алга.</p></div>
+            ) : (
+              <ul class="items">
+                {plainDrafts.map((r) => (
+                  <li class="item">
+                    <span class="ic"><Icon name="doc" /></span>
+                    <a class="item-title" href={`/barimt/${r.id}`}>{r.title}</a>
+                    <span class="item-meta">
+                      <span>{getRecordType(r.type)?.label}</span>
+                      <span>{relDay(r.updated_at)} зассан</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </section>
+      )}
+
+      {manager && invites.length > 0 && (
+        <section class="panel" aria-labelledby="inv-h">
+          <div class="panel-head">
+            <h2 id="inv-h"><Icon name="mail" /> Хүлээгдэж буй урилга</h2>
+            <a class="more" href="/gishuud#invites">Гишүүд →</a>
+          </div>
+          <div class="panel-body">
+            <ul class="items">
+              {invites.slice(0, 5).map((i) => (
+                <li class="item">
+                  <span class="ic"><Icon name="user" /></span>
+                  <span class="item-title">{i.name_mn}</span>
+                  <span class="item-meta">
+                    <span>{i.dept_name ?? '—'}</span>
+                    <span class:list={{ overdue: i.expires_at < t }}>{i.expires_at < t ? 'хугацаа дууссан' : `${relDay(i.expires_at)} хүртэл`}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+      )}
+    </div>
+  </div>
+</Staff>

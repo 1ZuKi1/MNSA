@@ -1,13 +1,15 @@
 ---
 export const prerender = false;
 import Staff from '../../../layouts/Staff.astro';
+import PageHead from '../../../components/PageHead.astro';
+import Icon from '../../../components/Icon.astro';
 import { clientIp, int, str, withFlash } from '../../../lib/http';
 import * as P from '../../../lib/permissions';
 import { getRecordType } from '../../../lib/record-types';
 import {
   asRecordLike, Conflict, decideRecord, Denied, fieldsOf, getRecord, recordHistory, submitRecord, voidRecord, withdrawRecord,
 } from '../../../lib/records';
-import { fmtDateTime } from '../../../lib/time';
+import { fmtDate, fmtDateTime, relDay } from '../../../lib/time';
 import { STATUS_LABEL, STEP_GEN, STEP_LABEL, ROLE_LABEL } from '../../../lib/types';
 
 const user = Astro.locals.user!;
@@ -50,152 +52,174 @@ const standIn = can.decide && rec.awaiting ? !P.isStepOwner(user, rec.awaiting, 
 const fields = fieldsOf(rec);
 const history = await recordHistory(rec.id);
 const lastRejection = rec.status === 'rejected' ? [...history].reverse().find((h) => h.action === 'reject') : null;
+const lastDecision = [...history].reverse().find((h) => h.action === 'approve' || h.action === 'auto' || h.action === 'void');
 
+// The chain as the stepper shows it: which steps are done, which one is waiting, where it stopped.
+const rejectedStep = lastRejection?.step ?? null;
 const chain = type.chain
   .map((s, i) => ({ s, i }))
   .filter(({ s }) => P.stepApplies(s, rec.dept_slug))
-  .map(({ s, i }) => ({
-    label: STEP_LABEL[s],
-    state:
-      rec.status === 'approved' || rec.status === 'void' || (rec.status === 'in_review' && i < rec.step)
-        ? 'done'
-        : rec.status === 'in_review' && i === rec.step
-          ? 'now'
-          : '',
-  }));
+  .map(({ s, i }) => {
+    let state = '';
+    if (rec.status === 'approved' || rec.status === 'void' || (rec.status === 'in_review' && i < rec.step)) state = 'done';
+    else if (rec.status === 'in_review' && i === rec.step) state = 'now';
+    else if (rec.status === 'rejected' && rejectedStep) {
+      const ri = type.chain.indexOf(rejectedStep);
+      state = i < ri ? 'done' : i === ri ? 'stop' : '';
+    }
+    return { step: s, label: STEP_LABEL[s], state };
+  });
 
 const ACTION_LABEL: Record<string, string> = {
   create: 'Үүсгэсэн', edit: 'Зассан', submit: 'Хянуулахаар илгээсэн', auto: 'Автоматаар дамжсан',
   approve: 'Баталсан', reject: 'Буцаасан', withdraw: 'Эргүүлэн татсан', void: 'Хүчингүй болгосон',
 };
+const headline = {
+  draft: 'Ноорог — хянуулахаар илгээгээгүй байна.',
+  in_review: rec.awaiting ? `${STEP_GEN[rec.awaiting]} шийдвэрийг хүлээж байна.` : 'Хянагдаж байна.',
+  approved: `Батлагдсан${lastDecision ? ` · ${fmtDate(lastDecision.created_at)}` : ''}.`,
+  rejected: 'Буцаагдсан. Засаад дахин илгээж болно.',
+  void: 'Хүчингүй болсон.',
+}[rec.status];
+const hasActions = can.decide || can.submit || can.withdraw || can.makeEvent || can.void;
 ---
 <Staff title={rec.title}>
-  <div class="page-head">
-    <div>
-      <span class="kicker"><a href="/barimt">Баримт бичиг</a> · {type.label} · {rec.dept_name}</span>
-      <h1>{rec.title}</h1>
-      <div class="btn-row meta">
-        <span class={`badge b-${rec.status}`}>{STATUS_LABEL[rec.status]}</span>
-        {rec.number && <span class="num small">{rec.number}</span>}
-        {rec.visibility === 'dept' && <span class="badge plain b-maroon">🔒 Зөвхөн хэлтэс</span>}
+  <PageHead
+    title={rec.title}
+    crumbs={[{ href: '/barimt', label: 'Баримт бичиг' }, { href: `/heltes/${rec.dept_slug}`, label: rec.dept_name }]}
+  >
+    <Fragment slot="actions">
+      {can.edit && <a class="btn" href={`${here}/zasah`}><Icon name="edit" /> Засах</a>}
+      {rec.number && <a class="btn" href={`${here}/hevleh`} target="_blank" rel="noopener"><Icon name="print" /> Хэвлэх / PDF<span class="sr-only"> (шинэ цонхонд)</span></a>}
+    </Fragment>
+    <span class={`badge b-${rec.status}`}>{STATUS_LABEL[rec.status]}</span>
+    <span>{type.label}</span>
+    {rec.number && <span class="num">{rec.number}</span>}
+    {rec.visibility === 'dept' && <span class="tag"><Icon name="lock" /> Зөвхөн хэлтэс ба удирдлага</span>}
+  </PageHead>
+
+  <section class:list={['panel', 'status-panel', `s-${rec.status}`, { attention: can.decide }]} id="decide" aria-labelledby="status-h">
+    <div class="panel-body">
+      <h2 id="status-h" class="sr-only">Батлах явц</h2>
+      <ol class="stepper" aria-label="Батлах дараалал">
+        <li class="done"><span class="dot"><Icon name="check" /></span>Боловсруулсан</li>
+        {chain.map((c, n) => (
+          <li class={c.state} aria-current={c.state === 'now' ? 'step' : undefined}>
+            <span class="dot">{c.state === 'done' ? <Icon name="check" /> : c.state === 'stop' ? <Icon name="x" /> : n + 1}</span>
+            {c.label}
+            <span class="sr-only">{c.state === 'done' ? ' — баталсан' : c.state === 'now' ? ' — хүлээж байна' : c.state === 'stop' ? ' — буцаасан' : ''}</span>
+          </li>
+        ))}
+      </ol>
+      <div class="status-line">
+        <p><strong>{headline}</strong>{rec.status === 'in_review' && rec.submitted_at && <span class="muted"> Илгээсэн: {relDay(rec.submitted_at)}.</span>}</p>
       </div>
-    </div>
-    <div class="btn-row">
-      {can.edit && <a class="btn" href={`${here}/zasah`}>Засах</a>}
-      {rec.number && <a class="btn" href={`${here}/hevleh`} target="_blank" rel="noopener">Хэвлэх / PDF</a>}
-    </div>
-  </div>
+      {lastRejection && (
+        <div class="reject-note">
+          <b>{lastRejection.actor_name} буцаасан шалтгаан:</b>
+          <p>{lastRejection.comment}</p>
+        </div>
+      )}
 
-  <div class="layout-side">
-    <div class="stack">
-      {
-        lastRejection && (
-          <div class="flash err">
-            <strong>{lastRejection.actor_name} буцаасан:</strong> {lastRejection.comment}
-          </div>
-        )
-      }
-      <article class="card doc">
-        <dl class="kv">
-          <dt>Хэлтэс</dt><dd>{rec.dept_name}</dd>
-          <dt>Боловсруулсан</dt><dd>{rec.author_name}</dd>
-          <dt>Хичээлийн жил</dt><dd>{rec.academic_year}</dd>
-          <dt>Хувилбар</dt><dd>{rec.version}</dd>
-        </dl>
-        <hr class="divider" />
-        {
-          type.fields.map((f) =>
-            fields[f.name] ? (
-              <section class="doc-field">
-                <h3>{f.label}</h3>
-                <p class="pre">{fields[f.name]}</p>
-              </section>
-            ) : null,
-          )
-        }
-      </article>
+      {hasActions && (
+        <div class="decision">
+          {can.decide && (
+            <form method="post" class="stack" style="--stack:12px">
+              {standIn && (
+                <p class="flash warn" style="margin:0">
+                  <Icon name="alert" />
+                  <span class="flash-text">Та Тэргүүний хувьд {STEP_GEN[rec.awaiting!].toLowerCase()} оронд шийдвэрлэж байна. Энэ нь бүртгэлд тэмдэглэгдэнэ.</span>
+                </p>
+              )}
+              <div class="field">
+                <label for="comment">Тайлбар <span class="opt">(батлахад заавал биш, буцаахад заавал)</span></label>
+                <textarea id="comment" name="comment" rows="3" aria-describedby="comment-msg"></textarea>
+                <span class="error" id="comment-msg" hidden><Icon name="alert" /> Буцаах шалтгаанаа бичнэ үү.</span>
+              </div>
+              <div class="btn-row">
+                <button class="btn btn-ok btn-lg" name="action" value="approve"><Icon name="check" /> Батлах</button>
+                <button class="btn btn-danger btn-lg" name="action" value="reject" data-require="comment"><Icon name="undo" /> Буцаах</button>
+              </div>
+            </form>
+          )}
+          {(can.submit || can.withdraw || can.makeEvent) && (
+            <div class="btn-row">
+              {can.submit && (
+                <form method="post">
+                  <button class="btn btn-primary btn-lg" name="action" value="submit"><Icon name="send" /> Хянуулахаар илгээх</button>
+                </form>
+              )}
+              {can.withdraw && (
+                <form method="post" data-confirm="Хянуулахаас эргүүлэн татаж, ноорог болгох уу?">
+                  <button class="btn" name="action" value="withdraw"><Icon name="undo" /> Эргүүлэн татах</button>
+                </form>
+              )}
+              {can.makeEvent && <a class="btn btn-blue" href={`/uil-ajillagaa/shine?from=${rec.id}`}><Icon name="calendar" /> Арга хэмжээ үүсгэх</a>}
+            </div>
+          )}
+          {can.submit && !rec.number && <p class="form-note">Илгээх үед баримтын дугаар автоматаар олгогдоно.</p>}
+          {can.void && (
+            <details>
+              <summary class="linkish danger">Хүчингүй болгох…</summary>
+              <form method="post" class="stack" style="--stack:10px; margin-top:12px; max-width:520px">
+                <div class="field">
+                  <label for="void-reason">Шалтгаан</label>
+                  <textarea id="void-reason" name="comment" rows="2" required></textarea>
+                </div>
+                <div><button class="btn btn-danger btn-sm" name="action" value="void" data-confirm="Энэ баримтыг хүчингүй болгох уу? Буцаах боломжгүй.">Хүчингүй болгох</button></div>
+              </form>
+            </details>
+          )}
+        </div>
+      )}
     </div>
+  </section>
 
-    <aside class="stack">
-      <div class="card">
-        <h3>Батлах дараалал</h3>
-        <ol class="chain">
-          {chain.map((c) => <li class={c.state}>{c.label}</li>)}
-        </ol>
-        {rec.status === 'in_review' && rec.awaiting && (
-          <p class="small muted" style="margin:12px 0 0">Одоо <strong>{STEP_GEN[rec.awaiting]}</strong> шийдвэрийг хүлээж байна.</p>
+  <div class="cols" style="margin-top:18px">
+    <article class="panel" aria-labelledby="doc-h">
+      <div class="panel-head"><h2 id="doc-h"><Icon name="doc" /> Агуулга</h2></div>
+      <div class="panel-body">
+        {type.fields.map((f) =>
+          fields[f.name] ? (
+            <section class="doc-field">
+              <h3>{f.label}</h3>
+              <p>{f.type === 'date' ? fields[f.name].replaceAll('-', '.') : fields[f.name]}</p>
+            </section>
+          ) : null,
         )}
       </div>
+    </article>
 
-      {
-        can.decide && (
-          <form method="post" class="card stack decide">
-            <h3>Таны шийдвэр</h3>
-            {standIn && <p class="flash warn small">Та Тэргүүний хувьд {STEP_GEN[rec.awaiting!].toLowerCase()} оронд шийдвэрлэж байна. Энэ нь бүртгэлд тэмдэглэгдэнэ.</p>}
-            <div class="field">
-              <label for="comment">Тайлбар <span class="muted small">(буцаахад заавал)</span></label>
-              <textarea id="comment" name="comment" rows="3"></textarea>
-            </div>
-            <div class="btn-row">
-              <button class="btn btn-ok" name="action" value="approve">Батлах</button>
-              <button class="btn btn-danger" name="action" value="reject">Буцаах</button>
-            </div>
-          </form>
-        )
-      }
-
-      {
-        (can.submit || can.withdraw || can.void || can.makeEvent) && (
-          <div class="card stack">
-            {can.submit && (
-              <form method="post">
-                <button class="btn btn-primary" name="action" value="submit">Хянуулахаар илгээх</button>
-                {!rec.number && <p class="small muted" style="margin:8px 0 0">Илгээх үед дугаар олгогдоно.</p>}
-              </form>
-            )}
-            {can.withdraw && (
-              <form method="post">
-                <button class="btn" name="action" value="withdraw">Эргүүлэн татах</button>
-              </form>
-            )}
-            {can.makeEvent && <a class="btn btn-blue" href={`/uil-ajillagaa/shine?from=${rec.id}`}>Арга хэмжээ үүсгэх</a>}
-            {can.void && (
-              <details>
-                <summary class="small">Хүчингүй болгох…</summary>
-                <form method="post" class="stack" style="margin-top:10px">
-                  <textarea name="comment" rows="2" placeholder="Шалтгаан" required></textarea>
-                  <button class="btn btn-danger btn-sm" name="action" value="void">Хүчингүй болгох</button>
-                </form>
-              </details>
-            )}
-          </div>
-        )
-      }
-
-      <div class="card">
-        <h3>Түүх</h3>
-        <ul class="timeline">
-          {history.map((h) => (
-            <li class={`t-${h.action}`}>
-              <div>
-                <strong>{h.actor_name}</strong> — {ACTION_LABEL[h.action] ?? h.action}
-                {h.step && <span class="muted"> ({STEP_LABEL[h.step]})</span>}
-              </div>
-              <div class="when">{fmtDateTime(h.created_at)} · {ROLE_LABEL[h.actor_role]}</div>
-              {h.comment && <blockquote>{h.comment}</blockquote>}
-            </li>
-          ))}
-        </ul>
-      </div>
-    </aside>
+    <div>
+      <section class="panel" aria-labelledby="info-h">
+        <div class="panel-head"><h2 id="info-h">Мэдээлэл</h2></div>
+        <div class="panel-body">
+          <dl class="kv">
+            <dt>Дугаар</dt><dd class="num">{rec.number ?? '—'}</dd>
+            <dt>Хэлтэс</dt><dd>{rec.dept_name}</dd>
+            <dt>Боловсруулсан</dt><dd>{rec.author_name}</dd>
+            <dt>Хичээлийн жил</dt><dd>{rec.academic_year}</dd>
+            <dt>Хувилбар</dt><dd>{rec.version}</dd>
+          </dl>
+        </div>
+      </section>
+      <section class="panel" aria-labelledby="hist-h">
+        <div class="panel-head"><h2 id="hist-h"><Icon name="clock" /> Түүх</h2></div>
+        <div class="panel-body">
+          <ol class="timeline">
+            {[...history].reverse().map((h) => (
+              <li class={`t-${h.action}`}>
+                <div>
+                  <strong>{h.actor_name}</strong> — {ACTION_LABEL[h.action] ?? h.action}
+                  {h.step && <span class="muted"> ({STEP_LABEL[h.step]})</span>}
+                </div>
+                <div class="when">{fmtDateTime(h.created_at)} · {ROLE_LABEL[h.actor_role]}</div>
+                {h.comment && <blockquote>{h.comment}</blockquote>}
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
+    </div>
   </div>
 </Staff>
-
-<style>
-  .meta { margin-top: 8px; }
-  .doc-field + .doc-field { margin-top: 18px; }
-  .doc-field h3 { font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-3); margin-bottom: 4px; }
-  .pre { white-space: pre-wrap; margin: 0; }
-  .decide { border-color: var(--gold-deep); }
-  details summary { cursor: pointer; color: var(--bad); }
-</style>

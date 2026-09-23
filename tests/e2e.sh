@@ -134,10 +134,21 @@ has "link is dead after use" "$(curl -s -H "$S" $B/urilga/$TOK)" "Урилга �
 has "President sees who claimed with which email" "$(get $J/president.jar /gishuud)" "new.person@demo.test"
 check "renewal page for President" "$(code $J/president.jar /gishuud/shine-jil)" 200
 has "renewal page refused to a дарга" "$(curl -s -o /dev/null -w '%{redirect_url}' -b $J/dotood.jar -H "$S" $B/gishuud/shine-jil)" "err=denied"
-NEWID=$(get $J/president.jar /gishuud | grep -o 'name="user" value="[0-9]*"' | grep -o '[0-9]*' | sort -n | tail -1)
+NEWID=$(get $J/president.jar /gishuud | grep -o 'href="/gishuud/[0-9]*"' | grep -o '[0-9]*' | sort -n | tail -1)
 has "President removes the new member" "$(post $J/president.jar /gishuud -d action=remove -d user=$NEWID)" "ok=removed"
 has "removed member is logged out instantly" "$(curl -s -o /dev/null -w '%{redirect_url}' -b $J/new.jar -H "$S" $B/)" "/nevtreh"
 has "President cannot remove themselves" "$(post $J/president.jar /gishuud -d action=remove -d user=1)" "err=denied"
+
+echo "── member pages"
+check "a member opens their own page" "$(code $J/dotood2.jar /gishuud/4)" 200
+check "…but not someone else's" "$(code $J/dotood2.jar /gishuud/3)" 404
+has "President changes an e-mail" "$(post $J/president.jar /gishuud -d action=email -d user=6 -d back=/gishuud/6 --data-urlencode email=surgalt.new@demo.test)" "ok=saved"
+has "…and it shows in the list" "$(get $J/president.jar /gishuud)" "surgalt.new@demo.test"
+has "an e-mail already in use is refused" "$(post $J/president.jar /gishuud -d action=email -d user=6 -d back=/gishuud/6 --data-urlencode email=board@demo.test)" "err=email_taken"
+has "a дарга cannot change e-mails" "$(post $J/dotood.jar /gishuud -d action=email -d user=4 --data-urlencode email=x@demo.test)" "err=denied"
+has "'my documents' shows my own" "$(get $J/dotood2.jar '/barimt?view=mine')" "Танхим ашиглах"
+hasnt "…and not other people's" "$(get $J/dotood2.jar '/barimt?view=mine')" "Нээлтийн уулзалтын тайлан"
+has "nav shows the waiting count to the President" "$(get $J/president.jar /)" 'class="count hot"'
 
 echo "── audit & hosts"
 check "audit log: President" "$(code $J/president.jar /burtgel)" 200

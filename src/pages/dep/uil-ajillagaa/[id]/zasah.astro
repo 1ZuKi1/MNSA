@@ -2,6 +2,7 @@
 export const prerender = false;
 import Staff from '../../../../layouts/Staff.astro';
 import EventForm from '../../../../components/EventForm.astro';
+import PageHead from '../../../../components/PageHead.astro';
 import { departments } from '../../../../lib/db';
 import { getEvent, updateEvent } from '../../../../lib/events';
 import { readEventForm, type EventFormValues } from '../../../../lib/forms';
@@ -40,11 +41,6 @@ if (Astro.request.method === 'POST') {
 }
 ---
 <Staff title={`Засах: ${ev.title}`}>
-  <div class="page-head">
-    <div>
-      <span class="kicker"><a href={here}>{ev.title}</a></span>
-      <h1>Засах</h1>
-    </div>
-  </div>
+  <PageHead title="Арга хэмжээг засах" crumbs={[{ href: '/uil-ajillagaa', label: 'Арга хэмжээ' }, { href: here, label: ev.title }]} />
   <EventForm values={values} errors={errors} depts={depts} submitLabel="Хадгалах" cancelHref={here} />
 </Staff>

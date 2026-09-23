@@ -5,6 +5,7 @@
  */
 export const prerender = false;
 import Staff from '../../../layouts/Staff.astro';
+import Icon from '../../../components/Icon.astro';
 import { codeRateOk, issueCode, looksLikeEmail, normalizeEmail, verifyCode } from '../../../lib/auth';
 import { one } from '../../../lib/db';
 import { stashDevCode, takeDevCode, clearDevCode } from '../../../lib/devcode';
@@ -63,46 +64,47 @@ if (inv && Astro.request.method === 'POST') {
 const devCode = step === 'code' ? takeDevCode(Astro.cookies, Astro.url) : null;
 ---
 <Staff title="Урилга" bare>
-  <section class="claim">
-    <div class="card">
-      <img src="/brand/logo.svg" alt="MNSA" class="logo" width="110" height="84" />
+  <section class="auth" aria-labelledby="inv-h">
+    <div class="auth-card">
+      <div class="auth-logo"><img src="/brand/logo.svg" alt="" width="56" height="43" /></div>
       {
         !inv ? (
           <>
-            <h1>Урилга хүчингүй байна</h1>
-            <p class="muted">Энэ холбоос аль хэдийн ашиглагдсан, цуцлагдсан, эсвэл 72 цагийн хугацаа нь дууссан байна. Тэргүүнээс шинэ урилга авна уу.</p>
+            <h1 id="inv-h">Урилга хүчингүй байна</h1>
+            <p class="lead">Энэ холбоос аль хэдийн ашиглагдсан, цуцлагдсан, эсвэл 72 цагийн хугацаа нь дууссан байна. Тэргүүнээс шинэ урилга авна уу.</p>
           </>
         ) : (
           <>
-            <h1>Тавтай морил, {inv.name_mn}</h1>
-            <p class="muted small center">Таныг МОХ-ны ажлын орчинд урьж байна.</p>
-            <dl class="kv invite-kv">
+            <h1 id="inv-h">Тавтай морил, {inv.name_mn}</h1>
+            <p class="lead">Таныг МОХ-ны ажлын орчинд урьж байна.</p>
+            <div class="steps-dots" aria-hidden="true"><span class="on"></span><span class:list={{ on: step === 'code' }}></span></div>
+            <dl class="kv" style="margin:0 0 18px;padding:12px 14px;border-radius:10px;background:var(--paper)">
               <dt>Хэлтэс</dt><dd>{inv.dept_name ?? '—'}</dd>
               <dt>Эрх</dt><dd>{ROLE_LABEL[inv.role]}</dd>
               <dt>Хүчинтэй</dt><dd>{fmtDate(termEnd())} хүртэл</dd>
             </dl>
-            {error && <p class="flash err">{error}</p>}
+            {error && <div class="flash err" role="alert"><Icon name="alert" /><span class="flash-text">{error}</span></div>}
             {step === 'email' ? (
-              <form method="post" class="stack">
+              <form method="post">
                 <input type="hidden" name="action" value="email" />
                 <div class="field">
                   <label for="email">Таны и-мэйл хаяг</label>
-                  <input id="email" name="email" type="email" required autocomplete="email" value={email} autofocus />
-                  <span class="hint">Хувийн хаяг ашиглана уу (Gmail, QQ, 163 гэх мэт). Нууц үг хэрэггүй — нэвтрэх бүрт код ирнэ.</span>
+                  <input id="email" name="email" type="email" required autocomplete="email" inputmode="email" value={email} autofocus aria-describedby="email-hint" />
+                  <span class="hint" id="email-hint">Хувийн хаяг ашиглана уу (Gmail, QQ, 163 гэх мэт) — их сургуулийн хаяг төгсөхөд хаагддаг. Нууц үг хэрэггүй: нэвтрэх бүрт код ирнэ.</span>
                 </div>
-                <button class="btn btn-primary wide" type="submit">Код авах</button>
+                <button class="btn btn-primary btn-lg btn-block" type="submit">Код авах <Icon name="arrow" /></button>
               </form>
             ) : (
-              <form method="post" class="stack">
+              <form method="post">
                 <input type="hidden" name="action" value="verify" />
-                <p class="small"><strong>{email}</strong> хаяг руу код илгээлээ.</p>
-                {devCode && <p class="flash info small">Туршилтын горим: код <strong class="num">{devCode}</strong></p>}
+                <p class="lead" style="margin:0"><strong style="color:var(--ink)">{email}</strong> хаяг руу код илгээлээ.</p>
+                {devCode && <p class="dev-code"><span>Туршилтын горим — таны код:</span> <strong class="num">{devCode}</strong></p>}
                 <div class="field">
-                  <label for="code">Код</label>
+                  <label for="code">6 оронтой код</label>
                   <input id="code" name="code" class="code-input" inputmode="numeric" autocomplete="one-time-code" maxlength="7" required autofocus />
                 </div>
-                <button class="btn btn-primary wide" type="submit">Бүртгэлээ баталгаажуулах</button>
-                <p class="small"><a href={`/urilga/${token}`}>Хаягаа засах</a></p>
+                <button class="btn btn-primary btn-lg btn-block" type="submit">Бүртгэлээ баталгаажуулах</button>
+                <p class="small" style="margin:0;text-align:center"><a href={`/urilga/${token}`}>Хаягаа засах</a></p>
               </form>
             )}
           </>
@@ -111,12 +113,3 @@ const devCode = step === 'code' ? takeDevCode(Astro.cookies, Astro.url) : null;
     </div>
   </section>
 </Staff>
-
-<style>
-  .claim { max-width: 440px; margin: 48px auto 0; }
-  .logo { width: 110px; height: auto; margin: 0 auto 16px; }
-  .claim h1 { text-align: center; font-size: 1.3rem; }
-  .wide { width: 100%; min-height: 44px; }
-  .center { text-align: center; }
-  .invite-kv { margin: 0 auto 18px; width: max-content; }
-</style>

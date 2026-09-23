@@ -2,6 +2,7 @@
 export const prerender = false;
 import Staff from '../../../../layouts/Staff.astro';
 import RecordForm from '../../../../components/RecordForm.astro';
+import PageHead from '../../../../components/PageHead.astro';
 import { readRecordForm } from '../../../../lib/forms';
 import { clientIp, int, withFlash } from '../../../../lib/http';
 import * as P from '../../../../lib/permissions';
@@ -41,12 +42,11 @@ if (Astro.request.method === 'POST') {
 }
 ---
 <Staff title={`Засах: ${rec.title}`}>
-  <div class="page-head">
-    <div>
-      <span class="kicker"><a href={here}>{rec.number ?? 'Ноорог'}</a> · {type.label} · {rec.dept_name}</span>
-      <h1>Засах</h1>
-    </div>
-  </div>
+  <PageHead
+    title="Засах"
+    sub={`${type.label} · ${rec.dept_name}. Хадгалах бүрт шинэ хувилбар үүснэ — өмнөх хувилбарууд устахгүй.`}
+    crumbs={[{ href: '/barimt', label: 'Баримт бичиг' }, { href: here, label: rec.number ?? rec.title }]}
+  />
   <RecordForm
     type={type}
     title={title}
@@ -56,5 +56,4 @@ if (Astro.request.method === 'POST') {
     submitLabel="Хадгалах"
     cancelHref={here}
   />
-  <p class="small muted">Хадгалах бүрт шинэ хувилбар үүсэх бөгөөд өмнөх хувилбарууд устахгүй.</p>
 </Staff>

@@ -43,6 +43,7 @@ export const FLASH: Record<string, string> = {
   conflict: 'Өөр хүн энэ хооронд өөрчилсөн байна. Хуудсаа дахин ачаалаад оролдоно уу.',
   comment: 'Тайлбар бичих шаардлагатай.',
   invalid: 'Мэдээллээ шалгаад дахин оролдоно уу.',
+  email_taken: 'Энэ и-мэйл хаяг өөр хүнд бүртгэлтэй байна.',
 };
 
 export const flashFrom = (url: URL) => {

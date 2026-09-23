@@ -85,6 +85,8 @@ export interface RecordFilter {
   status?: string;
   year?: string;
   q?: string;
+  /** Only records written by this user. */
+  author?: number;
   limit?: number;
 }
 
@@ -100,6 +102,7 @@ export async function listRecords(a: SessionUser, f: RecordFilter = {}): Promise
   if (f.type) add('r.type = ?', f.type);
   if (f.status) add('r.status = ?', f.status);
   if (f.year) add('r.academic_year = ?', f.year);
+  if (f.author) add('r.author_id = ?', f.author);
   if (f.q) {
     // D1 caps LIKE patterns at 50 bytes; Cyrillic is 2 bytes/char, so keep the query short.
     params.push(`%${f.q.slice(0, 20).replace(/[\\%_]/g, '\\$&')}%`);
@@ -114,7 +117,8 @@ export async function listRecords(a: SessionUser, f: RecordFilter = {}): Promise
 }
 
 /** What is waiting for *this* person to decide. */
-export async function awaitingMe(a: SessionUser): Promise<RecordRow[]> {
+/** The SQL condition for "in review and waiting on this person" — shared by the list and the nav count. */
+export function awaitingWhere(a: SessionUser): { sql: string; params: unknown[] } | null {
   const conds: string[] = [];
   const params: unknown[] = [];
   if (a.role === 'head') {
@@ -123,8 +127,14 @@ export async function awaitingMe(a: SessionUser): Promise<RecordRow[]> {
   }
   if (P.isLegalHead(a)) conds.push(`r.awaiting = 'legal'`);
   if (a.role === 'president') conds.push(`r.awaiting = 'president'`);
-  if (!conds.length) return [];
-  return many<RecordRow>(`${SELECT} WHERE r.status = 'in_review' AND (${conds.join(' OR ')}) ORDER BY r.submitted_at`, ...params);
+  if (!conds.length) return null;
+  return { sql: `r.status = 'in_review' AND (${conds.join(' OR ')})`, params };
+}
+
+export async function awaitingMe(a: SessionUser): Promise<RecordRow[]> {
+  const w = awaitingWhere(a);
+  if (!w) return [];
+  return many<RecordRow>(`${SELECT} WHERE ${w.sql} ORDER BY r.submitted_at`, ...w.params);
 }
 
 export async function myDrafts(a: SessionUser): Promise<RecordRow[]> {

@@ -1,10 +1,14 @@
 ---
 export const prerender = false;
 import Staff from '../../../layouts/Staff.astro';
-import { departments } from '../../../lib/db';
-import { clientIp, int, str, withFlash } from '../../../lib/http';
+import PageHead from '../../../components/PageHead.astro';
+import Icon from '../../../components/Icon.astro';
+import { initials } from '../../../lib/team';
+import { departments, one } from '../../../lib/db';
+import { looksLikeEmail, normalizeEmail } from '../../../lib/auth';
+import { clientIp, int, safeNext, str, withFlash } from '../../../lib/http';
 import {
-  asMemberLike, canSetPublic, changeMember, createInvite, getMember, listMembers, openInvites, recentlyClaimed, removeMember, revokeInvite, setDeputy, setShowPublic,
+  canSetPublic, changeEmail, changeMember, createInvite, getMember, listMembers, openInvites, recentlyClaimed, removeMember, revokeInvite, setDeputy, setShowPublic,
 } from '../../../lib/members';
 import * as P from '../../../lib/permissions';
 import { Denied } from '../../../lib/records';
@@ -23,13 +27,14 @@ if (Astro.request.method === 'POST') {
   const fd = await Astro.request.formData();
   const action = str(fd, 'action', 20);
   const ip = clientIp(Astro.request);
+  const back = safeNext(str(fd, 'back', 200), '/gishuud');
   if (action === 'public_on' || action === 'public_off') {
     const target = await getMember(int(str(fd, 'user')) ?? 0);
-    if (!target || !canSetPublic(user, target)) return Astro.redirect(withFlash('/gishuud', 'denied', 'err'));
+    if (!target || !canSetPublic(user, target)) return Astro.redirect(withFlash(back, 'denied', 'err'));
     await setShowPublic(user, target, action === 'public_on', ip);
-    return Astro.redirect(withFlash('/gishuud', 'saved'));
+    return Astro.redirect(withFlash(back, 'saved'));
   }
-  if (!manager) return Astro.redirect(withFlash('/gishuud', 'denied', 'err'));
+  if (!manager) return Astro.redirect(withFlash(back, 'denied', 'err'));
   try {
     if (action === 'invite') {
       const name = str(fd, 'name', 100);
@@ -53,11 +58,18 @@ if (Astro.request.method === 'POST') {
       else if (!target) throw new Denied();
       else if (action === 'change') await changeMember(user, target, { role: str(fd, 'role', 20) as Role, dept: (str(fd, 'dept', 40) || null) as DeptSlug | null }, ip);
       else if (action === 'remove') await removeMember(user, target, ip);
+      else if (action === 'email') {
+        const email = normalizeEmail(str(fd, 'email', 254));
+        if (!looksLikeEmail(email)) return Astro.redirect(withFlash(back, 'invalid', 'err'));
+        if (email !== target.email && (await one(`SELECT 1 FROM users WHERE email = ?`, email))) return Astro.redirect(withFlash(back, 'email_taken', 'err'));
+        await changeEmail(user, target, email, ip);
+      }
       const key = { revoke: 'revoked', deputy: 'deputy', no_deputy: 'deputy', change: 'saved', remove: 'removed' }[action] ?? 'saved';
-      return Astro.redirect(withFlash('/gishuud', key));
+      // After removing someone their page no longer exists — go back to the list.
+      return Astro.redirect(withFlash(action === 'remove' ? '/gishuud' : back, key));
     }
   } catch (e) {
-    if (e instanceof Denied) return Astro.redirect(withFlash('/gishuud', 'denied', 'err'));
+    if (e instanceof Denied) return Astro.redirect(withFlash(back, 'denied', 'err'));
     throw e;
   }
 }
@@ -68,190 +80,181 @@ const [members, invites, claimed] = await Promise.all([
   manager ? recentlyClaimed() : Promise.resolve([]),
 ]);
 const deputy = members.find((m) => m.is_deputy === 1);
+const t = now();
+// Group the list by department, leadership first (listMembers already sorts by role within).
+const groups = depts
+  .map((d) => ({ name: d.name_mn, rows: members.filter((m) => m.department_id === d.id) }))
+  .concat([{ name: 'Хэлтэсгүй', rows: members.filter((m) => m.department_id === null) }])
+  .filter((g) => g.rows.length > 0);
+const canOpen = (m: (typeof members)[number]) => m.id === user.id || manager;
 ---
 <Staff title="Гишүүд">
-  <div class="page-head">
-    <div>
-      <span class="kicker">Ажлын орчны эрхтэй хүмүүс</span>
-      <h1>Гишүүд</h1>
-    </div>
-    {manager && <a class="btn" href="/gishuud/shine-jil">Шинэ жилийн бүртгэл</a>}
-  </div>
+  <PageHead title="Гишүүд" sub={`Ажлын орчны эрхтэй ${members.length} хүн. Эрх жил бүрийн 9-р сарын 30-нд дуусна.`}>
+    <Fragment slot="actions">
+      {manager && <a class="btn btn-primary" href="#invite"><Icon name="plus" /> Урилга үүсгэх</a>}
+      {manager && <a class="btn" href="/gishuud/shine-jil"><Icon name="clock" /> Шинэ жилийн бүртгэл</a>}
+    </Fragment>
+  </PageHead>
 
   {
     inviteLink && (
-      <div class="card invite-made">
-        <h2>Урилга үүслээ: {inviteName}</h2>
-        <p class="small">Энэ холбоосыг WeChat-аар илгээнэ үү. Нэг удаа ашиглагдах бөгөөд <strong>72 цагийн</strong> дотор хүчинтэй. Холбоос зөвхөн одоо харагдана — дахин үзүүлэх боломжгүй.</p>
-        <div class="copy">
-          <input type="text" readonly value={inviteLink} id="invite-link" />
-          <button class="btn btn-primary" type="button" data-copy="invite-link">Хуулах</button>
+      <section class="panel attention" aria-labelledby="made-h" style="margin-bottom:18px">
+        <div class="panel-head"><h2 id="made-h"><Icon name="check" /> Урилга үүслээ: {inviteName}</h2></div>
+        <div class="panel-body stack" style="--stack:12px">
+          <p style="margin:0">Энэ холбоосыг WeChat-аар илгээнэ үү. Нэг удаа ашиглагдах бөгөөд <strong>72 цагийн</strong> дотор хүчинтэй. Холбоос зөвхөн одоо харагдана — дахин үзүүлэх боломжгүй.</p>
+          <div class="copy-row">
+            <label for="invite-link" class="sr-only">Урилгын холбоос</label>
+            <input type="text" readonly value={inviteLink} id="invite-link" />
+            <button class="btn btn-primary" type="button" data-copy="invite-link"><Icon name="copy" /> <span data-label>Хуулах</span></button>
+          </div>
+          <p class="form-note">Урилга авсан хүн өөрийн и-мэйл хаягаа өөрөө оруулж, кодоор баталгаажуулна. Ингэснээр хаягийн алдаа гарах боломжгүй.</p>
         </div>
-        <p class="small muted">Урилга авсан хүн өөрийн и-мэйл хаягаа өөрөө оруулж, кодоор баталгаажуулна. Ингэснээр хаягийн алдаа гарах боломжгүй.</p>
-      </div>
+      </section>
     )
   }
 
-  <div class="table-wrap">
+  <div class="table-wrap cards-sm">
     <table class="t">
+      <caption class="sr-only">Гишүүдийн жагсаалт, хэлтсээр</caption>
       <thead>
         <tr>
-          <th>Нэр</th>
-          <th>Хэлтэс</th>
-          <th>Эрх</th>
-          <th>И-мэйл</th>
-          <th>Эрх дуусах</th>
-          <th title="Нийтийн «Удирдлагын баг» хуудсанд харагдах эсэх">Нийтэд</th>
-          {manager && <th></th>}
+          <th scope="col">Нэр</th>
+          <th scope="col">Эрх</th>
+          <th scope="col">И-мэйл</th>
+          <th scope="col">Эрх дуусах</th>
+          <th scope="col" title="Нийтийн «Удирдлагын баг» хуудсанд харагдах эсэх">Нийтэд</th>
         </tr>
       </thead>
-      <tbody>
-        {members.map((m) => {
-          const canTouch = P.canModifyMember(user, asMemberLike(m));
-          const expiring = m.term_ends_at !== null && m.term_ends_at - now() < 30 * 86400;
-          return (
-            <tr>
-              <td>
-                <strong>{m.name_mn}</strong>
-                {m.is_deputy === 1 && <span class="badge plain b-blue">орлогч</span>}
-                {m.id === user.id && <span class="muted small"> (та)</span>}
-                <div class="muted small">{m.student_id}</div>
-              </td>
-              <td class="nowrap">{m.dept_name ?? '—'}</td>
-              <td class="nowrap">{ROLE_LABEL[m.role]}</td>
-              <td class="small"><a href={`mailto:${m.email}`}>{m.email}</a></td>
-              <td class:list={['nowrap num small', { warnc: expiring }]}>{fmtDate(m.term_ends_at)}</td>
-              <td class="nowrap small">
-                {m.role === 'maintainer' ? (
-                  <span class="muted">—</span>
-                ) : canSetPublic(user, m) ? (
-                  <form method="post" class="inline">
-                    <input type="hidden" name="user" value={m.id} />
-                    <button class="btn btn-sm btn-quiet" name="action" value={m.show_public ? 'public_off' : 'public_on'} title={m.show_public ? 'Нийтийн хуудаснаас нуух' : 'Нийтийн хуудсанд харуулах'}>
-                      {m.show_public ? '✓ Харагдана' : 'Нуусан'}
-                    </button>
-                  </form>
-                ) : (
-                  <span>{m.show_public ? '✓' : 'Нуусан'}</span>
-                )}
-              </td>
-              {manager && (
-                <td class="actions">
-                  {canTouch && (
-                    <details class="manage">
-                      <summary class="btn btn-sm">Өөрчлөх</summary>
-                      <div class="pop card">
-                        <form method="post" class="stack" style="--stack:10px">
-                          <input type="hidden" name="user" value={m.id} />
-                          <select name="role" aria-label="Эрх">
-                            {[...new Set([m.role, ...grantable])].map((r) => <option value={r} selected={r === m.role}>{ROLE_LABEL[r]}</option>)}
-                          </select>
-                          <select name="dept" aria-label="Хэлтэс">
-                            <option value="">—</option>
-                            {depts.map((d) => <option value={d.slug} selected={d.slug === m.dept_slug}>{d.name_mn}</option>)}
-                          </select>
-                          <button class="btn btn-sm btn-primary" name="action" value="change">Хадгалах</button>
-                        </form>
-                        {P.canSetDeputy(user) && m.role !== 'maintainer' && m.is_deputy !== 1 && (
-                          <form method="post">
-                            <input type="hidden" name="user" value={m.id} />
-                            <button class="btn btn-sm" name="action" value="deputy">Орлогчоор томилох</button>
-                          </form>
-                        )}
-                        <form method="post">
-                          <input type="hidden" name="user" value={m.id} />
-                          <button class="btn btn-sm btn-danger" name="action" value="remove">Ажлын орчноос хасах</button>
-                        </form>
-                        <p class="small muted" style="margin:0">Хассан ч түүний бичсэн бүх баримт хэвээр үлдэнэ.</p>
-                      </div>
-                    </details>
-                  )}
+      {groups.map((g) => (
+        <tbody>
+          <tr class="group-row"><th colspan="5" scope="rowgroup">{g.name}</th></tr>
+          {g.rows.map((m) => {
+            const expiring = m.term_ends_at !== null && m.term_ends_at - t < 30 * 86400;
+            return (
+              <tr class:list={{ clickable: canOpen(m) }}>
+                <td class="main-cell">
+                  <span class="who">
+                    <span class="avatar" aria-hidden="true">{initials(m.name_mn)}</span>
+                    <span class="who-text">
+                      {canOpen(m) ? <a class="row-link" href={`/gishuud/${m.id}`}>{m.name_mn}</a> : <b>{m.name_mn}</b>}
+                      {m.id === user.id && <span class="muted small"> (та)</span>}
+                      {m.is_deputy === 1 && <> <span class="badge plain b-blue">орлогч</span></>}
+                      <small>{m.student_id ?? ''}<span class="m-only">{ROLE_LABEL[m.role]} · {m.email}</span></small>
+                    </span>
+                  </span>
                 </td>
-              )}
-            </tr>
-          );
-        })}
-      </tbody>
+                <td class="nowrap hide-sm">{ROLE_LABEL[m.role]}</td>
+                <td class="small hide-sm">{m.email}</td>
+                <td class:list={['nowrap num small hide-sm', { warnc: expiring }]}>{fmtDate(m.term_ends_at)}{expiring && <span class="sr-only"> (удахгүй дуусна)</span>}</td>
+                <td class="nowrap small side-cell">
+                  {m.role === 'maintainer' ? <span class="muted">—</span> : m.show_public ? <span class="tag"><Icon name="check" /> Харагдана</span> : <span class="muted">Нуусан</span>}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      ))}
     </table>
   </div>
 
   {
     manager && (
-      <div class="grid-2" style="margin-top:24px">
-        <form method="post" class="card">
+      <div class="cols" style="margin-top:24px">
+        <form method="post" class="panel" id="invite" aria-labelledby="inv-h">
           <input type="hidden" name="action" value="invite" />
-          <h2>Урилга үүсгэх</h2>
-          <p class="small muted">Нэр, оюутны дугаарыг та оруулна. И-мэйл хаягаа тухайн хүн өөрөө оруулна.</p>
-          {inviteError && <p class="flash err">{inviteError}</p>}
-          <div class="field">
-            <label for="i_name" class="req">Нэр</label>
-            <input id="i_name" name="name" type="text" required maxlength="100" placeholder="Жишээ нь: Б. Болд" />
-          </div>
-          <div class="field">
-            <label for="i_sid" class="req">Оюутны дугаар</label>
-            <input id="i_sid" name="student_id" type="text" inputmode="numeric" required pattern="[0-9]{6,12}" />
-          </div>
-          <div class="row" style="margin-top:14px">
+          <div class="panel-head"><h2 id="inv-h"><Icon name="mail" /> Урилга үүсгэх</h2></div>
+          <div class="panel-body" style="display:grid;gap:16px">
+            <p class="form-note">Нэр, оюутны дугаарыг та оруулна. И-мэйл хаягаа тухайн хүн өөрөө оруулна.</p>
+            {inviteError && <div class="flash err" role="alert" style="margin:0"><Icon name="alert" /><span class="flash-text">{inviteError}</span></div>}
             <div class="field">
-              <label for="i_role">Эрх</label>
-              <select id="i_role" name="role">
-                {grantable.map((r) => <option value={r} selected={r === 'member'}>{ROLE_LABEL[r]}</option>)}
-              </select>
+              <label for="i_name">Нэр</label>
+              <input id="i_name" name="name" type="text" required maxlength="100" placeholder="Жишээ нь: Б. Болд" autocomplete="off" />
             </div>
             <div class="field">
-              <label for="i_dept">Хэлтэс</label>
-              <select id="i_dept" name="dept">
-                {depts.map((d) => <option value={d.slug}>{d.name_mn}</option>)}
-              </select>
+              <label for="i_sid">Оюутны дугаар</label>
+              <input id="i_sid" name="student_id" type="text" inputmode="numeric" required pattern="[0-9]{6,12}" aria-describedby="i_sid-hint" autocomplete="off" />
+              <span class="hint" id="i_sid-hint">Зөвхөн тоо, 6–12 орон.</span>
             </div>
+            <div class="two">
+              <div class="field">
+                <label for="i_role">Эрх</label>
+                <select id="i_role" name="role">
+                  {grantable.map((r) => <option value={r} selected={r === 'member'}>{ROLE_LABEL[r]}</option>)}
+                </select>
+              </div>
+              <div class="field">
+                <label for="i_dept">Хэлтэс</label>
+                <select id="i_dept" name="dept" aria-describedby="i_dept-hint">
+                  {depts.map((d) => <option value={d.slug}>{d.name_mn}</option>)}
+                </select>
+                <span class="hint" id="i_dept-hint" hidden>Техникийн хариуцагч хэлтэсгүй.</span>
+              </div>
+            </div>
+            <div><button class="btn btn-primary" type="submit">Урилгын холбоос үүсгэх</button></div>
           </div>
-          <button class="btn btn-primary" type="submit" style="margin-top:16px">Урилгын холбоос үүсгэх</button>
         </form>
 
-        <div class="stack">
-          <div class="card">
-            <h2>Орлогч</h2>
-            <p class="small muted">Тэргүүн байхгүй үед гишүүн нэмж, хасах эрхтэй нэг хүн.</p>
-            {deputy ? (
-              <form method="post" class="btn-row">
-                <strong>{deputy.name_mn}</strong>
-                {P.canSetDeputy(user) && <button class="btn btn-sm" name="action" value="no_deputy">Цуцлах</button>}
-              </form>
-            ) : (
-              <p class="flash warn small" style="margin:0">Орлогч томилогдоогүй. Гишүүдийн жагсаалтаас «Өөрчлөх» → «Орлогчоор томилох».</p>
-            )}
-          </div>
+        <div>
+          <section class="panel" aria-labelledby="dep-h">
+            <div class="panel-head"><h2 id="dep-h"><Icon name="user" /> Орлогч</h2></div>
+            <div class="panel-body">
+              <p class="form-note" style="margin-bottom:10px">Тэргүүн байхгүй үед гишүүн нэмж, хасах эрхтэй нэг хүн.</p>
+              {deputy ? (
+                <form method="post" class="assignee-row">
+                  <span class="avatar sm" aria-hidden="true">{initials(deputy.name_mn)}</span>
+                  <strong class="grow">{deputy.name_mn}</strong>
+                  {P.canSetDeputy(user) && <button class="btn btn-sm" name="action" value="no_deputy" data-confirm="Орлогчийг цуцлах уу?">Цуцлах</button>}
+                </form>
+              ) : (
+                <div class="flash warn" style="margin:0"><Icon name="alert" /><span class="flash-text">Орлогч томилогдоогүй. Гишүүний нэр дээр дарж «Орлогчоор томилох».</span></div>
+              )}
+            </div>
+          </section>
 
-          <div class="card">
-            <h2>Хүлээгдэж буй урилга</h2>
-            {invites.length === 0 ? <p class="muted small">Алга.</p> : (
-              <ul class="plain">
-                {invites.map((i) => (
-                  <li>
-                    <span>
-                      <strong>{i.name_mn}</strong> · {ROLE_LABEL[i.role]} · {i.dept_name ?? '—'}
-                      <span class="muted small">{i.expires_at < now() ? ' · хугацаа дууссан' : ` · ${fmtDateTime(i.expires_at)} хүртэл`}{i.pending_email && ` · ${i.pending_email} баталгаажуулж байна`}</span>
-                    </span>
-                    <form method="post" class="inline">
-                      <input type="hidden" name="invite" value={i.id} />
-                      <button class="btn btn-sm btn-quiet" name="action" value="revoke">Цуцлах</button>
-                    </form>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+          <section class="panel" id="invites" aria-labelledby="pend-h">
+            <div class="panel-head"><h2 id="pend-h"><Icon name="clock" /> Хүлээгдэж буй урилга</h2></div>
+            <div class="panel-body">
+              {invites.length === 0 ? <p class="form-note">Алга.</p> : (
+                <ul class="items">
+                  {invites.map((i) => (
+                    <li class="item">
+                      <span class="ic"><Icon name="mail" /></span>
+                      <span class="item-title">{i.name_mn}</span>
+                      <span class="item-meta">
+                        <span>{ROLE_LABEL[i.role]}</span>
+                        <span>{i.dept_name ?? '—'}</span>
+                        <span class:list={{ overdue: i.expires_at < t }}>{i.expires_at < t ? 'хугацаа дууссан' : `${fmtDateTime(i.expires_at)} хүртэл`}</span>
+                        {i.pending_email && <span>{i.pending_email} баталгаажуулж байна</span>}
+                      </span>
+                      <span class="item-act">
+                        <form method="post">
+                          <input type="hidden" name="invite" value={i.id} />
+                          <button class="btn btn-sm btn-quiet" name="action" value="revoke" data-confirm={`«${i.name_mn}» нэртэй урилгыг цуцлах уу?`}>Цуцлах</button>
+                        </form>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </section>
 
           {claimed.length > 0 && (
-            <div class="card">
-              <h2>Сүүлд бүртгүүлсэн</h2>
-              <p class="small muted">Зөв хүн зөв хаягаар бүртгүүлснийг шалгана уу.</p>
-              <ul class="plain">
-                {claimed.map((i) => (
-                  <li><span><strong>{i.name_mn}</strong> → {i.claimed_email} <span class="muted small">· {fmtDateTime(i.claimed_at)}</span></span></li>
-                ))}
-              </ul>
-            </div>
+            <section class="panel" aria-labelledby="claim-h">
+              <div class="panel-head"><h2 id="claim-h"><Icon name="check" /> Сүүлд бүртгүүлсэн</h2></div>
+              <div class="panel-body">
+                <p class="form-note" style="margin-bottom:8px">Зөв хүн зөв хаягаар бүртгүүлснийг шалгана уу.</p>
+                <ul class="items">
+                  {claimed.map((i) => (
+                    <li class="item">
+                      <span class="ic ok"><Icon name="user" /></span>
+                      <span class="item-title">{i.name_mn}</span>
+                      <span class="item-meta"><span>{i.claimed_email}</span><span>{fmtDateTime(i.claimed_at)}</span></span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </section>
           )}
         </div>
       </div>
@@ -260,25 +263,11 @@ const deputy = members.find((m) => m.is_deputy === 1);
 </Staff>
 
 <script is:inline>
-  document.querySelectorAll('[data-copy]').forEach(function (b) {
-    b.addEventListener('click', function () {
-      var input = document.getElementById(b.dataset.copy);
-      input.select();
-      if (navigator.clipboard) navigator.clipboard.writeText(input.value).then(function () { b.textContent = 'Хуулсан ✓'; });
-    });
-  });
+  // The maintainer has no department: hide the department choice when that role is picked.
+  (function () {
+    var role = document.getElementById('i_role'), dept = document.getElementById('i_dept'), hint = document.getElementById('i_dept-hint');
+    if (!role || !dept) return;
+    function sync() { var m = role.value === 'maintainer'; dept.disabled = m; if (hint) hint.hidden = !m; }
+    role.addEventListener('change', sync); sync();
+  })();
 </script>
-
-<style>
-  .invite-made { border-color: var(--ok); margin-bottom: 20px; }
-  .copy { display: flex; gap: 8px; }
-  .copy input { font-family: ui-monospace, monospace; font-size: 0.85rem; }
-  .warnc { color: var(--warn); font-weight: 600; }
-  .manage { position: relative; display: inline-block; }
-  .manage summary { list-style: none; }
-  .manage summary::-webkit-details-marker { display: none; }
-  .manage .pop { position: absolute; right: 0; top: calc(100% + 6px); z-index: 5; width: 260px; text-align: left; display: grid; gap: 10px; }
-  .plain { list-style: none; margin: 0; padding: 0; }
-  .plain li { display: flex; justify-content: space-between; gap: 10px; align-items: center; padding: 8px 0; border-top: 1px solid var(--line); font-size: 0.92rem; }
-  .plain li:first-child { border-top: 0; }
-</style>

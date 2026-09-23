@@ -2,13 +2,16 @@
 export const prerender = false;
 import Staff from '../../../layouts/Staff.astro';
 import RecordForm from '../../../components/RecordForm.astro';
+import PageHead from '../../../components/PageHead.astro';
+import Icon from '../../../components/Icon.astro';
 import { departments } from '../../../lib/db';
 import { readRecordForm } from '../../../lib/forms';
 import { clientIp, withFlash } from '../../../lib/http';
 import { canCreateRecordIn } from '../../../lib/permissions';
 import { getRecordType, RECORD_TYPE_LIST } from '../../../lib/record-types';
 import { createRecord, getRecord, submitRecord } from '../../../lib/records';
-import type { DeptSlug } from '../../../lib/types';
+import { STEP_LABEL, type DeptSlug } from '../../../lib/types';
+import { stepApplies } from '../../../lib/permissions';
 
 const user = Astro.locals.user!;
 const allDepts = await departments();
@@ -20,7 +23,16 @@ let title = '';
 let values: Record<string, string> = {};
 let errors: Record<string, string> = {};
 let visibility: 'staff' | 'dept' = 'staff';
-let dept = user.dept && depts.some((d) => d.slug === user.dept) ? user.dept : depts[0].slug;
+const askedDept = Astro.url.searchParams.get('dept');
+let dept = askedDept && depts.some((d) => d.slug === askedDept)
+  ? askedDept
+  : user.dept && depts.some((d) => d.slug === user.dept) ? user.dept : depts[0].slug;
+const ICON = { 'albn-bichig': 'mail', huselt: 'calendar', tailan: 'doc' } as const;
+const chainText = (chain: typeof RECORD_TYPE_LIST[number]['chain']) => {
+  const steps = chain.filter((s) => stepApplies(s, dept as DeptSlug)).map((s) => STEP_LABEL[s]);
+  return steps.length ? steps.join(' → ') : 'шууд батлагдана';
+};
+const typeHref = (slug: string) => `/barimt/shine?type=${slug}${askedDept ? `&dept=${askedDept}` : ''}`;
 
 if (Astro.request.method === 'POST') {
   const form = readRecordForm(await Astro.request.formData());
@@ -40,45 +52,41 @@ if (Astro.request.method === 'POST') {
   }
 }
 ---
-<Staff title="Шинэ баримт бичиг">
-  <div class="page-head">
-    <div>
-      <span class="kicker"><a href="/barimt">Баримт бичиг</a></span>
-      <h1>{type ? type.label : 'Шинэ баримт бичиг'}</h1>
-    </div>
-  </div>
+<Staff title={type ? `Шинэ ${type.label.toLowerCase()}` : 'Шинэ баримт бичиг'}>
+  <PageHead
+    title={type ? type.label : 'Ямар баримт бичиг вэ?'}
+    sub={type ? type.description : 'Төрлөө сонгоно уу. Төрөл бүр өөрийн маягт, батлах дараалалтай.'}
+    crumbs={[{ href: '/barimt', label: 'Баримт бичиг' }, ...(type ? [{ href: '/barimt/shine', label: 'Шинэ' }] : [])]}
+  >
+    <Fragment slot="actions">
+      {type && <a class="btn btn-quiet" href="/barimt/shine"><Icon name="back" /> Төрөл солих</a>}
+    </Fragment>
+  </PageHead>
 
   {
     !type ? (
-      <div class="grid-3">
+      <div class="type-grid">
         {RECORD_TYPE_LIST.map((t) => (
-          <a class="card type-card" href={`/barimt/shine?type=${t.slug}`}>
+          <a class="type-card" href={typeHref(t.slug)}>
+            <span class="ic"><Icon name={ICON[t.slug as keyof typeof ICON] ?? 'doc'} /></span>
             <h2>{t.label}</h2>
-            <p class="muted small">{t.description}</p>
+            <p>{t.description}</p>
+            <span class="chain-note">Батлах: {chainText(t.chain)}</span>
           </a>
         ))}
       </div>
     ) : (
-      <>
-        <p class="muted" style="max-width:760px">{type.description}</p>
-        <RecordForm
-          type={type}
-          title={title}
-          values={values}
-          errors={errors}
-          visibility={visibility}
-          depts={depts}
-          dept={dept}
-          submitLabel="Ноорог хадгалах"
-          cancelHref="/barimt"
-        />
-      </>
+      <RecordForm
+        type={type}
+        title={title}
+        values={values}
+        errors={errors}
+        visibility={visibility}
+        depts={depts}
+        dept={dept}
+        submitLabel="Ноорог хадгалах"
+        cancelHref="/barimt"
+      />
     )
   }
 </Staff>
-
-<style>
-  .type-card { text-decoration: none; color: var(--ink); transition: border-color 0.12s, transform 0.12s; }
-  .type-card:hover { border-color: var(--maroon); transform: translateY(-1px); color: var(--ink); }
-  .type-card h2 { color: var(--maroon); }
-</style>

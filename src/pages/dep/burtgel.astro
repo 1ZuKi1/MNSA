@@ -1,16 +1,25 @@
 ---
 export const prerender = false;
 import Staff from '../../layouts/Staff.astro';
+import PageHead from '../../components/PageHead.astro';
+import Icon from '../../components/Icon.astro';
 import { many } from '../../lib/db';
-import { canSeeAudit } from '../../lib/permissions';
+import * as P from '../../lib/permissions';
+const { canSeeAudit } = P;
 import { fmtDateTime } from '../../lib/time';
 
 const user = Astro.locals.user!;
 if (!canSeeAudit(user)) return new Response(null, { status: 404 });
 
+const CATS = { '': 'Бүгд', record: 'Баримт', event: 'Арга хэмжээ', task: 'Ажил', member: 'Гишүүд', invite: 'Урилга', login: 'Нэвтрэлт' } as const;
+const askedCat = Astro.url.searchParams.get('cat') ?? '';
+const cat = (askedCat in CATS ? askedCat : '') as keyof typeof CATS;
 const rows = await many<{ id: number; action: string; entity_type: string | null; entity_id: string | null; detail: string | null; ip: string | null; created_at: number; actor: string | null }>(
   `SELECT a.id, a.action, a.entity_type, a.entity_id, a.detail, a.ip, a.created_at, u.name_mn AS actor
-     FROM audit_log a LEFT JOIN users u ON u.id = a.actor_id ORDER BY a.id DESC LIMIT 300`,
+     FROM audit_log a LEFT JOIN users u ON u.id = a.actor_id
+    ${cat ? `WHERE a.action = ?1 OR a.action LIKE ?2` : ''}
+    ORDER BY a.id DESC LIMIT 300`,
+  ...(cat ? [cat, `${cat}.%`] : []),
 );
 
 const LABEL: Record<string, string> = {
@@ -26,33 +35,41 @@ const LABEL: Record<string, string> = {
   'member.email': 'И-мэйл сольсон', 'member.public.show': 'Нийтийн хуудсанд харуулсан', 'member.public.hide': 'Нийтийн хуудаснаас нуусан', 'member.renew': 'Эрх сунгасан', 'member.archive-lapsed': 'Хугацаа дууссаныг идэвхгүй болгосон',
 };
 const href = (t: string | null, id: string | null) =>
-  !id ? null : t === 'record' ? `/barimt/${id}` : t === 'event' ? `/uil-ajillagaa/${id}` : null;
+  !id ? null : t === 'record' ? `/barimt/${id}` : t === 'event' ? `/uil-ajillagaa/${id}` : t === 'user' && P.canManageMembers(user) ? `/gishuud/${id}` : null;
+const ENTITY: Record<string, string> = { record: 'Баримт', event: 'Арга хэмжээ', task: 'Ажил', user: 'Гишүүн', invite: 'Урилга', media: 'Зураг' };
 ---
-<Staff title="Бүртгэл">
-  <div class="page-head">
-    <div>
-      <span class="kicker">Устгах, засах боломжгүй</span>
-      <h1>Үйлдлийн бүртгэл</h1>
+<Staff title="Үйлдлийн бүртгэл">
+  <PageHead title="Үйлдлийн бүртгэл" sub="Сүүлийн 300 үйлдэл. Энэ бүртгэлийг ажлын орчноос хэн ч, тэр дундаа Тэргүүн ч засах, устгах боломжгүй." />
+
+  <nav class="tabs" aria-label="Төрлөөр шүүх">
+    {Object.entries(CATS).map(([k, v]) => (
+      <a href={k ? `/burtgel?cat=${k}` : '/burtgel'} aria-current={cat === k ? 'page' : undefined}>{v}</a>
+    ))}
+  </nav>
+
+  {rows.length === 0 ? (
+    <div class="empty"><Icon name="shield" /><p>Энэ төрлийн үйлдэл алга.</p></div>
+  ) : (
+    <div class="table-wrap cards-sm">
+      <table class="t">
+        <caption class="sr-only">Үйлдлийн бүртгэл, шинэ нь эхэндээ</caption>
+        <thead><tr><th scope="col">Хэзээ</th><th scope="col">Хэн</th><th scope="col">Юу</th><th scope="col">Хаана</th>{user.role !== 'board' && <th scope="col">IP</th>}</tr></thead>
+        <tbody>
+          {rows.map((r) => {
+            const h = href(r.entity_type, r.entity_id);
+            const where = r.entity_id ? `${ENTITY[r.entity_type ?? ''] ?? r.entity_type} #${r.entity_id}` : '';
+            return (
+              <tr>
+                <td class="nowrap num small side-cell">{fmtDateTime(r.created_at)}</td>
+                <td class="nowrap main-cell"><b>{r.actor ?? '—'}</b><span class="sub m-only">{LABEL[r.action] ?? r.action}{where && ` · ${where}`}</span></td>
+                <td class="hide-sm">{LABEL[r.action] ?? r.action}</td>
+                <td class="small hide-sm">{h ? <a href={h}>{where}</a> : where}</td>
+                {user.role !== 'board' && <td class="small muted num hide-sm">{r.ip ?? ''}</td>}
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
-  </div>
-  <p class="muted small">Сүүлийн 300 үйлдэл. Энэ бүртгэлийг ажлын орчноос хэн ч, тэр дундаа Тэргүүн ч өөрчилж чадахгүй.</p>
-  <div class="table-wrap">
-    <table class="t">
-      <thead><tr><th>Хэзээ</th><th>Хэн</th><th>Юу</th><th>Хаана</th>{user.role !== 'board' && <th>IP</th>}</tr></thead>
-      <tbody>
-        {rows.map((r) => {
-          const h = href(r.entity_type, r.entity_id);
-          return (
-            <tr>
-              <td class="nowrap num small">{fmtDateTime(r.created_at)}</td>
-              <td class="nowrap">{r.actor ?? <span class="muted">—</span>}</td>
-              <td>{LABEL[r.action] ?? r.action}</td>
-              <td class="small">{h ? <a href={h}>{r.entity_type} #{r.entity_id}</a> : r.entity_id ? `${r.entity_type} #${r.entity_id}` : ''}</td>
-              {user.role !== 'board' && <td class="small muted num">{r.ip ?? ''}</td>}
-            </tr>
-          );
-        })}
-      </tbody>
-    </table>
-  </div>
+  )}
 </Staff>

@@ -2,6 +2,8 @@
 export const prerender = false;
 import Staff from '../../../layouts/Staff.astro';
 import EventForm from '../../../components/EventForm.astro';
+import PageHead from '../../../components/PageHead.astro';
+import Icon from '../../../components/Icon.astro';
 import { departments } from '../../../lib/db';
 import { createEvent } from '../../../lib/events';
 import { readEventForm, type EventFormValues } from '../../../lib/forms';
@@ -43,17 +45,16 @@ if (Astro.request.method === 'POST') {
 }
 ---
 <Staff title="Шинэ арга хэмжээ">
-  <div class="page-head">
-    <div>
-      <span class="kicker"><a href="/uil-ajillagaa">Арга хэмжээ</a></span>
-      <h1>Шинэ арга хэмжээ</h1>
-    </div>
-  </div>
+  <PageHead
+    title="Шинэ арга хэмжээ"
+    sub="Ноорог хэлбэрээр үүснэ. «Нийтлэх» дарах хүртэл зөвхөн ажлын орчинд харагдана."
+    crumbs={[{ href: '/uil-ajillagaa', label: 'Арга хэмжээ' }]}
+  />
   {sourceOk && (
-    <p class="flash info">
-      «<a href={`/barimt/${source!.id}`}>{source!.title}</a>» ({source!.number}) батлагдсан хүсэлтээс мэдээллийг бөглөв.
-    </p>
+    <div class="flash info" role="note">
+      <Icon name="doc" />
+      <span class="flash-text">«<a href={`/barimt/${source!.id}`}>{source!.title}</a>» ({source!.number}) батлагдсан хүсэлтээс мэдээллийг бөглөв. Шалгаад хадгална уу.</span>
+    </div>
   )}
-  <p class="muted" style="max-width:760px">Ноорог хэлбэрээр хадгалагдана. Нийтлэх хүртэл зөвхөн ажлын орчинд харагдана.</p>
   <EventForm values={values} errors={errors} depts={depts} submitLabel="Ноорог үүсгэх" cancelHref="/uil-ajillagaa" />
 </Staff>

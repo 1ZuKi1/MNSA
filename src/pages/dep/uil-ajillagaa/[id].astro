@@ -1,6 +1,8 @@
 ---
 export const prerender = false;
 import Staff from '../../../layouts/Staff.astro';
+import PageHead from '../../../components/PageHead.astro';
+import Icon from '../../../components/Icon.astro';
 import { departments, many } from '../../../lib/db';
 import {
   addPhoto, addTask, assignTask, cancelTask, dropAssignment, eventPhotos, eventTasks, finishAssignment, getEvent,
@@ -10,9 +12,10 @@ import { clientIp, int, safeNext, str, withFlash } from '../../../lib/http';
 import { BadImage, mediaUrl, storeImage } from '../../../lib/media';
 import * as P from '../../../lib/permissions';
 import { Denied } from '../../../lib/records';
-import { fmtDate, fmtDateTime, fromLocal, now } from '../../../lib/time';
+import { dayDiff, fmtDate, fmtDateTime, fromLocal, now, relDay } from '../../../lib/time';
 import type { DeptSlug } from '../../../lib/types';
 import { publicOrigin } from '../../../lib/site';
+import { initials } from '../../../lib/team';
 
 const user = Astro.locals.user!;
 const id = int(Astro.params.id);
@@ -83,222 +86,266 @@ const isPast = ev.ends_at < now();
 const publicUrl = `${publicOrigin(Astro.url)}/uil-ajillagaa/${ev.id}`;
 const STATUS = { draft: 'Ноорог', published: 'Нийтлэгдсэн', cancelled: 'Цуцлагдсан' } as const;
 const TASK = { open: 'Нээлттэй', done: 'Дууссан', cancelled: 'Цуцлагдсан' } as const;
-const doneCount = tasks.filter((t) => t.status === 'done').length;
+const liveTasks = tasks.filter((t) => t.status !== 'cancelled');
+const doneCount = liveTasks.filter((t) => t.status === 'done').length;
+const t0 = now();
+const when = `${fmtDateTime(ev.starts_at)} – ${fmtDate(ev.ends_at) === fmtDate(ev.starts_at) ? fmtDateTime(ev.ends_at).slice(11) : fmtDateTime(ev.ends_at)}`;
 ---
 <Staff title={ev.title}>
-  <div class="page-head">
-    <div>
-      <span class="kicker"><a href="/uil-ajillagaa">Арга хэмжээ</a> · {isPast ? 'Өнгөрсөн' : 'Удахгүй болох'}</span>
-      <h1>{ev.title}</h1>
-      <div class="btn-row meta">
-        <span class={`badge b-${ev.status}`}>{STATUS[ev.status]}</span>
-        {ev.status === 'published' && <a class="small" href={publicUrl} target="_blank" rel="noopener">Нийтийн хуудсанд харах ↗</a>}
-      </div>
-    </div>
-    {
-      editor && (
-        <form method="post" class="btn-row">
-          <a class="btn" href={`${here}/zasah`}>Засах</a>
-          {ev.status !== 'published' && <button class="btn btn-ok" name="action" value="publish">Нийтлэх</button>}
-          {ev.status === 'published' && <button class="btn" name="action" value="unpublish">Нийтлэлээс буцаах</button>}
-          {ev.status !== 'cancelled' && !isPast && <button class="btn btn-danger" name="action" value="cancel">Цуцлах</button>}
+  <PageHead title={ev.title} crumbs={[{ href: '/uil-ajillagaa', label: 'Арга хэмжээ' }]}>
+    <Fragment slot="actions">
+      {editor && <a class="btn" href={`${here}/zasah`}><Icon name="edit" /> Засах</a>}
+      {editor && ev.status !== 'published' && ev.status !== 'cancelled' && (
+        <form method="post" data-confirm="Нийтийн сайтад гаргах уу? 5 минутын дотор бүх хүнд харагдана.">
+          <button class="btn btn-ok" name="action" value="publish"><Icon name="globe" /> Нийтлэх</button>
         </form>
-      )
-    }
-  </div>
+      )}
+      {editor && ev.status === 'published' && (
+        <form method="post" data-confirm="Нийтийн сайтаас буцааж, ноорог болгох уу?">
+          <button class="btn" name="action" value="unpublish">Нийтлэлээс буцаах</button>
+        </form>
+      )}
+    </Fragment>
+    <span class={`badge b-${ev.status}`}>{STATUS[ev.status]}</span>
+    <span>{isPast ? 'Өнгөрсөн' : `Удахгүй болох · ${relDay(ev.starts_at)}`}</span>
+    {ev.status === 'published' && (
+      <a href={publicUrl} target="_blank" rel="noopener" class="tag" style="color:var(--blue)">
+        <Icon name="external" /> Нийтийн хуудсанд харах<span class="sr-only"> (шинэ цонхонд)</span>
+      </a>
+    )}
+  </PageHead>
 
-  <section class="card facts">
-    <dl>
-      <div><dt>Хэзээ</dt><dd>{fmtDateTime(ev.starts_at)} – {fmtDate(ev.ends_at) === fmtDate(ev.starts_at) ? fmtDateTime(ev.ends_at).slice(11) : fmtDateTime(ev.ends_at)}</dd></div>
-      <div><dt>Хаана</dt><dd>{ev.location ?? '—'}</dd></div>
-      <div><dt>Зохион байгуулах</dt><dd>{ev.dept_name ?? 'Холбоо бүхэлдээ'}</dd></div>
-      <div><dt>Нийтэлсэн</dt><dd>{ev.publisher_name ? `${ev.publisher_name} · ${fmtDate(ev.published_at)}` : '—'}</dd></div>
-      {ev.source_record_id && <div><dt>Хүсэлт</dt><dd><a href={`/barimt/${ev.source_record_id}`}>Батлагдсан хүсэлт →</a></dd></div>}
-    </dl>
-    {ev.summary && <p class="summary">{ev.summary}</p>}
-    {ev.body && <details class="body"><summary class="small">Дэлгэрэнгүй</summary><p class="pre small">{ev.body}</p></details>}
-  </section>
-
-  <section class="card">
-    <div class="card-head">
-      <h2>Ажлууд</h2>
-      <span class="small muted">{doneCount}/{tasks.length} дууссан</span>
-    </div>
-    {
-      tasks.length === 0 ? (
-        <p class="empty">Ажил нэмэгдээгүй байна.{manager && ' Доороос нэмнэ үү.'}</p>
-      ) : (
-        <div class="tasks" role="table" aria-label="Ажлууд">
-          <div class="task head" role="row">
-            <span role="columnheader">Ажил</span>
-            <span role="columnheader">Хугацаа</span>
-            <span role="columnheader">Хэлтэс</span>
-            <span role="columnheader">Төлөв</span>
-            <span role="columnheader">Хариуцагч</span>
-          </div>
-          {tasks.map((t) => {
-            const active = t.assignees.filter((x) => x.status === 'active');
-            const mine = active.find((x) => x.user_id === user.id);
-            const open = t.status === 'open';
-            return (
-              <div class:list={['task', { done: t.status === 'done' }]} role="row">
-                <span class="t-title" role="cell">
-                  <strong>{t.title}</strong>
-                  {t.notes && <span class="muted small">{t.notes}</span>}
-                </span>
-                <span class="t-due num" role="cell"><span class="lbl">Хугацаа </span>{fmtDate(t.due_at)}</span>
-                <span class="t-dept" role="cell"><span class="lbl">· </span>{t.dept_name ?? '—'}</span>
-                <span class="t-status" role="cell"><span class={`badge b-${t.status}`}>{TASK[t.status]}</span></span>
-                <span class="t-who" role="cell">
-                  <span class="names">
-                    {t.assignees.length === 0 && <span class="muted">Хүн хэрэгтэй</span>}
-                    {t.assignees.map((x) => (
-                      <span class:list={['who', { me: x.user_id === user.id }]}>
-                        {x.status === 'done' && '✓ '}
-                        {x.user_name}
-                        {x.volunteered === 1 && <span title="Сайн дураар авсан"> ✋</span>}
+  <div class="cols">
+    <div>
+      <section class="panel" aria-labelledby="tasks-h" id="tasks">
+        <div class="panel-head">
+          <h2 id="tasks-h"><Icon name="check" /> Ажлууд</h2>
+          {liveTasks.length > 0 && (
+            <span class="progress-line" style="margin:0">
+              <span class="progress" style="width:120px" role="img" aria-label={`${liveTasks.length} ажлаас ${doneCount} нь дууссан`}>
+                <span style={`width:${Math.round((doneCount / liveTasks.length) * 100)}%`} />
+              </span>
+              <span>{doneCount}/{liveTasks.length} дууссан</span>
+            </span>
+          )}
+        </div>
+        <div class="panel-body">
+          {tasks.length === 0 ? (
+            <div class="empty"><Icon name="check" /><b>Ажил нэмэгдээгүй байна.</b>{manager && <p>Доорх «Ажил нэмэх» товчоор нэмнэ үү.</p>}</div>
+          ) : (
+            <ul class="tasks">
+              {tasks.map((t) => {
+                const active = t.assignees.filter((x) => x.status === 'active');
+                const mine = active.find((x) => x.user_id === user.id);
+                const open = t.status === 'open';
+                const d = t.due_at ? dayDiff(t.due_at, t0) : null;
+                const late = open && d !== null && d < 0;
+                return (
+                  <li class:list={['task', { 'is-done': t.status === 'done' }]}>
+                    <div class="task-top">
+                      <span class="task-title">{t.title}</span>
+                      <span class={`badge b-${t.status}`}>{TASK[t.status]}</span>
+                      {t.notes && <p class="task-notes">{t.notes}</p>}
+                      <span class="task-meta">
+                        {t.due_at && (
+                          <span class:list={['tag', { overdue: late }]}>
+                            <Icon name="clock" /> {fmtDate(t.due_at)}{open && ` · ${late ? `${-d!} хоног хэтэрсэн` : relDay(t.due_at)}`}
+                          </span>
+                        )}
+                        {t.dept_name && <span class="tag"><Icon name="folder" /> {t.dept_name}</span>}
                       </span>
-                    ))}
-                  </span>
-                  <span class="acts">
-                    {open && !mine && P.canTakeTask(user) && (
-                      <form method="post" class="inline">
-                        <input type="hidden" name="task" value={t.id} />
-                        <button class:list={['btn btn-sm', active.length ? 'btn-quiet' : 'btn-blue']} name="action" value="take">
-                          {active.length ? '+ Нэгдэх' : 'Би хийнэ'}
-                        </button>
-                      </form>
-                    )}
-                    {mine && (
-                      <form method="post" class="inline">
-                        <input type="hidden" name="assignment" value={mine.id} />
-                        <button class="btn btn-sm btn-ok" name="action" value="done">Дууссан</button>
-                        <button class="btn btn-sm btn-quiet" name="action" value="drop">Орхих</button>
-                      </form>
-                    )}
-                    {manager && open && (
-                      <details class="more">
-                        <summary class="btn btn-sm btn-quiet" aria-label="Удирдах">⋯</summary>
-                        <div class="pop card stack" style="--stack:10px">
-                          <form method="post" class="stack" style="--stack:6px">
+                    </div>
+                    <div class="task-bottom">
+                      <ul class="people" aria-label="Хариуцагч">
+                        {t.assignees.length === 0 && open && <li class="chip need-chip">Хүн хэрэгтэй</li>}
+                        {t.assignees.filter((x) => x.status !== 'dropped').map((x) => (
+                          <li class:list={['chip', { me: x.user_id === user.id, done: x.status === 'done' }]}>
+                            <span class="avatar sm" aria-hidden="true">{initials(x.user_name)}</span>
+                            {x.user_name}
+                            {x.status === 'done' && <Icon name="check" label="дууссан" />}
+                            {x.volunteered === 1 && <Icon name="hand" label="Сайн дураар авсан" />}
+                          </li>
+                        ))}
+                      </ul>
+                      <div class="task-acts">
+                        {open && !mine && P.canTakeTask(user) && (
+                          <form method="post">
                             <input type="hidden" name="task" value={t.id} />
-                            <label class="label" for={`as_${t.id}`}>Хуваарилах</label>
-                            <select id={`as_${t.id}`} name="user">
-                              {people.filter((p) => !active.some((x) => x.user_id === p.id)).map((p) => (
-                                <option value={p.id}>{p.name_mn}{p.dept_name ? ` — ${p.dept_name}` : ''}</option>
-                              ))}
-                            </select>
+                            <button class:list={['btn btn-sm', active.length ? '' : 'btn-blue']} name="action" value="take">
+                              {active.length ? <><Icon name="plus" /> Нэгдэх</> : 'Би хийнэ'}
+                            </button>
+                          </form>
+                        )}
+                        {mine && (
+                          <form method="post">
+                            <input type="hidden" name="assignment" value={mine.id} />
+                            <button class="btn btn-sm btn-ok" name="action" value="done"><Icon name="check" /> Дууссан</button>
+                            <button class="btn btn-sm btn-quiet" name="action" value="drop" data-confirm="Энэ ажлаас гарах уу?">Орхих</button>
+                          </form>
+                        )}
+                      </div>
+                    </div>
+                    {manager && open && (
+                      <details class="manage">
+                        <summary class="btn btn-sm btn-quiet">Удирдах <Icon name="arrow" class="rot" /></summary>
+                        <div class="manage-body">
+                          <form method="post" class="manage-row">
+                            <input type="hidden" name="task" value={t.id} />
+                            <div class="field">
+                              <label class="label" for={`as_${t.id}`}>Хүн хуваарилах</label>
+                              <select id={`as_${t.id}`} name="user">
+                                {people.filter((p) => !active.some((x) => x.user_id === p.id)).map((p) => (
+                                  <option value={p.id}>{p.name_mn}{p.dept_name ? ` — ${p.dept_name}` : ''}</option>
+                                ))}
+                              </select>
+                            </div>
                             <button class="btn btn-sm" name="action" value="assign">Хуваарилах</button>
                           </form>
                           {active.filter((x) => x.user_id !== user.id).map((x) => (
-                            <form method="post" class="btn-row">
+                            <form method="post" class="assignee-row">
                               <input type="hidden" name="assignment" value={x.id} />
-                              <span class="small grow">{x.user_name}</span>
-                              <button class="btn btn-sm btn-ok" name="action" value="done">Дууссан</button>
-                              <button class="btn btn-sm btn-quiet" name="action" value="drop">Хасах</button>
+                              <span class="grow">{x.user_name}</span>
+                              <button class="btn btn-sm btn-ok" name="action" value="done">Дууссан гэж тэмдэглэх</button>
+                              <button class="btn btn-sm btn-quiet" name="action" value="drop" data-confirm={`«${x.user_name}» гишүүнийг энэ ажлаас хасах уу?`}>Хасах</button>
                             </form>
                           ))}
                           <form method="post">
                             <input type="hidden" name="task" value={t.id} />
-                            <button class="btn btn-sm btn-danger" name="action" value="cancel_task">Ажлыг цуцлах</button>
+                            <button class="btn btn-sm btn-danger" name="action" value="cancel_task" data-confirm="Энэ ажлыг цуцлах уу?"><Icon name="trash" /> Ажлыг цуцлах</button>
                           </form>
                         </div>
                       </details>
                     )}
-                  </span>
-                </span>
-              </div>
-            );
-          })}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          <p class="legend">
+            <span><Icon name="hand" /> сайн дураар авсан</span>
+            <span><Icon name="check" /> дууссан</span>
+            <span>Бүх хуваарилалт жилийн оролцооны бүртгэлд хадгалагдана.</span>
+          </p>
+
+          {manager && ev.status !== 'cancelled' && (
+            <details class="add-block" open={tasks.length === 0}>
+              <summary class="btn btn-sm"><Icon name="plus" /> Ажил нэмэх</summary>
+              <form method="post">
+                <input type="hidden" name="action" value="add_task" />
+                <div class="field">
+                  <label for="t_title">Ажил</label>
+                  <input id="t_title" name="title" type="text" required maxlength="200" placeholder="Жишээ нь: Зурагт хуудас хийх" />
+                </div>
+                <div class="two">
+                  <div class="field">
+                    <label for="t_due">Хугацаа <span class="opt">(заавал биш)</span></label>
+                    <input id="t_due" name="due" type="date" />
+                  </div>
+                  <div class="field">
+                    <label for="t_dept">Хэлтэс <span class="opt">(заавал биш)</span></label>
+                    <select id="t_dept" name="dept">
+                      <option value="">—</option>
+                      {depts.filter((d) => !d.is_leadership).map((d) => <option value={d.slug} selected={d.slug === ev.dept_slug}>{d.name_mn}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div class="field">
+                  <label for="t_notes">Тэмдэглэл <span class="opt">(заавал биш)</span></label>
+                  <input id="t_notes" name="notes" type="text" maxlength="1000" />
+                </div>
+                <div><button class="btn btn-primary" type="submit">Нэмэх</button></div>
+              </form>
+            </details>
+          )}
         </div>
-      )
-    }
-    <p class="small muted legend">✋ — сайн дураар авсан. Бүх хуваарилалт жилийн оролцооны бүртгэлд хадгалагдана.</p>
+      </section>
 
-    {
-      manager && ev.status !== 'cancelled' && (
-        <details class="add-task" open={tasks.length === 0}>
-          <summary class="btn btn-sm">+ Ажил нэмэх</summary>
-          <form method="post" class="stack" style="--stack:12px; margin-top:12px">
-            <input type="hidden" name="action" value="add_task" />
-            <div class="field">
-              <label for="t_title" class="req">Ажил</label>
-              <input id="t_title" name="title" type="text" required maxlength="200" placeholder="Жишээ нь: Зурагт хуудас хийх" />
+      <section class="panel" aria-labelledby="photos-h">
+        <div class="panel-head">
+          <h2 id="photos-h"><Icon name="image" /> Зураг</h2>
+          <span class="muted small">{photos.length}</span>
+        </div>
+        <div class="panel-body">
+          {photos.length === 0 ? (
+            <div class="empty"><Icon name="image" /><p>Зураг алга.{isPast && editor && ' Арга хэмжээ өнгөрсөн тул зургаа нэмээрэй — нийтийн хуудсанд харагдана.'}</p></div>
+          ) : (
+            <div class="photos">
+              {photos.map((p) => (
+                <figure>
+                  <div class="photo-frame">
+                    <img src={mediaUrl(p.media_id)} alt={p.caption ?? `${ev.title} — зураг`} loading="lazy" />
+                    {ev.cover_media_id === p.media_id && <span class="badge plain b-maroon"><Icon name="star" /> Нүүр зураг</span>}
+                  </div>
+                  {p.caption && <figcaption>{p.caption}</figcaption>}
+                  {editor && (
+                    <form method="post" class="photo-actions">
+                      <input type="hidden" name="photo" value={p.id} />
+                      <input type="hidden" name="media" value={p.media_id} />
+                      {ev.cover_media_id !== p.media_id && <button class="linkish" name="action" value="cover">Нүүр зураг болгох</button>}
+                      <button class="linkish danger" name="action" value="remove_photo" data-confirm="Энэ зургийг устгах уу? Буцаах боломжгүй.">Устгах</button>
+                    </form>
+                  )}
+                </figure>
+              ))}
             </div>
-            <div class="row">
+          )}
+          {editor && (
+            <form method="post" enctype="multipart/form-data" class="upload" data-photo-form>
+              <input type="hidden" name="action" value="photo" />
+              <input type="hidden" name="w" value="" />
+              <input type="hidden" name="h" value="" />
+              <label class="drop">
+                <Icon name="image" />
+                <b>Зураг сонгох</b>
+                <span data-status>Утасны зураг ч болно — илгээхээс өмнө автоматаар жижигрүүлнэ.</span>
+                <input id="file" name="file" type="file" accept="image/jpeg,image/png,image/webp" required />
+              </label>
+              <img class="preview" alt="Сонгосон зураг" data-preview />
               <div class="field">
-                <label for="t_due">Хугацаа</label>
-                <input id="t_due" name="due" type="date" />
+                <label for="caption">Тайлбар <span class="opt">(заавал биш)</span></label>
+                <input id="caption" name="caption" type="text" maxlength="300" />
               </div>
-              <div class="field">
-                <label for="t_dept">Хэлтэс</label>
-                <select id="t_dept" name="dept">
-                  <option value="">—</option>
-                  {depts.filter((d) => !d.is_leadership).map((d) => <option value={d.slug}>{d.name_mn}</option>)}
-                </select>
-              </div>
-            </div>
-            <div class="field">
-              <label for="t_notes">Тэмдэглэл</label>
-              <input id="t_notes" name="notes" type="text" maxlength="1000" />
-            </div>
-            <div><button class="btn btn-primary" type="submit">Нэмэх</button></div>
-          </form>
-        </details>
-      )
-    }
-  </section>
-
-  <section class="card">
-    <div class="card-head">
-      <h2>Зураг</h2>
-      <span class="small muted">{photos.length}</span>
+              <div><button class="btn btn-primary" type="submit"><Icon name="plus" /> Байршуулах</button></div>
+            </form>
+          )}
+        </div>
+      </section>
     </div>
-    {
-      photos.length === 0 ? (
-        <p class="empty">Зураг алга.{isPast && editor && ' Арга хэмжээ өнгөрсөн тул зургаа нэмээрэй — нийтийн хуудсанд харагдана.'}</p>
-      ) : (
-        <div class="photos">
-          {photos.map((p) => (
-            <figure>
-              <img src={mediaUrl(p.media_id)} alt={p.caption ?? ''} loading="lazy" />
-              {ev.cover_media_id === p.media_id && <span class="badge plain b-maroon cover">Нүүр зураг</span>}
-              {p.caption && <figcaption>{p.caption}</figcaption>}
-              {editor && (
-                <form method="post" class="photo-actions">
-                  <input type="hidden" name="photo" value={p.id} />
-                  <input type="hidden" name="media" value={p.media_id} />
-                  {ev.cover_media_id !== p.media_id && <button class="linkish small" name="action" value="cover">нүүр зураг болгох</button>}
-                  <button class="linkish small danger" name="action" value="remove_photo">устгах</button>
-                </form>
-              )}
-            </figure>
-          ))}
+
+    <div>
+      <section class="panel" aria-labelledby="facts-h">
+        <div class="panel-head"><h2 id="facts-h">Мэдээлэл</h2></div>
+        <div class="panel-body">
+          <dl class="facts" style="grid-template-columns:1fr">
+            <div><Icon name="calendar" /><dt>Хэзээ</dt><dd>{when}</dd></div>
+            <div><Icon name="pin" /><dt>Хаана</dt><dd>{ev.location ?? '—'}</dd></div>
+            <div><Icon name="folder" /><dt>Зохион байгуулах</dt><dd>{ev.dept_name ?? 'Холбоо бүхэлдээ'}</dd></div>
+            <div><Icon name="globe" /><dt>Нийтэлсэн</dt><dd>{ev.publisher_name ? `${ev.publisher_name} · ${fmtDate(ev.published_at)}` : 'Нийтлэгдээгүй'}</dd></div>
+            {ev.source_record_id && <div><Icon name="doc" /><dt>Хүсэлт</dt><dd><a href={`/barimt/${ev.source_record_id}`}>Батлагдсан хүсэлт →</a></dd></div>}
+          </dl>
+          {ev.summary && <p style="margin:16px 0 0;color:var(--ink-2)">{ev.summary}</p>}
+          {ev.body && (
+            <details style="margin-top:10px">
+              <summary class="linkish">Дэлгэрэнгүй</summary>
+              <p class="pre small" style="margin-top:8px">{ev.body}</p>
+            </details>
+          )}
         </div>
-      )
-    }
-    {
-      editor && (
-        <form method="post" enctype="multipart/form-data" class="upload" data-photo-form>
-          <input type="hidden" name="action" value="photo" />
-          <input type="hidden" name="w" value="" />
-          <input type="hidden" name="h" value="" />
-          <div class="row">
-            <div class="field">
-              <label for="file">Зураг нэмэх</label>
-              <input id="file" name="file" type="file" accept="image/jpeg,image/png,image/webp" required />
-              <span class="hint" data-status>Утасны зураг ч болно — илгээхээс өмнө автоматаар жижигрүүлнэ.</span>
-            </div>
-            <div class="field">
-              <label for="caption">Тайлбар</label>
-              <input id="caption" name="caption" type="text" maxlength="300" />
-            </div>
+      </section>
+
+      {editor && ev.status !== 'cancelled' && !isPast && (
+        <section class="panel danger-zone" aria-labelledby="cancel-h">
+          <div class="panel-head"><h2 id="cancel-h">Цуцлах</h2></div>
+          <div class="panel-body">
+            <p class="small muted">Арга хэмжээ болохгүй болсон бол цуцална. Ажил, хуваарилалт бүртгэлд хадгалагдана.</p>
+            <form method="post" data-confirm="Арга хэмжээг цуцлах уу? Нийтийн сайтаас алга болно.">
+              <button class="btn btn-danger btn-sm" name="action" value="cancel">Арга хэмжээг цуцлах</button>
+            </form>
           </div>
-          <button class="btn" type="submit" style="margin-top:12px">Байршуулах</button>
-        </form>
-      )
-    }
-  </section>
+        </section>
+      )}
+    </div>
+  </div>
 </Staff>
 
 <script is:inline>
@@ -326,6 +373,8 @@ const doneCount = tasks.filter((t) => t.status === 'done').length;
       var input = form.querySelector('input[type=file]');
       var status = form.querySelector('[data-status]');
       var button = form.querySelector('button[type=submit]');
+      var drop = form.querySelector('.drop');
+      var preview = form.querySelector('[data-preview]');
       input.addEventListener('change', async function () {
         var f = input.files && input.files[0];
         if (!f) return;
@@ -338,7 +387,9 @@ const doneCount = tasks.filter((t) => t.status === 'done').length;
           input.files = dt.files;
           form.elements.namedItem('w').value = String(out.w);
           form.elements.namedItem('h').value = String(out.h);
-          status.textContent = Math.round(f.size / 1024) + ' KB → ' + Math.round(out.file.size / 1024) + ' KB. Байршуулахад бэлэн.';
+          status.textContent = f.name + ': ' + Math.round(f.size / 1024) + ' KB → ' + Math.round(out.file.size / 1024) + ' KB. Байршуулахад бэлэн.';
+          if (preview) { preview.src = URL.createObjectURL(out.file); preview.classList.add('show'); }
+          if (drop) drop.classList.add('has-file');
         } catch (e) {
           status.textContent = 'Жижигрүүлж чадсангүй — эх файлаар илгээнэ (1.8 MB-аас бага байх ёстой).';
         } finally {
@@ -348,57 +399,3 @@ const doneCount = tasks.filter((t) => t.status === 'done').length;
     });
   })();
 </script>
-
-<style>
-  .meta { margin-top: 8px; }
-  .card + .card, .facts + .card { margin-top: 16px; }
-  .facts dl { display: grid; gap: 10px 24px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin: 0; }
-  .facts dt { font-size: 0.78rem; color: var(--ink-3); font-weight: 600; }
-  .facts dd { margin: 2px 0 0; font-weight: 550; }
-  .summary { margin: 14px 0 0; color: var(--ink-2); }
-  .body { margin-top: 8px; }
-  .body summary { cursor: pointer; color: var(--blue); }
-  .pre { white-space: pre-wrap; }
-
-  /* Task list: a table on wide screens, stacked cards on phones — the "who" column must never scroll away. */
-  .tasks { border: 1px solid var(--line); border-radius: var(--radius); }
-  .task { display: grid; grid-template-columns: minmax(0, 2.2fr) 0.9fr 1fr 0.8fr minmax(0, 2.4fr); gap: 12px; align-items: start; padding: 12px 14px; border-top: 1px solid var(--line); }
-  .task.head { border-top: 0; background: var(--sunk); font-size: 0.76rem; font-weight: 650; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.04em; border-radius: var(--radius) var(--radius) 0 0; }
-  .task.done { background: #fbfdfb; }
-  .t-title { display: grid; gap: 2px; }
-  .lbl { display: none; }
-  .t-who { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
-  .names { display: flex; flex-direction: column; gap: 2px; }
-  .who.me { font-weight: 650; color: var(--blue-deep); }
-  .acts { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-  .more { position: relative; }
-  .more summary { list-style: none; font-size: 1.1rem; line-height: 1; }
-  .more summary::-webkit-details-marker { display: none; }
-  .more .pop { position: absolute; right: 0; top: calc(100% + 6px); z-index: 5; width: 280px; }
-  .grow { flex: 1; }
-  @media (max-width: 760px) {
-    .task.head { display: none; }
-    .task { grid-template-columns: 1fr auto; gap: 6px 10px; }
-    .task:first-of-type { border-top: 0; }
-    .t-title { grid-column: 1; }
-    .t-status { grid-column: 2; grid-row: 1; }
-    .t-due, .t-dept { font-size: 0.85rem; color: var(--ink-3); grid-row: 2; }
-    .t-due { grid-column: 1; }
-    .t-dept { grid-column: 2; text-align: right; }
-    .t-due .lbl { display: inline; }
-    .t-who { grid-column: 1 / -1; padding-top: 6px; border-top: 1px dashed var(--line); }
-    .more .pop { right: auto; left: -200px; }
-  }
-
-  .legend { margin: 10px 0 0; }
-  .add-task { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
-  .add-task summary { list-style: none; }
-  .add-task summary::-webkit-details-marker { display: none; }
-  .upload { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
-  .photos figure { position: relative; }
-  .photos .cover { position: absolute; top: 6px; left: 6px; }
-  .photo-actions { display: flex; gap: 10px; margin-top: 2px; }
-  .linkish { background: none; border: 0; padding: 0; color: var(--ink-3); cursor: pointer; text-decoration: underline; font: inherit; }
-  .linkish:hover { color: var(--ink); }
-  .linkish.danger:hover { color: var(--bad); }
-</style>

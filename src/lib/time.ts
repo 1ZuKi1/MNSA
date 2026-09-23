@@ -68,3 +68,25 @@ export function dateKey(ts: number) {
   const p = parts(ts);
   return { day: `${pad(p.m)}.${pad(p.d)}`, sub: `${WEEKDAYS[d.getUTCDay()]} · ${pad(p.h)}:${pad(p.min)}` };
 }
+
+/** Whole calendar days from today (Beijing) to `ts`: 0 = today, -1 = yesterday, 2 = the day after tomorrow. */
+export function dayDiff(ts: number, from: number = now()): number {
+  const day = (x: number) => Math.floor((x + OFFSET) / 86400);
+  return day(ts) - day(from);
+}
+
+/** "өнөөдөр", "өчигдөр", "3 хоногийн өмнө", "маргааш", "5 хоногийн дараа" */
+export function relDay(ts: number | null | undefined, from: number = now()): string {
+  if (!ts) return '—';
+  const d = dayDiff(ts, from);
+  if (d === 0) return 'өнөөдөр';
+  if (d === -1) return 'өчигдөр';
+  if (d === 1) return 'маргааш';
+  return d < 0 ? `${-d} хоногийн өмнө` : `${d} хоногийн дараа`;
+}
+
+/** "2026.09.23, Лхагва" */
+export function fmtDayName(ts: number = now()): string {
+  const d = new Date((ts + OFFSET) * 1000);
+  return `${fmtDate(ts)}, ${WEEKDAYS[d.getUTCDay()]}`;
+}

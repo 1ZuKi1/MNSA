@@ -2,6 +2,7 @@
 export const prerender = false;
 import { env } from 'cloudflare:workers';
 import Staff from '../../layouts/Staff.astro';
+import Icon from '../../components/Icon.astro';
 import { codeRateOk, issueCode, looksLikeEmail, normalizeEmail, turnstileOk, verifyCode } from '../../lib/auth';
 import { audit, one, run } from '../../lib/db';
 import { clearDevCode, stashDevCode, takeDevCode } from '../../lib/devcode';
@@ -76,43 +77,40 @@ const siteKey = env.TURNSTILE_SITE_KEY;
     {siteKey && step === 'email' && <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer is:inline />}
   </Fragment>
 
-  <section class="login">
-    <div class="card">
-      <img src="/brand/logo.svg" alt="MNSA" class="login-logo" width="120" height="91" />
-      <h1>Ажлын орчинд нэвтрэх</h1>
+  <section class="auth" aria-labelledby="login-h">
+    <div class="auth-card">
+      <div class="auth-logo"><img src="/brand/logo.svg" alt="" width="56" height="43" /></div>
+      <h1 id="login-h">{step === 'email' ? 'Ажлын орчинд нэвтрэх' : 'Кодоо оруулна уу'}</h1>
+      <div class="steps-dots" aria-hidden="true"><span class="on"></span><span class:list={{ on: step === 'code' }}></span></div>
 
-      {error && <p class="flash err" role="alert">{error}</p>}
+      {error && <div class="flash err" role="alert"><Icon name="alert" /><span class="flash-text">{error}</span></div>}
 
       {
         step === 'email' ? (
-          <form method="post" class="stack">
+          <form method="post">
+            <p class="lead" style="margin:0">Бүртгэлтэй и-мэйл хаягаа оруулна уу. Бид 6 оронтой нэг удаагийн код илгээнэ. Нууц үг хэрэггүй.</p>
             <input type="hidden" name="action" value="request" />
             <input type="hidden" name="next" value={next} />
-            <p class="muted small">
-              Бүртгэлтэй и-мэйл хаягаа оруулна уу. Бид 6 оронтой нэг удаагийн код илгээнэ. Нууц үг шаардлагагүй.
-            </p>
             <div class="field">
               <label for="email">И-мэйл хаяг</label>
-              <input id="email" name="email" type="email" autocomplete="email" required value={email} autofocus />
+              <input id="email" name="email" type="email" autocomplete="email" inputmode="email" required value={email} autofocus />
             </div>
             {siteKey && <div class="cf-turnstile" data-sitekey={siteKey} data-language="auto" />}
-            <button class="btn btn-primary wide-btn" type="submit">Код авах</button>
+            <button class="btn btn-primary btn-lg btn-block" type="submit">Код авах <Icon name="arrow" /></button>
           </form>
         ) : (
-          <form method="post" class="stack">
+          <form method="post">
+            <p class="lead" style="margin:0">
+              Хэрэв <strong style="color:var(--ink)">{email}</strong> бүртгэлтэй бол түүн рүү код илгээлээ. Код 10 минут хүчинтэй. Спам хавтсаа ч шалгаарай.
+            </p>
             <input type="hidden" name="action" value="verify" />
             <input type="hidden" name="email" value={email} />
             <input type="hidden" name="next" value={next} />
-            <p class="muted small">
-              Хэрэв <strong>{email}</strong> хаяг бүртгэлтэй бол түүн рүү код илгээлээ. Код 10 минутын турш хүчинтэй.
-            </p>
             {devCode && (
-              <p class="flash info small">
-                Туршилтын горим: код <strong class="num">{devCode}</strong>
-              </p>
+              <p class="dev-code"><span>Туршилтын горим — таны код:</span> <strong class="num">{devCode}</strong></p>
             )}
             <div class="field">
-              <label for="code">Код</label>
+              <label for="code">6 оронтой код</label>
               <input
                 id="code"
                 name="code"
@@ -125,20 +123,12 @@ const siteKey = env.TURNSTILE_SITE_KEY;
                 autofocus
               />
             </div>
-            <button class="btn btn-primary wide-btn" type="submit">Нэвтрэх</button>
-            <p class="small"><a href={`/nevtreh?email=${encodeURIComponent(email)}`}>Өөр хаягаар нэвтрэх, эсвэл шинэ код авах</a></p>
+            <button class="btn btn-primary btn-lg btn-block" type="submit">Нэвтрэх</button>
+            <p class="small" style="margin:0;text-align:center"><a href={`/nevtreh?email=${encodeURIComponent(email)}`}>Өөр хаягаар нэвтрэх, эсвэл шинэ код авах</a></p>
           </form>
         )
       }
     </div>
-    <p class="small muted center">Бүртгэлгүй бол Тэргүүнээс урилга авна уу.</p>
+    <p class="foot-note">Бүртгэлгүй бол Тэргүүнээс урилга авна уу.</p>
   </section>
 </Staff>
-
-<style>
-  .login { max-width: 400px; margin: 48px auto 0; }
-  .login-logo { width: 120px; height: auto; margin: 0 auto 16px; }
-  .login h1 { text-align: center; font-size: 1.3rem; }
-  .wide-btn { width: 100%; min-height: 44px; }
-  .center { text-align: center; margin-top: 16px; }
-</style>

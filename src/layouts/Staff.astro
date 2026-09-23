@@ -1,36 +1,54 @@
 ---
 import '@fontsource-variable/golos-text';
 import '../styles/base.css';
+import '../styles/staff.css';
+import Icon from '../components/Icon.astro';
+import type { IconName } from '../lib/icons';
 import { cleanStaffPath } from '../lib/hosts';
-import { canSeeAudit } from '../lib/permissions';
+import { canSeeAudit, canSeeParticipation } from '../lib/permissions';
 import { ROLE_LABEL } from '../lib/types';
 import { flashFrom } from '../lib/http';
-import { isTestMode } from '../lib/site';
+import { isTestMode, publicOrigin } from '../lib/site';
+import { navCounts } from '../lib/nav';
+import { initials } from '../lib/team';
 
 interface Props {
   title: string;
-  /** Pages like login render without the nav. */
+  /** Login and invite pages render without the menu. */
   bare?: boolean;
-  wide?: boolean;
 }
-const { title, bare = false, wide = false } = Astro.props;
+const { title, bare = false } = Astro.props;
 const user = Astro.locals.user;
 const here = cleanStaffPath(Astro.url.pathname);
 const flash = flashFrom(Astro.url);
 const test = isTestMode(Astro.url);
+const counts = user && !bare ? await navCounts(user) : { awaiting: 0, tasks: 0 };
 
-const nav = user
+interface NavItem { href: string; label: string; icon: IconName; count?: number; hot?: boolean }
+const groups: { label: string; items: NavItem[] }[] = user
   ? [
-      { href: '/', label: 'Самбар' },
-      { href: '/barimt', label: 'Баримт бичиг' },
-      { href: '/uil-ajillagaa', label: 'Арга хэмжээ' },
-      { href: '/heltes', label: 'Хэлтсүүд' },
-      { href: '/oroltsoo', label: 'Оролцоо' },
-      { href: '/gishuud', label: 'Гишүүд' },
-      ...(canSeeAudit(user) ? [{ href: '/burtgel', label: 'Бүртгэл' }] : []),
+      {
+        label: 'Ажил',
+        items: [
+          { href: '/', label: 'Нүүр', icon: 'home' },
+          { href: '/barimt', label: 'Баримт бичиг', icon: 'doc', count: counts.awaiting, hot: true },
+          { href: '/uil-ajillagaa', label: 'Арга хэмжээ', icon: 'calendar', count: counts.tasks },
+        ],
+      },
+      {
+        label: 'Холбоо',
+        items: [
+          { href: '/heltes', label: 'Хэлтсүүд', icon: 'folder' },
+          { href: '/gishuud', label: 'Гишүүд', icon: 'users' },
+          { href: '/oroltsoo', label: canSeeParticipation(user) ? 'Оролцоо' : 'Миний оролцоо', icon: 'chart' },
+          ...(canSeeAudit(user) ? [{ href: '/burtgel', label: 'Үйлдлийн бүртгэл', icon: 'shield' as IconName }] : []),
+        ],
+      },
     ]
   : [];
 const active = (href: string) => (href === '/' ? here === '/' : here === href || here.startsWith(href + '/'));
+const totalCount = counts.awaiting;
+const roleText = user ? `${ROLE_LABEL[user.role]}${user.isDeputy ? ' · орлогч' : ''}` : '';
 ---
 <!doctype html>
 <html lang="mn">
@@ -38,92 +56,198 @@ const active = (href: string) => (href === '/' ? here === '/' : here === href ||
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex, nofollow" />
+    <meta name="theme-color" content="#0d2138" />
     <title>{title} · МОХ ажлын орчин</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <script is:inline>document.documentElement.classList.add('js');</script>
     <slot name="head" />
   </head>
   <body class:list={['staff', { bare }]}>
+    <a class="skip" href="#main">Үндсэн агуулга руу шилжих</a>
     {test && <div class="test-strip" role="note">ТУРШИЛТЫН ОРЧИН — жинхэнэ мэдээлэл бүү оруулаарай. Нэвтрэх код дэлгэц дээр харагдана.</div>}
-    <header class="bar">
-      <div class:list={['wrap', 'bar-inner']}>
-        <a class="brand" href="/">
-          <img src="/brand/logo.svg" alt="" width="44" height="33" />
-          <span>
-            <strong>МОХ</strong>
-            <small>Ажлын орчин</small>
-          </span>
-        </a>
-        {
-          user && (
-            <div class="who">
-              <span class="who-name">{user.name}</span>
-              <span class="who-role">
-                {ROLE_LABEL[user.role]}
-                {user.isDeputy && ' · орлогч'}
-              </span>
-              <form method="post" action="/gar" class="inline">
-                <button class="btn btn-sm btn-quiet" type="submit">Гарах</button>
-              </form>
+
+    {
+      bare ? (
+        <main id="main" class="bare-wrap" tabindex="-1">
+          <slot />
+        </main>
+      ) : (
+        <div class="app">
+          <header class="topbar">
+            <a class="side-brand" href="/">
+              <span class="logo"><img src="/brand/logo.svg" alt="" width="26" height="20" /></span>
+              <span><b>МОХ</b><small>Ажлын орчин</small></span>
+            </a>
+            <button class="menu-btn" type="button" aria-expanded="false" aria-controls="side">
+              <Icon name="menu" />
+              Цэс
+              {totalCount > 0 && <span class="count hot">{totalCount}<span class="sr-only"> шийдвэр хүлээж байна</span></span>}
+            </button>
+          </header>
+
+          <aside class="side" id="side" aria-label="Ажлын орчны цэс">
+            <div class="drawer-head">
+              <b>Цэс</b>
+              <button class="icon-btn" type="button" data-close-menu aria-label="Цэс хаах"><Icon name="x" /></button>
             </div>
-          )
+            <a class="side-brand" href="/">
+              <span class="logo"><img src="/brand/logo.svg" alt="" width="34" height="26" /></span>
+              <span><b>МОХ</b><small>Ажлын орчин</small></span>
+            </a>
+            <nav aria-label="Үндсэн цэс">
+              {groups.map((g) => (
+                <div class="nav-group">
+                  <div class="nav-label" aria-hidden="true">{g.label}</div>
+                  <ul class="nav-list">
+                    {g.items.map((n) => (
+                      <li>
+                        <a href={n.href} aria-current={active(n.href) ? 'page' : undefined}>
+                          <Icon name={n.icon} />
+                          {n.label}
+                          {!!n.count && (
+                            <span class:list={['count', { hot: n.hot }]}>
+                              {n.count}
+                              <span class="sr-only">{n.hot ? ' шийдвэр хүлээж байна' : ' идэвхтэй ажил'}</span>
+                            </span>
+                          )}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </nav>
+            {user && (
+              <div class="side-foot">
+                <a class="side-link" href={`${publicOrigin(Astro.url)}/`} target="_blank" rel="noopener">
+                  <Icon name="globe" /> Нийтийн сайт <span class="sr-only">(шинэ цонхонд)</span>
+                </a>
+                <div class="me">
+                  <span class="avatar gold" aria-hidden="true">{initials(user.name)}</span>
+                  <span class="me-text">
+                    <b>{user.name}</b>
+                    <small>{roleText}</small>
+                  </span>
+                  <form method="post" action="/gar">
+                    <button class="icon-btn" type="submit" aria-label="Гарах" title="Гарах"><Icon name="logout" /></button>
+                  </form>
+                </div>
+              </div>
+            )}
+          </aside>
+          <div class="scrim" data-close-menu></div>
+
+          <div class="content">
+            <main id="main" class="main" tabindex="-1">
+              {flash.ok && (
+                <div class="flash ok" role="status" data-flash>
+                  <Icon name="check" />
+                  <span class="flash-text">{flash.ok}</span>
+                  <button class="flash-x" type="button" aria-label="Хаах"><Icon name="x" /></button>
+                </div>
+              )}
+              {flash.err && (
+                <div class="flash err" role="alert" data-flash>
+                  <Icon name="alert" />
+                  <span class="flash-text">{flash.err}</span>
+                  <button class="flash-x" type="button" aria-label="Хаах"><Icon name="x" /></button>
+                </div>
+              )}
+              <slot />
+            </main>
+            <footer class="foot">Бээжингийн Их Сургуулийн Монгол Оюутны Холбоо · дотоод ажлын орчин</footer>
+          </div>
+        </div>
+      )
+    }
+
+    <script is:inline>
+      (function () {
+        // ---- drawer menu (phones): button toggles, Esc / scrim / × close, the page behind goes inert
+        var side = document.getElementById('side');
+        var btn = document.querySelector('.menu-btn');
+        var content = document.querySelector('.content');
+        var scrim = document.querySelector('.scrim');
+        function setMenu(open) {
+          if (!side || !btn) return;
+          side.classList.toggle('open', open);
+          if (scrim) scrim.classList.toggle('open', open);
+          btn.setAttribute('aria-expanded', String(open));
+          if (content) content.inert = open;
+          document.documentElement.style.overflow = open ? 'hidden' : '';
+          if (open) { var first = side.querySelector('a, button'); if (first) first.focus(); }
+          else btn.focus();
         }
-      </div>
-      {
-        nav.length > 0 && (
-          <nav class="wrap nav" aria-label="Үндсэн цэс">
-            {nav.map((n) => (
-              <a href={n.href} aria-current={active(n.href) ? 'page' : undefined}>
-                {n.label}
-              </a>
-            ))}
-          </nav>
-        )
-      }
-    </header>
+        if (btn) btn.addEventListener('click', function () { setMenu(!side.classList.contains('open')); });
+        document.querySelectorAll('[data-close-menu]').forEach(function (el) { el.addEventListener('click', function () { setMenu(false); }); });
+        document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && side && side.classList.contains('open')) setMenu(false); });
+        matchMedia('(min-width: 1000px)').addEventListener('change', function (m) { if (m.matches && side && side.classList.contains('open')) setMenu(false); });
 
-    <main class:list={['wrap', { wide }]}>
-      {flash.ok && <p class="flash ok" role="status">{flash.ok}</p>}
-      {flash.err && <p class="flash err" role="alert">{flash.err}</p>}
-      <slot />
-    </main>
+        // ---- flash: dismissable, and removed from the address bar so a refresh doesn't repeat it
+        document.querySelectorAll('[data-flash] .flash-x').forEach(function (x) {
+          x.addEventListener('click', function () { x.closest('[data-flash]').remove(); });
+        });
+        var u = new URL(location.href);
+        if (u.searchParams.has('ok') || u.searchParams.has('err')) {
+          u.searchParams.delete('ok'); u.searchParams.delete('err');
+          history.replaceState(null, '', u.pathname + (u.search ? u.search : '') + u.hash);
+        }
 
-    <footer class="wrap foot small muted">
-      Бээжингийн Их Сургуулийн Монгол Оюутны Холбоо · дотоод ажлын орчин
-    </footer>
+        // ---- every form: ask before destructive actions, check "required with this button" fields, submit only once
+        document.addEventListener('submit', function (e) {
+          var form = e.target;
+          var by = e.submitter;
+          if (form.dataset.busy) { e.preventDefault(); return; }
+          var need = by && by.dataset.require ? document.getElementById(by.dataset.require) : null;
+          if (need && !need.value.trim()) {
+            e.preventDefault();
+            need.setAttribute('aria-invalid', 'true');
+            var msg = document.getElementById(by.dataset.require + '-msg');
+            if (msg) msg.hidden = false;
+            need.focus();
+            return;
+          }
+          var ask = (by && by.dataset.confirm) || form.dataset.confirm;
+          if (ask && !window.confirm(ask)) { e.preventDefault(); return; }
+          form.dataset.busy = '1';
+          form.setAttribute('aria-busy', 'true');
+          if (by) by.classList.add('is-busy');
+          form.dataset.submitted = '1';
+        });
+        // coming "back" to a page restores it from cache — make its forms usable again
+        window.addEventListener('pageshow', function () {
+          document.querySelectorAll('form[data-busy]').forEach(function (f) {
+            delete f.dataset.busy; f.removeAttribute('aria-busy');
+            f.querySelectorAll('.is-busy').forEach(function (b) { b.classList.remove('is-busy'); });
+          });
+        });
+
+        // ---- long forms: warn before leaving with unsaved changes
+        document.querySelectorAll('form[data-guard]').forEach(function (f) {
+          var dirty = false;
+          f.addEventListener('input', function () { dirty = true; });
+          window.addEventListener('beforeunload', function (e) {
+            if (dirty && !f.dataset.submitted) { e.preventDefault(); e.returnValue = ''; }
+          });
+        });
+
+        // ---- copy buttons
+        document.querySelectorAll('[data-copy]').forEach(function (b) {
+          b.addEventListener('click', function () {
+            var input = document.getElementById(b.dataset.copy);
+            if (!input) return;
+            input.select();
+            var label = b.querySelector('[data-label]') || b;
+            var done = function () {
+              var was = label.textContent; label.textContent = 'Хуулсан ✓';
+              setTimeout(function () { label.textContent = was; }, 2000);
+            };
+            // Without the clipboard API the text is at least selected, ready for Ctrl+C / long-press.
+            if (navigator.clipboard) navigator.clipboard.writeText(input.value).then(done);
+          });
+        });
+      })();
+    </script>
   </body>
 </html>
-
-<style>
-  .bar {
-    background: var(--surface);
-    border-bottom: 1px solid var(--line);
-    border-top: 3px solid var(--maroon);
-    position: sticky;
-    top: 0;
-    z-index: 10;
-  }
-  .bar-inner { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 60px; }
-  .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--ink); }
-  .brand img { width: 44px; height: auto; }
-  .brand strong { display: block; font-size: 1.05rem; letter-spacing: 0.04em; color: var(--maroon); line-height: 1.1; }
-  .brand small { display: block; font-size: 0.78rem; color: var(--ink-3); font-weight: 500; }
-  .who { display: flex; align-items: center; gap: 10px; font-size: 0.88rem; }
-  .who-name { font-weight: 600; }
-  .who-role { color: var(--ink-3); }
-  @media (max-width: 640px) { .who-role { display: none; } }
-
-  .nav { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; }
-  .nav::-webkit-scrollbar { display: none; }
-  .nav a {
-    padding: 10px 12px; font-size: 0.92rem; font-weight: 550; color: var(--ink-2);
-    text-decoration: none; white-space: nowrap; border-bottom: 2px solid transparent;
-  }
-  .nav a:hover { color: var(--ink); }
-  .nav a[aria-current='page'] { color: var(--maroon); border-bottom-color: var(--maroon); }
-
-  main { padding-bottom: 48px; min-height: 60vh; }
-  .foot { padding-top: 24px; padding-bottom: 32px; border-top: 1px solid var(--line); }
-  .bare .bar { position: static; }
-  .test-strip { background: #b3261e; color: #fff; text-align: center; font-size: 0.85rem; font-weight: 600; padding: 6px 12px; }
-</style>

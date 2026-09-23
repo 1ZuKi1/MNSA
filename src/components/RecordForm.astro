@@ -1,4 +1,5 @@
 ---
+import Icon from './Icon.astro';
 import type { RecordType } from '../lib/record-types';
 import type { DeptRow } from '../lib/db';
 import type { Visibility } from '../lib/types';
@@ -16,73 +17,109 @@ interface Props {
   cancelHref: string;
 }
 const { type, title, values, errors, visibility, depts, dept, submitLabel, cancelHref } = Astro.props;
----
-<form method="post" class="card record-form">
-  <input type="hidden" name="type" value={type.slug} />
 
-  <div class:list={['field', { 'has-error': errors.title }]}>
-    <label for="title" class="req">Гарчиг</label>
-    <input id="title" name="title" type="text" required maxlength="200" value={title} />
-    {errors.title && <span class="error">{errors.title}</span>}
+// Error summary at the top: every problem, each linking to its field (WCAG 3.3.1).
+const labels: Record<string, [string, string]> = { title: ['Гарчиг', 'title'], dept: ['Хэлтэс', 'dept'] };
+for (const f of type.fields) labels[f.name] = [f.label, `f_${f.name}`];
+// In the order the fields appear on the form.
+const problems = Object.keys(labels).filter((k) => errors[k]).map((k) => [k, errors[k]] as const);
+const describe = (id: string, hint?: string, err?: string) => [hint && `${id}-hint`, err && `${id}-err`].filter(Boolean).join(' ') || undefined;
+---
+<form method="post" class="panel form" data-guard>
+  <input type="hidden" name="type" value={type.slug} />
+  <div class="panel-body">
+    {
+      problems.length > 0 && (
+        <div class="error-summary" role="alert" tabindex="-1" id="errors">
+          <h2><Icon name="alert" /> Дараах зүйлсийг засна уу</h2>
+          <ul>
+            {problems.map(([k, msg]) => (
+              <li><a href={`#${labels[k][1]}`}>{labels[k][0]}: {msg}</a></li>
+            ))}
+          </ul>
+        </div>
+      )
+    }
+
+    <div class="field">
+      <label for="title">Гарчиг</label>
+      <input id="title" name="title" type="text" required maxlength="200" value={title}
+        aria-invalid={errors.title ? 'true' : undefined} aria-describedby={describe('title', undefined, errors.title)} />
+      {errors.title && <span class="error" id="title-err"><Icon name="alert" /> {errors.title}</span>}
+    </div>
+
+    {
+      depts && (
+        <div class="field">
+          <label for="dept">Хэлтэс</label>
+          <select id="dept" name="dept" required aria-invalid={errors.dept ? 'true' : undefined} aria-describedby={describe('dept', 'x', errors.dept)}>
+            {depts.map((d) => (
+              <option value={d.slug} selected={d.slug === dept}>{d.name_mn}</option>
+            ))}
+          </select>
+          <span class="hint" id="dept-hint">Баримт энэ хэлтсийн архивт хадгалагдаж, дугаар нь хэлтсийн кодоор олгогдоно.</span>
+          {errors.dept && <span class="error" id="dept-err"><Icon name="alert" /> {errors.dept}</span>}
+        </div>
+      )
+    }
+
+    {
+      type.fields.map((f) => {
+        const id = `f_${f.name}`;
+        const err = errors[f.name];
+        return (
+          <div class="field">
+            <label for={id}>
+              {f.label}
+              {!f.required && <span class="opt"> (заавал биш)</span>}
+            </label>
+            {f.type === 'textarea' ? (
+              <textarea id={id} name={id} required={f.required} rows="7"
+                aria-invalid={err ? 'true' : undefined} aria-describedby={describe(id, f.hint, err)}>{values[f.name] ?? ''}</textarea>
+            ) : (
+              <input
+                id={id}
+                name={id}
+                type={f.type === 'number' ? 'text' : f.type}
+                inputmode={f.type === 'number' ? 'decimal' : undefined}
+                required={f.required}
+                value={values[f.name] ?? ''}
+                aria-invalid={err ? 'true' : undefined}
+                aria-describedby={describe(id, f.hint, err)}
+              />
+            )}
+            {f.hint && <span class="hint" id={`${id}-hint`}>{f.hint}</span>}
+            {err && <span class="error" id={`${id}-err`}><Icon name="alert" /> {err}</span>}
+          </div>
+        );
+      })
+    }
+
+    <fieldset class="field">
+      <legend class="label">Хэн харах вэ?</legend>
+      <div class="choice-cards">
+        <label class="choice">
+          <input type="radio" name="visibility" value="staff" checked={visibility === 'staff'} />
+          <span><b>Бүх ажилтан</b><span>Ихэнх баримтад тохирно. Бүх хэлтэс уншиж болно.</span></span>
+        </label>
+        <label class="choice">
+          <input type="radio" name="visibility" value="dept" checked={visibility === 'dept'} />
+          <span><b>Зөвхөн манай хэлтэс ба удирдлага</b><span>Сахилгын асуудал, дуусаагүй төсөв гэх мэт эмзэг зүйлд.</span></span>
+        </label>
+      </div>
+    </fieldset>
+    <p class="form-note">Ноорог байхад зөвхөн та, хэлтсийн дарга, Тэргүүн харна. Илгээх үед баримтын дугаар автоматаар олгогдоно.</p>
   </div>
 
-  {
-    depts && (
-      <div class:list={['field', { 'has-error': errors.dept }]}>
-        <label for="dept" class="req">Хэлтэс</label>
-        <select id="dept" name="dept" required>
-          {depts.map((d) => (
-            <option value={d.slug} selected={d.slug === dept}>
-              {d.name_mn}
-            </option>
-          ))}
-        </select>
-        {errors.dept && <span class="error">{errors.dept}</span>}
-      </div>
-    )
-  }
-
-  {
-    type.fields.map((f) => (
-      <div class:list={['field', { 'has-error': errors[f.name] }]}>
-        <label for={`f_${f.name}`} class:list={{ req: f.required }}>
-          {f.label}
-        </label>
-        {f.type === 'textarea' ? (
-          <textarea id={`f_${f.name}`} name={`f_${f.name}`} required={f.required} rows="6">{values[f.name] ?? ''}</textarea>
-        ) : (
-          <input
-            id={`f_${f.name}`}
-            name={`f_${f.name}`}
-            type={f.type === 'number' ? 'text' : f.type}
-            inputmode={f.type === 'number' ? 'decimal' : undefined}
-            required={f.required}
-            value={values[f.name] ?? ''}
-          />
-        )}
-        {f.hint && <span class="hint">{f.hint}</span>}
-        {errors[f.name] && <span class="error">{errors[f.name]}</span>}
-      </div>
-    ))
-  }
-
-  <fieldset class="field vis">
-    <legend class="label">Хэн харах вэ?</legend>
-    <label><input type="radio" name="visibility" value="staff" checked={visibility === 'staff'} /> Бүх ажилтан <span class="muted small">(үндсэн)</span></label>
-    <label><input type="radio" name="visibility" value="dept" checked={visibility === 'dept'} /> Зөвхөн манай хэлтэс ба удирдлага</label>
-  </fieldset>
-
-  <div class="btn-row actions">
+  <div class="form-actions">
     <button class="btn btn-primary" type="submit" name="then" value="save">{submitLabel}</button>
-    <button class="btn" type="submit" name="then" value="submit">Хадгалаад хянуулахаар илгээх</button>
+    <button class="btn" type="submit" name="then" value="submit"><Icon name="send" /> Хадгалаад хянуулахаар илгээх</button>
+    <span class="grow"></span>
     <a class="btn btn-quiet" href={cancelHref}>Болих</a>
   </div>
-  <p class="small muted">Ноорог байхад зөвхөн та, хэлтсийн дарга, Тэргүүн харна. Илгээх үед баримтын дугаар автоматаар олгогдоно.</p>
 </form>
 
-<style>
-  .record-form { max-width: 760px; }
-  .vis { border: 0; padding: 0; margin: 18px 0 0; display: grid; gap: 6px; }
-  .vis label { display: flex; gap: 8px; align-items: center; font-size: 0.93rem; }
-  .actions { margin-top: 22px; }
-</style>
+<script is:inline>
+  // After a failed save, move focus to the list of problems so screen-reader and keyboard users land on it.
+  (function () { var s = document.getElementById('errors'); if (s) s.focus(); })();
+</script>

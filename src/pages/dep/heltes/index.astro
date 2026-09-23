@@ -1,47 +1,44 @@
 ---
+/** The department folders: each one is that department's archive, people and events. */
 export const prerender = false;
 import Staff from '../../../layouts/Staff.astro';
+import PageHead from '../../../components/PageHead.astro';
 import { departments, many } from '../../../lib/db';
 import { academicYear } from '../../../lib/time';
 
+const user = Astro.locals.user!;
 const year = academicYear();
 const depts = await departments();
-const counts = await many<{ department_id: number; members: number; head: string | null; records: number }>(
+const counts = await many<{ department_id: number; members: number; head: string | null; records: number; waiting: number }>(
   `SELECT d.id AS department_id,
           (SELECT COUNT(*) FROM users u WHERE u.department_id = d.id AND u.status = 'active') AS members,
           (SELECT GROUP_CONCAT(u.name_mn, ', ') FROM users u WHERE u.department_id = d.id AND u.status = 'active' AND u.role = 'head') AS head,
-          (SELECT COUNT(*) FROM records r WHERE r.department_id = d.id AND r.academic_year = ? AND r.status <> 'draft') AS records
+          (SELECT COUNT(*) FROM records r WHERE r.department_id = d.id AND r.academic_year = ? AND r.status <> 'draft') AS records,
+          (SELECT COUNT(*) FROM records r WHERE r.department_id = d.id AND r.status = 'in_review') AS waiting
      FROM departments d`,
   year,
 );
 const by = new Map(counts.map((c) => [c.department_id, c]));
 ---
 <Staff title="Хэлтсүүд">
-  <div class="page-head">
-    <div>
-      <span class="kicker">Бүтэц</span>
-      <h1>Хэлтсүүд</h1>
-    </div>
-  </div>
-  <div class="grid-3">
+  <PageHead title="Хэлтсүүд" sub={`Хэлтэс бүр өөрийн архивтай. ${year} оны хичээлийн жилийн тоо харагдаж байна.`} />
+  <ul class="dept-grid" style="list-style:none;margin:0;padding:0">
     {depts.map((d) => {
       const c = by.get(d.id);
+      const mine = user.dept === d.slug;
       return (
-        <a class="card dept" href={`/heltes/${d.slug}`}>
+        <li class:list={['dept', { mine }]}>
           <span class="code">{d.code}</span>
-          <h2>{d.name_mn}</h2>
-          <p class="small muted">{d.is_leadership ? 'Тэргүүн, Удирдах зөвлөл' : c?.head ? `Дарга: ${c.head}` : 'Дарга томилогдоогүй'}</p>
-          <p class="small">{c?.members ?? 0} гишүүн · энэ жил {c?.records ?? 0} баримт бичиг</p>
-        </a>
+          <h2><a href={`/heltes/${d.slug}`}>{d.name_mn}</a></h2>
+          {mine && <span class="badge plain b-blue mine-tag">Таны хэлтэс</span>}
+          <p>{d.is_leadership ? 'Тэргүүн, Удирдах Зөвлөл' : c?.head ? `Дарга: ${c.head}` : 'Дарга томилогдоогүй'}</p>
+          <div class="nums">
+            <span><b>{c?.members ?? 0}</b>гишүүн</span>
+            <span><b>{c?.records ?? 0}</b>баримт</span>
+            {!!c?.waiting && <span class="need"><b style="color:inherit">{c.waiting}</b>хянагдаж буй</span>}
+          </div>
+        </li>
       );
     })}
-  </div>
+  </ul>
 </Staff>
-
-<style>
-  .dept { text-decoration: none; color: var(--ink); position: relative; }
-  .dept:hover { border-color: var(--maroon); color: var(--ink); }
-  .dept h2 { margin: 4px 0; }
-  .dept p { margin: 2px 0; }
-  .code { font-size: 0.78rem; font-weight: 700; color: var(--maroon); letter-spacing: 0.06em; }
-</style>
