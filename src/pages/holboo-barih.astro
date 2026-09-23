@@ -22,7 +22,7 @@ const IG = 'pku_mongolia';
               <p class="big-val"><a href={`mailto:${EMAIL}`}>{EMAIL}</a></p>
               <div class="btn-row">
                 <a class="btn btn-primary" href={`mailto:${EMAIL}`}>Захидал бичих</a>
-                <button class="btn" type="button" data-copy={EMAIL}><Icon name="copy" /> Хуулах</button>
+                <button class="btn" type="button" data-copy={EMAIL}><Icon name="copy" /> <span class="copy-label">Хуулах</span></button>
               </div>
             </div>
           </div>
@@ -88,13 +88,16 @@ const IG = 'pku_mongolia';
   (function () {
     var status = document.getElementById('copy-status');
     document.querySelectorAll('[data-copy]').forEach(function (b) {
+      var label = b.querySelector('.copy-label');
+      var timer;
       b.addEventListener('click', function () {
         if (!navigator.clipboard) return; // the address is visible and selectable anyway
         navigator.clipboard.writeText(b.dataset.copy).then(function () {
-          var t = b.lastChild;
-          t.textContent = ' Хуулсан ✓';
+          b.classList.add('is-done');
+          label.textContent = 'Хуулсан ✓';
           if (status) status.textContent = 'И-мэйл хаяг хуулагдлаа';
-          setTimeout(function () { t.textContent = ' Хуулах'; }, 2000);
+          clearTimeout(timer);
+          timer = setTimeout(function () { b.classList.remove('is-done'); label.textContent = 'Хуулах'; }, 2000);
         });
       });
     });

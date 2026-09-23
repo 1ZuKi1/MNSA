@@ -41,10 +41,10 @@ const when = `${fmtDateTime(ev.starts_at)} – ${sameDay ? fmtDateTime(ev.ends_a
         <div class="wrap">
           <span class="sec-label">Зургууд</span>
           <h2 id="photos-h">Арга хэмжээний зургууд</h2>
-          <div class="gallery-p">
+          <div class="gallery-p" data-gallery>
             {photos.map((p) => (
               <figure>
-                <a href={mediaUrl(p.media_id)} target="_blank" rel="noopener">
+                <a href={mediaUrl(p.media_id)} target="_blank" rel="noopener" aria-label={`Зургийг томоор харах${p.caption ? ': ' + p.caption : ''}`}>
                   <img src={mediaUrl(p.media_id)} alt={p.caption ?? `${ev.title} — зураг`} loading="lazy" />
                 </a>
                 {p.caption && <figcaption>{p.caption}</figcaption>}
@@ -63,4 +63,56 @@ const when = `${fmtDateTime(ev.starts_at)} – ${sameDay ? fmtDateTime(ev.ends_a
       </div>
     )
   }
+
+  {
+    photos.length > 0 && (
+      <dialog class="lightbox" aria-label="Зураг томоор">
+        <span class="lb-count" aria-live="polite"></span>
+        <figure class="lb-figure">
+          <img alt="" />
+          <figcaption></figcaption>
+        </figure>
+        <button class="lb-btn lb-prev" type="button" aria-label="Өмнөх зураг">‹</button>
+        <button class="lb-btn lb-next" type="button" aria-label="Дараагийн зураг">›</button>
+        <button class="lb-btn lb-close" type="button" aria-label="Хаах">×</button>
+      </dialog>
+    )
+  }
 </Public>
+
+<script is:inline>
+  // Photo viewer: opens a photo in place instead of a new tab. Arrow keys move, Esc or a click outside closes.
+  // Without JavaScript (or without <dialog> support) the links still open the full photo.
+  (function () {
+    var grid = document.querySelector('[data-gallery]');
+    var box = document.querySelector('.lightbox');
+    if (!grid || !box || typeof box.showModal !== 'function') return;
+    var links = Array.prototype.slice.call(grid.querySelectorAll('a'));
+    var img = box.querySelector('img'), cap = box.querySelector('figcaption'), count = box.querySelector('.lb-count');
+    var prev = box.querySelector('.lb-prev'), next = box.querySelector('.lb-next');
+    var i = 0, opener = null;
+    function show(n) {
+      i = (n + links.length) % links.length;
+      var a = links[i], thumb = a.querySelector('img'), fc = a.parentNode.querySelector('figcaption');
+      img.src = a.href; img.alt = thumb.alt;
+      cap.textContent = fc ? fc.textContent : '';
+      count.textContent = links.length > 1 ? (i + 1) + ' / ' + links.length : '';
+    }
+    prev.hidden = next.hidden = links.length < 2;
+    links.forEach(function (a, n) {
+      a.addEventListener('click', function (e) {
+        if (e.metaKey || e.ctrlKey || e.shiftKey) return; // let people open in a new tab on purpose
+        e.preventDefault(); opener = a; show(n); box.showModal();
+      });
+    });
+    prev.addEventListener('click', function () { show(i - 1); });
+    next.addEventListener('click', function () { show(i + 1); });
+    box.querySelector('.lb-close').addEventListener('click', function () { box.close(); });
+    box.addEventListener('click', function (e) { if (e.target === box) box.close(); });
+    box.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowLeft') show(i - 1);
+      if (e.key === 'ArrowRight') show(i + 1);
+    });
+    box.addEventListener('close', function () { img.removeAttribute('src'); if (opener) opener.focus(); });
+  })();
+</script>

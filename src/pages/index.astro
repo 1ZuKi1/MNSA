@@ -9,6 +9,14 @@ import { publicEvents } from '../lib/events';
 
 const { upcoming } = await publicEvents();
 const soon = upcoming.slice(0, 4);
+
+// The four doors of the site — the same pages as the menu, with one line each.
+const tiles = [
+  { href: '/taniltsuulga', icon: 'doc', title: 'Танилцуулга', text: 'Зорилго, үнэт зүйлс, бүтэц, түүх' },
+  { href: '/udirdlaga', icon: 'unity', title: 'Удирдлагын баг', text: 'Тэргүүн, Удирдах Зөвлөл, таван хэлтэс' },
+  { href: '/uil-ajillagaa', icon: 'calendar', title: 'Үйл ажиллагаа', text: 'Удахгүй болох ба өнгөрсөн арга хэмжээ' },
+  { href: '/holboo-barih', icon: 'mail', title: 'Холбоо барих', text: 'И-мэйл, Instagram, хамтын ажиллагаа' },
+] as const;
 ---
 <Public>
   <Band
@@ -18,34 +26,20 @@ const soon = upcoming.slice(0, 4);
     lede="Бээжингийн Их Сургуульд суралцаж буй Монгол оюутнуудыг нэгтгэж, бие биедээ туслан, эх орныхоо түүх, соёлыг түгээдэг сайн дурын байгууллага."
   >
     <div class="btn-row">
-      <a class="btn btn-gold" href="#shine">Шинэ оюутан уу?</a>
-      <a class="btn btn-ghost-light" href="/uil-ajillagaa">Үйл ажиллагаа</a>
+      <a class="btn btn-gold" href="#shine">Шинэ оюутан уу?<span class="hide-sm">&nbsp;Эндээс эхлээрэй</span> <span class="arr" aria-hidden="true">→</span></a>
     </div>
   </Band>
 
   <section class="sec tight">
     <div class="wrap">
-      <nav class="tiles" aria-label="Хурдан холбоос">
-        <a class="tile" href="#shine">
-          <span class="ic"><Icon name="support" /></span>
-          <b>Шинэ оюутанд</b>
-          <span>Ирээд эхний долоо хоногт хийх зүйлс</span>
-        </a>
-        <a class="tile" href="/uil-ajillagaa">
-          <span class="ic"><Icon name="calendar" /></span>
-          <b>Арга хэмжээ</b>
-          <span>Удахгүй болох ба өнгөрсөн арга хэмжээ</span>
-        </a>
-        <a class="tile" href="/udirdlaga">
-          <span class="ic"><Icon name="unity" /></span>
-          <b>Удирдлагын баг</b>
-          <span>Тэргүүн, Удирдах зөвлөл, таван хэлтэс</span>
-        </a>
-        <a class="tile" href="/holboo-barih">
-          <span class="ic"><Icon name="mail" /></span>
-          <b>Холбоо барих</b>
-          <span>И-мэйл, Instagram, хамтын ажиллагаа</span>
-        </a>
+      <nav class="tiles" aria-label="Сайтын хэсгүүд">
+        {tiles.map((t) => (
+          <a class="tile" href={t.href}>
+            <span class="ic"><Icon name={t.icon} /></span>
+            <b>{t.title}</b>
+            <span>{t.text}</span>
+          </a>
+        ))}
       </nav>
     </div>
   </section>
@@ -71,20 +65,31 @@ const soon = upcoming.slice(0, 4);
         <li><b>Утас, банк, төлбөр</b><span>Хятад SIM карт, банкны карт аваад WeChat Pay, Alipay-гаа холбоорой.</span></li>
       </ol>
       <p class="note">Энэ бол ерөнхий зөвлөмж. Журам өөрчлөгдөж болох тул Гадаад оюутны албаны зааврыг баримтална уу.</p>
-      <a class="more" href="/holboo-barih">Бидэнд бичих</a>
+      <a class="more" href="/holboo-barih">Асуух зүйл байвал бидэнд бичээрэй</a>
     </div>
   </section>
 
-  <section class="sec" aria-labelledby="about-h">
+  <section class="sec" aria-labelledby="what-h">
     <div class="wrap">
       <span class="sec-label">Бидний тухай</span>
-      <h2 id="about-h">Бид хэн бэ</h2>
-      <div class="text">
-        <p>
-          Монгол оюутнуудын эв нэгдэл, хамтын ажиллагааг дэмжиж, эрх ашгийг нь хамгаалдаг. Шинэ оюутнуудыг Бээжин болон
-          Бээжингийн Их Сургуульд дасан зохицоход тусалж, Монголын түүх, соёл, уламжлалыг сурталчилдаг.
-        </p>
-      </div>
+      <h2 id="what-h">Бид юу хийдэг вэ</h2>
+      <ul class="pillars">
+        <li>
+          <span class="ic"><Icon name="unity" /></span>
+          <b>Нэгдэл</b>
+          <span>Монгол оюутнуудын эв нэгдэл, хамтын ажиллагааг дэмжиж, эрх ашгийг нь хамгаална.</span>
+        </li>
+        <li>
+          <span class="ic"><Icon name="support" /></span>
+          <b>Дэмжлэг</b>
+          <span>Шинэ оюутнуудыг Бээжин болон Бээжингийн Их Сургуульд дасан зохицоход нь тусална.</span>
+        </li>
+        <li>
+          <span class="ic"><Icon name="culture" /></span>
+          <b>Соёл</b>
+          <span>Монголын түүх, соёл, уламжлалыг сурталчилж, эрүүл, идэвхтэй амьдралыг дэмжинэ.</span>
+        </li>
+      </ul>
       <a class="more" href="/taniltsuulga">Зорилго, үнэт зүйлс, бүтэц</a>
     </div>
   </section>

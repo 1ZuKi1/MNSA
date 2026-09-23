@@ -58,7 +58,7 @@ const ogImage = new URL(image ?? '/brand/logo-512.png', Astro.url).href;
           </span>
         </a>
         <button class="menu-btn" type="button" aria-expanded="false" aria-controls="site-nav">
-          <span class="bars" aria-hidden="true"></span> Цэс
+          <span class="bars" aria-hidden="true"></span> <span class="menu-label">Цэс</span>
         </button>
         <nav id="site-nav" class="ph-nav" aria-label="Үндсэн цэс">
           <ul>
@@ -103,23 +103,33 @@ const ogImage = new URL(image ?? '/brand/logo-512.png', Astro.url).href;
     </footer>
 
     <script is:inline>
-      // Mobile menu: a real button with aria-expanded; without JS the nav is simply always shown.
       (function () {
+        // Mobile menu: a real button with aria-expanded; without JS the nav is simply always shown.
         var btn = document.querySelector('.menu-btn');
         var nav = document.getElementById('site-nav');
-        if (!btn || !nav) return;
-        btn.addEventListener('click', function () {
-          var open = btn.getAttribute('aria-expanded') !== 'true';
+        var label = btn && btn.querySelector('.menu-label');
+        function set(open) {
           btn.setAttribute('aria-expanded', String(open));
           nav.classList.toggle('open', open);
-        });
-        document.addEventListener('keydown', function (e) {
-          if (e.key === 'Escape' && nav.classList.contains('open')) {
-            nav.classList.remove('open');
-            btn.setAttribute('aria-expanded', 'false');
-            btn.focus();
-          }
-        });
+          if (label) label.textContent = open ? 'Хаах' : 'Цэс';
+        }
+        if (btn && nav) {
+          btn.addEventListener('click', function () { set(btn.getAttribute('aria-expanded') !== 'true'); });
+          document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && nav.classList.contains('open')) { set(false); btn.focus(); }
+          });
+          document.addEventListener('click', function (e) {
+            if (nav.classList.contains('open') && !e.target.closest('.ph-header')) set(false);
+          });
+          matchMedia('(min-width: 901px)').addEventListener('change', function (m) { if (m.matches) set(false); });
+        }
+        // A soft shadow under the header once the page has scrolled.
+        var header = document.querySelector('.ph-header');
+        if (header) {
+          var tick = function () { header.classList.toggle('is-scrolled', window.scrollY > 4); };
+          window.addEventListener('scroll', tick, { passive: true });
+          tick();
+        }
       })();
     </script>
   </body>

@@ -1,17 +1,24 @@
 ---
 import Public from '../layouts/Public.astro';
+import Band from '../components/Band.astro';
 ---
 <Public title="Хуудас олдсонгүй">
-  <section class="wrap nf">
-    <img src="/brand/logo.svg" alt="" width="140" height="106" />
-    <h1>Хуудас олдсонгүй</h1>
-    <p class="muted">Таны хайсан хуудас байхгүй эсвэл зөөгдсөн байна.</p>
-    <a class="btn btn-primary" href="/">Нүүр хуудас руу</a>
+  <Band kicker="404" title="Хуудас олдсонгүй" lede="Таны хайсан хуудас байхгүй эсвэл өөр хаяг руу шилжсэн байна.">
+    <div class="btn-row">
+      <a class="btn btn-gold" href="/">Нүүр хуудас руу <span class="arr" aria-hidden="true">→</span></a>
+    </div>
+  </Band>
+
+  <section class="sec" aria-labelledby="nf-h">
+    <div class="wrap">
+      <span class="sec-label">Эсвэл</span>
+      <h2 id="nf-h">Эндээс хайж үзээрэй</h2>
+      <ul class="nf-links">
+        <li><a class="more" href="/taniltsuulga">Танилцуулга</a></li>
+        <li><a class="more" href="/udirdlaga">Удирдлагын баг</a></li>
+        <li><a class="more" href="/uil-ajillagaa">Үйл ажиллагаа</a></li>
+        <li><a class="more" href="/holboo-barih">Холбоо барих</a></li>
+      </ul>
+    </div>
   </section>
 </Public>
-
-<style>
-  .nf { text-align: center; padding-top: 64px; }
-  .nf img { width: 140px; height: auto; margin: 0 auto 20px; opacity: 0.8; }
-  .nf h1 { font-family: var(--font-serif); }
-</style>

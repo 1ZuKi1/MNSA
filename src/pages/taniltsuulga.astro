@@ -36,9 +36,21 @@ const history = [
 ];
 ---
 <Public title="Танилцуулга" description="Бээжингийн Их Сургуулийн Монгол Оюутны Холбооны эрхэм зорилго, зорилт, үнэт зүйлс, бүтэц, түүх.">
-  <Band kicker="Танилцуулга" title="Бид хэн бэ" lede="Холбооны эрхэм зорилго, зорилтууд, үнэт зүйлс, бүтэц, түүх — нэг дор." />
+  <Band kicker="Танилцуулга" title="Бид хэн бэ" lede="Холбоо юуны төлөө байгуулагдсан, хэрхэн зохион байгуулагддаг, ямар замыг туулсныг эндээс уншаарай." />
 
-  <section class="sec" aria-labelledby="about-h">
+  <nav class="toc" aria-label="Энэ хуудсанд">
+    <div class="wrap">
+      <ul>
+        <li><a href="#about">Бидний тухай</a></li>
+        <li><a href="#goals">Зорилтууд</a></li>
+        <li><a href="#values">Үнэт зүйлс</a></li>
+        <li><a href="#butets">Бүтэц</a></li>
+        <li><a href="#tuuh">Түүх</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <section class="sec" id="about" aria-labelledby="about-h">
     <div class="wrap">
       <span class="sec-label">Бидний тухай</span>
       <h2 id="about-h">Монгол Оюутны Холбоо</h2>
@@ -52,13 +64,7 @@ const history = [
           соёл, боловсролын хөгжилд дэмжлэг үзүүлэх, Монголын түүх, соёл, уламжлалыг сурталчлах чиглэлээр үйл ажиллагаа явуулдаг.
         </p>
       </div>
-    </div>
-  </section>
-
-  <section class="sec" aria-labelledby="mission-h">
-    <div class="wrap">
-      <span class="sec-label">Эрхэм зорилго</span>
-      <h2 id="mission-h">Бидний эрхэм зорилго</h2>
+      <span class="quote-cap">Эрхэм зорилго</span>
       <p class="quote">
         Монгол оюутнуудыг нэгтгэж, тэдний эрх ашиг, сайн сайхан байдал, хөгжлийг дэмжсэн тогтвортой, хариуцлагатай,
         хүртээмжтэй оюутны байгууллагыг төлөвшүүлэх.
@@ -66,7 +72,7 @@ const history = [
     </div>
   </section>
 
-  <section class="sec" aria-labelledby="goals-h">
+  <section class="sec" id="goals" aria-labelledby="goals-h">
     <div class="wrap">
       <span class="sec-label">Зорилтууд</span>
       <h2 id="goals-h">Үндсэн зорилтууд</h2>
@@ -74,7 +80,7 @@ const history = [
     </div>
   </section>
 
-  <section class="sec" aria-labelledby="values-h">
+  <section class="sec" id="values" aria-labelledby="values-h">
     <div class="wrap">
       <span class="sec-label">Үнэт зүйлс</span>
       <h2 id="values-h">Биднийг юу холбодог вэ</h2>
@@ -101,7 +107,7 @@ const history = [
     </div>
   </section>
 
-  <section class="sec" aria-labelledby="hist-h">
+  <section class="sec" id="tuuh" aria-labelledby="hist-h">
     <div class="wrap">
       <span class="sec-label">Түүх</span>
       <h2 id="hist-h">Замнал</h2>
