@@ -3,9 +3,10 @@
 // workspace, or someone uploads their photo, this page follows within 5 minutes. Nobody edits HTML
 // when the team changes.
 //
-// Top to bottom: the President and the board, then the five departments. Everyone is a photo with the
-// name under it, centred; a department's head comes first. Without a photo the person's initials show
-// on their department's colour.
+// Top to bottom: the President and the board in one row, then the five departments as cards that share
+// rows (a card is as wide as its people need, so a whole team fits on about two screens). Everyone is a
+// photo with the name under it; a department's head comes first. Without a photo the person's initials
+// show on their department's colour.
 export const prerender = false;
 import Public from '../layouts/Public.astro';
 import Band from '../components/Band.astro';
@@ -38,71 +39,51 @@ const board = team.board.map((m) => card(m, 'Удирдах Зөвлөлийн �
       {lead.length + board.length === 0 ? (
         <p class="vacant center">Мэдээлэл удахгүй шинэчлэгдэнэ.</p>
       ) : (
-        <>
-          {lead.length > 0 && (
-            <ul class="members" aria-label="Тэргүүн">
-              {lead.map((c) => (
-                <li class="member lead">
-                  <span class="portrait" style={`--tint:${c.tint}`}>
-                    {c.photo ? <img src={c.photo} alt="" width="176" height="176" /> : <span aria-hidden="true">{initials(c.m.name)}</span>}
-                  </span>
-                  <span class="n">{c.m.name}</span>
-                  <span class="r">{c.role}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-          {board.length > 0 && (
-            <ul class="members" aria-label="Удирдах Зөвлөл">
-              {board.map((c) => (
-                <li class="member">
-                  <span class="portrait" style={`--tint:${c.tint}`}>
-                    {c.photo ? <img src={c.photo} alt="" width="136" height="136" loading="lazy" /> : <span aria-hidden="true">{initials(c.m.name)}</span>}
-                  </span>
-                  <span class="n">{c.m.name}</span>
-                  <span class="r">{c.role}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </>
+        <ul class="members leadership">
+          {[...lead, ...board].map((c) => (
+            <li class:list={['member', { lead: c.lead }]}>
+              <span class="portrait" style={`--tint:${c.tint}`}>
+                {c.photo ? <img src={c.photo} alt="" width="152" height="152" /> : <span aria-hidden="true">{initials(c.m.name)}</span>}
+              </span>
+              <span class="n">{c.m.name}</span>
+              <span class="r">{c.role}</span>
+            </li>
+          ))}
+        </ul>
       )}
-    </div>
-  </section>
 
-  <section class="sec team" aria-labelledby="depts-h">
-    <div class="wrap">
-      <header class="team-head">
+      <header class="team-head depts-head">
         <span class="sec-label">Таван хэлтэс</span>
         <h2 id="depts-h">Хэлтсүүд</h2>
       </header>
-      {depts.map((d) => {
-        const people = team.byDept(d.slug as DeptSlug);
-        const tint = TINT[d.slug] ?? 'var(--blue)';
-        return (
-          <section class="dept" aria-labelledby={`d-${d.slug}`} style={`--tint:${tint}`}>
-            <h3 id={`d-${d.slug}`}>{d.name_mn}</h3>
-            {people.length === 0 ? (
-              <p class="vacant center">Бүрдүүлж байна</p>
-            ) : (
-              <ul class="members">
-                {people.map((m) => {
-                  const photo = mediaUrl(m.photo);
-                  return (
-                    <li class="member">
-                      <span class="portrait">
-                        {photo ? <img src={photo} alt="" width="136" height="136" loading="lazy" /> : <span aria-hidden="true">{initials(m.name)}</span>}
-                      </span>
-                      <span class="n">{m.name}</span>
-                      <span class="r">{m.role === 'head' ? 'Хэлтсийн дарга' : 'Гишүүн'}</span>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </section>
-        );
-      })}
+      <div class="depts">
+        {depts.map((d) => {
+          const people = team.byDept(d.slug as DeptSlug);
+          return (
+            <section class="dept" aria-labelledby={`d-${d.slug}`} style={`--tint:${TINT[d.slug] ?? 'var(--blue)'};--n:${Math.max(people.length, 1)}`}>
+              <h3 id={`d-${d.slug}`}>{d.name_mn}</h3>
+              {people.length === 0 ? (
+                <p class="vacant">Бүрдүүлж байна</p>
+              ) : (
+                <ul class="members">
+                  {people.map((m) => {
+                    const photo = mediaUrl(m.photo);
+                    return (
+                      <li class="member">
+                        <span class="portrait">
+                          {photo ? <img src={photo} alt="" width="104" height="104" loading="lazy" /> : <span aria-hidden="true">{initials(m.name)}</span>}
+                        </span>
+                        <span class="n">{m.name}</span>
+                        <span class="r">{m.role === 'head' ? 'Хэлтсийн дарга' : 'Гишүүн'}</span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </section>
+          );
+        })}
+      </div>
       <div class="center">
         <p class="note">Энэ жагсаалт холбооны дотоод бүртгэлээс автоматаар шинэчлэгддэг.</p>
         <a class="more" href="/taniltsuulga#butets">Хэлтэс бүрийн чиг үүрэг</a>

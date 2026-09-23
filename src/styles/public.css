@@ -299,42 +299,55 @@ a.row-in h3 { transition: color var(--t); }
 /* ---------- people ---------- */
 .vacant { color: var(--ink-3); font-style: italic; margin: 0; }
 
-/* ---------- team page: photo on top, name under it, everyone centred ---------- */
+/* ---------- team page: photo on top, name under it; departments share rows ---------- */
 .team-head { text-align: center; }
-.team-head h2 { margin-bottom: clamp(28px, 4vw, 40px); }
+.team-head h2 { margin-bottom: clamp(22px, 3vw, 32px); }
+.depts-head { margin-top: clamp(44px, 6vw, 64px); }
 .center { text-align: center; }
 .center .note { margin-left: auto; margin-right: auto; }
 .members {
-  --size: 136px;
-  list-style: none; margin: 0 auto; padding: 0; max-width: 60rem;
-  display: flex; flex-wrap: wrap; justify-content: center; gap: 32px clamp(20px, 3.5vw, 44px);
+  --size: 104px;
+  list-style: none; margin: 0; padding: 0;
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 22px clamp(12px, 2vw, 22px);
 }
-.members + .members { margin-top: clamp(32px, 4vw, 44px); }
 .member { width: calc(var(--size) + 28px); display: flex; flex-direction: column; align-items: center; text-align: center; }
-.member.lead { --size: 176px; }
+.leadership { --size: 128px; gap: 28px clamp(20px, 4vw, 48px); align-items: flex-end; }
+.leadership .member { width: calc(var(--size) + 72px); }
+.leadership .member.lead { --size: 152px; }
 .portrait {
   width: var(--size); height: var(--size); border-radius: 50%; overflow: hidden; flex: none;
-  display: grid; place-items: center; margin-bottom: 14px;
+  display: grid; place-items: center; margin-bottom: 12px;
   background: var(--tint, var(--blue)); color: #fff;
   font: 620 calc(var(--size) * 0.3) / 1 var(--font-display); letter-spacing: 0.02em;
-  box-shadow: 0 0 0 4px var(--ivory), 0 0 0 5px var(--line-strong);
+  box-shadow: 0 0 0 3px var(--surface), 0 0 0 4px var(--line-strong);
 }
+.leadership .portrait { box-shadow: 0 0 0 4px var(--ivory), 0 0 0 5px var(--line-strong); }
 .portrait img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 25%; display: block; }
-.member .n { font-weight: 650; font-size: 1.02rem; line-height: 1.3; text-wrap: balance; }
-.member.lead .n { font: 620 1.3rem/1.25 var(--font-display); }
-.member .r { color: var(--ink-3); font-size: 0.88rem; line-height: 1.35; margin-top: 3px; }
-.dept { padding: clamp(32px, 4.5vw, 48px) 0; border-top: 1px solid var(--line); }
-.dept:first-of-type { border-top: 0; padding-top: 0; }
-.dept h3 {
-  text-align: center; margin: 0 0 clamp(22px, 3vw, 30px);
-  font: 620 clamp(1.2rem, 1rem + 0.6vw, 1.45rem)/1.25 var(--font-display);
+.member .n { font-weight: 650; font-size: 0.98rem; line-height: 1.3; text-wrap: balance; }
+.leadership .member.lead .n { font: 620 1.22rem/1.25 var(--font-display); }
+.member .r { color: var(--ink-3); font-size: 0.84rem; line-height: 1.35; margin-top: 3px; text-wrap: balance; }
+
+/* A card per department; each is as wide as its people need, so two to three share a row. */
+.depts { display: flex; flex-wrap: wrap; justify-content: center; gap: clamp(14px, 2vw, 20px); }
+.dept {
+  flex: var(--n) 1 calc(var(--n) * 142px + 36px); max-width: 100%;
+  background: var(--surface); border: 1px solid var(--line); border-top: 3px solid var(--tint);
+  border-radius: var(--radius-lg); padding: 20px clamp(14px, 2vw, 22px) 24px;
 }
-.dept h3::after { content: ''; display: block; width: 36px; height: 3px; border-radius: 2px; background: var(--tint); margin: 10px auto 0; }
-.team .vacant { margin-bottom: 4px; }
+.dept .members { gap: 20px 10px; }
+.dept h3 { text-align: center; margin: 0 0 18px; font: 620 1.12rem/1.3 var(--font-display); }
+.dept .vacant { text-align: center; }
+.team .note { margin-top: clamp(28px, 4vw, 40px); }
 @media (max-width: 560px) {
-  .members { --size: 104px; gap: 26px 14px; }
-  .member { width: calc(50% - 8px); max-width: 150px; }
-  .member.lead { --size: 136px; width: 100%; max-width: none; }
+  .members, .dept .members { --size: 76px; gap: 18px 8px; }
+  .member { width: calc(var(--size) + 22px); }
+  .member .n { font-size: 0.9rem; }
+  .member .r { font-size: 0.78rem; }
+  .leadership { --size: 96px; gap: 22px 16px; }
+  .leadership .member { width: calc(var(--size) + 48px); }
+  .leadership .member.lead { --size: 112px; }
+  .dept { flex-basis: 100%; padding: 16px 12px 18px; }
+  .dept h3 { margin-bottom: 14px; }
 }
 
 /* ---------- photo cards (past events) ---------- */
