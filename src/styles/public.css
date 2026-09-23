@@ -149,29 +149,8 @@ body.public { background: var(--ivory); font-size: 17px; line-height: 1.65; }
 .btn.is-done { --bg: var(--ok-tint); --bd: var(--ok); --fg: var(--ok); }
 
 /* ---------- title band ---------- */
-.band {
-  position: relative; isolation: isolate; overflow: hidden;
-  color: var(--on-night); padding: clamp(36px, 5vw, 56px) 0 clamp(40px, 5.5vw, 62px);
-  /* light falls from the top right: a blue glow there, a trace of maroon low on the left */
-  background:
-    radial-gradient(60rem 30rem at 85% -20%, rgba(0, 95, 175, 0.32), transparent 70%),
-    radial-gradient(40rem 22rem at -10% 120%, rgba(142, 0, 0, 0.22), transparent 70%),
-    var(--night);
-}
-/* fine grain so the navy reads as a surface, not a flat fill */
-.band::before {
-  content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none; opacity: 0.09; mix-blend-mode: overlay;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-}
+.band { background: var(--night); color: var(--on-night); padding: clamp(36px, 5vw, 56px) 0 clamp(40px, 5.5vw, 62px); }
 .band-home { padding: clamp(52px, 8vw, 104px) 0 clamp(60px, 9vw, 116px); }
-/* the emblem, large and quiet, fills the empty right half of the home hero */
-.band-home::after {
-  content: ''; position: absolute; z-index: -1; pointer-events: none;
-  right: max(-4rem, calc((100vw - var(--wrap-public)) / 2 - 6rem)); top: 50%; translate: 0 -50%;
-  width: min(44vw, 560px); aspect-ratio: 58 / 44;
-  background: url('/brand/logo.svg') center / contain no-repeat; opacity: 0.1; filter: saturate(0.6);
-}
-@media (max-width: 900px) { .band-home::after { display: none; } }
 .band-text { border-left: 2px solid var(--gold); padding-left: clamp(16px, 3vw, 28px); max-width: 60rem; }
 .band .kicker { font: 600 0.9rem/1.3 var(--font-sans); letter-spacing: 0.01em; color: var(--gold); margin: 0 0 14px; }
 .band h1 {
@@ -180,7 +159,6 @@ body.public { background: var(--ivory); font-size: 17px; line-height: 1.65; }
 }
 .band-home h1 { font-size: clamp(2.4rem, 1.3rem + 4.6vw, 4.6rem); }
 .band h1 .pre { display: block; font: 500 clamp(1.05rem, 0.9rem + 0.6vw, 1.4rem)/1.3 var(--font-display); color: var(--on-night-2); letter-spacing: 0; margin-bottom: 10px; }
-.band h1 .gold { color: var(--gold); }
 .band .lede { text-wrap: pretty; font-size: clamp(1.05rem, 0.98rem + 0.35vw, 1.2rem); color: var(--on-night-2); max-width: 36em; margin: 18px 0 0; }
 .band .btn-row { margin-top: 30px; gap: 12px; }
 .band-back { margin: 0 0 18px; }
