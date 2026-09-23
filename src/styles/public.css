@@ -35,6 +35,8 @@ body.public { background: var(--ivory); font-size: 17px; line-height: 1.65; }
 .public a, .public button, .public summary { -webkit-tap-highlight-color: transparent; }
 .public ::selection { background: #ffe680; color: var(--ink); }
 .public [id] { scroll-margin-top: calc(var(--header-h) + 16px); }
+/* keyboard focus and in-page jumps land below the sticky header, never under it */
+html:has(body.public) { scroll-padding-top: calc(var(--header-h) + 16px); }
 @media (prefers-reduced-motion: no-preference) { html:has(body.public) { scroll-behavior: smooth; } }
 
 /* ---------- focus: always visible, never the browser's default blue box on navy ---------- */
@@ -406,7 +408,7 @@ a.row-in h3 { transition: color var(--t); }
   display: grid; place-items: center; align-content: center; gap: 4px;
 }
 .doc-ic svg { width: 28px; height: 28px; }
-.doc-ic b { font: 700 0.72rem var(--font-sans); letter-spacing: 0.08em; }
+.doc-ic b { font: 700 0.75rem var(--font-sans); letter-spacing: 0.08em; }
 .doc-body h3 { font: 620 1.25rem/1.3 var(--font-display); margin: 0 0 6px; }
 .doc-meta { margin: 0; color: var(--ink-3); font-size: 0.93rem; }
 .doc-body .btn-row { margin-top: 16px; }

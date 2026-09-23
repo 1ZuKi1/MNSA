@@ -52,7 +52,7 @@ h1, h2, h3 { text-wrap: balance; }
 .side-brand small { display: block; font-size: 0.78rem; color: var(--on-night-2); }
 
 .nav-group + .nav-group { margin-top: 18px; }
-.nav-label { font-size: 0.72rem; font-weight: 650; letter-spacing: 0.12em; text-transform: uppercase; color: var(--on-night-2); padding: 0 10px 6px; }
+.nav-label { font-size: 0.75rem; font-weight: 650; letter-spacing: 0.12em; text-transform: uppercase; color: var(--on-night-2); padding: 0 10px 6px; }
 .nav-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
 .nav-list a {
   position: relative; display: flex; align-items: center; gap: 12px; padding: 10px 10px; border-radius: 10px;
@@ -105,6 +105,8 @@ h1, h2, h3 { text-wrap: balance; }
 .scrim { display: none; }
 .drawer-head { display: none; }
 @media (max-width: 999px) {
+  /* keyboard focus never ends up hidden under the sticky top bar */
+  html:has(body.staff) { scroll-padding-top: 74px; }
   .app { display: block; }
   .topbar {
     position: sticky; top: 0; z-index: 40; display: flex; align-items: center; justify-content: space-between; gap: 12px;
@@ -159,7 +161,13 @@ h1, h2, h3 { text-wrap: balance; }
 .staff .btn-sm { min-height: 34px; padding: 0 11px; font-size: 0.86rem; border-radius: 8px; }
 .staff .btn-sm .icon { width: 16px; height: 16px; }
 .staff .btn:active { transform: translateY(1px); }
-.staff .btn.is-busy { opacity: 0.7; cursor: progress; }
+.staff .btn.is-busy { opacity: 0.75; cursor: progress; }
+/* a small spinner on the pressed button, so a slow submit never looks like a dead click */
+.staff .btn.is-busy::after {
+  content: ''; width: 0.9em; height: 0.9em; flex: none; border-radius: 50%;
+  border: 2px solid currentColor; border-right-color: transparent; animation: busy-spin 700ms linear infinite;
+}
+@keyframes busy-spin { to { transform: rotate(360deg); } }
 .staff .btn-lg { min-height: 46px; padding: 0 20px; font-size: 1rem; }
 .staff .btn-block { width: 100%; }
 @media (pointer: coarse) { .staff .btn { min-height: 44px; } .staff .btn-sm { min-height: 40px; } }
@@ -450,7 +458,7 @@ fieldset.field { border: 0; padding: 0; margin: 0; min-width: 0; }
 .ev-date { text-align: center; border-radius: 12px; background: var(--maroon-tint); color: var(--maroon); padding: 10px 4px; align-self: start; }
 .ev-date b { display: block; font-size: 1.8rem; line-height: 1; font-variant-numeric: tabular-nums; }
 .ev-date span { display: block; font-size: 0.76rem; font-weight: 600; margin-top: 4px; }
-.ev-date small { display: block; font-size: 0.72rem; color: var(--ink-3); }
+.ev-date small { display: block; font-size: 0.75rem; color: var(--ink-3); }
 .ev h3 { margin: 6px 0 2px; font-size: 1.12rem; }
 .ev h3 a { color: var(--ink); text-decoration: none; }
 .ev h3 a::after { content: ''; position: absolute; inset: 0; border-radius: var(--radius-lg); }

@@ -83,7 +83,7 @@ const siteKey = env.TURNSTILE_SITE_KEY;
       <h1 id="login-h">{step === 'email' ? 'Ажлын орчинд нэвтрэх' : 'Кодоо оруулна уу'}</h1>
       <div class="steps-dots" aria-hidden="true"><span class="on"></span><span class:list={{ on: step === 'code' }}></span></div>
 
-      {error && <div class="flash err" role="alert"><Icon name="alert" /><span class="flash-text">{error}</span></div>}
+      {error && <div class="flash err" role="alert" id="login-err"><Icon name="alert" /><span class="flash-text">{error}</span></div>}
 
       {
         step === 'email' ? (
@@ -93,7 +93,8 @@ const siteKey = env.TURNSTILE_SITE_KEY;
             <input type="hidden" name="next" value={next} />
             <div class="field">
               <label for="email">И-мэйл хаяг</label>
-              <input id="email" name="email" type="email" autocomplete="email" inputmode="email" required value={email} autofocus />
+              <input id="email" name="email" type="email" autocomplete="email" inputmode="email" required value={email} autofocus
+                aria-invalid={error ? 'true' : undefined} aria-describedby={error ? 'login-err' : undefined} />
             </div>
             {siteKey && <div class="cf-turnstile" data-sitekey={siteKey} data-language="auto" />}
             <button class="btn btn-primary btn-lg btn-block" type="submit">Код авах <Icon name="arrow" /></button>
@@ -121,6 +122,8 @@ const siteKey = env.TURNSTILE_SITE_KEY;
                 maxlength="7"
                 required
                 autofocus
+                aria-invalid={error ? 'true' : undefined}
+                aria-describedby={error ? 'login-err' : undefined}
               />
             </div>
             <button class="btn btn-primary btn-lg btn-block" type="submit">Нэвтрэх</button>
