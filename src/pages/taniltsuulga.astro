@@ -1,6 +1,7 @@
 ---
 // Static content: prerendered at build, free to serve.
 import Public from '../layouts/Public.astro';
+import Band from '../components/Band.astro';
 
 const goals = [
   'Монгол оюутнуудын эрх ашгийг хамгаалах',
@@ -19,127 +20,102 @@ const values = [
   { name: 'Хамтын ажиллагаа', text: 'Бусад холбоо, байгууллагатай гар нийлнэ.' },
   { name: 'Тасралтгүй хөгжил', text: 'Жил бүр өмнөхөөсөө илүү сайн болно.' },
 ];
-const depts = [
-  { code: 'ДХ', name: 'Дотоод хэлтэс', text: 'Гишүүдийн хоорондын харилцаа, шинэ оюутныг угтах, холбооны дотоод арга хэмжээ.' },
-  { code: 'ГХ', name: 'Гадаад хэлтэс', text: 'Бусад холбоо, их сургууль, байгууллагатай тогтоох хамтын ажиллагаа.' },
-  { code: 'СХ', name: 'Сургалтын хэлтэс', text: 'Хичээл, сургалт, мэдээлэл, судалгааны дэмжлэг.' },
-  { code: 'МХ', name: 'Медиа хэлтэс', text: 'Мэдээ, зураг, сошиал сувгууд, энэ цахим хуудас.' },
-  { code: 'ЭЗХ', name: 'Эрх зүйн хэлтэс', text: 'Үндсэн дүрэм, баримт бичгийн стандарт, дүрэмтэй нийцэл, архив.' },
+const structure = [
+  { k: 'Тэргүүн', text: 'Холбооны өдөр тутмын үйл ажиллагааг удирдан чиглүүлж, Холбоог дотоод болон гадаад харилцаанд төлөөлнө.' },
+  { k: 'Удирдах Зөвлөл', text: 'Холбооны жилийн төлөвлөгөөний хэрэгжилтийг тогтмол хянана.' },
+  { k: 'Дотоод хэлтэс', text: 'Гишүүдийн хоорондын харилцаа, шинэ оюутныг угтах, холбооны дотоод арга хэмжээ.' },
+  { k: 'Гадаад хэлтэс', text: 'Бусад холбоо, их сургууль, байгууллагатай тогтоох хамтын ажиллагаа.' },
+  { k: 'Сургалтын хэлтэс', text: 'Хичээл, сургалт, мэдээлэл, судалгааны дэмжлэг.' },
+  { k: 'Медиа хэлтэс', text: 'Мэдээ, зураг, сошиал сувгууд, энэ цахим хуудас.' },
+  { k: 'Эрх зүйн хэлтэс', text: 'Үндсэн дүрэм, баримт бичгийн стандарт, дүрэмтэй нийцэл, архив.' },
+];
+const history = [
+  { date: '2025-09-28', k: '2025.09.28', text: 'Холбооны Үндсэн дүрмийн анхны хувилбар батлагдав — 13 бүлэг, 48 зүйл, 204 заалт.' },
+  { date: '2025-11-08', k: '2025.11.08', text: 'Үндсэн дүрмийн анхдугаар шинэчилсэн найруулгыг баталж, 13 бүлэг, 53 зүйл, 247 заалттай болгов.' },
+  { date: '2026-09-19', k: '2026.09.19', text: '2026–2027 оны хичээлийн жилийн сонгууль болж, шинэ удирдлага ажил үүргээ хүлээн авав.' },
 ];
 ---
 <Public title="Танилцуулга" description="Бээжингийн Их Сургуулийн Монгол Оюутны Холбооны эрхэм зорилго, зорилт, үнэт зүйлс, бүтэц, түүх.">
-  <section class="page-hero">
+  <Band kicker="Танилцуулга" title="Бид хэн бэ" lede="Холбооны эрхэм зорилго, зорилтууд, үнэт зүйлс, бүтэц, түүх — нэг дор." />
+
+  <section class="sec" aria-labelledby="about-h">
     <div class="wrap">
-      <p class="kicker-p">Танилцуулга</p>
-      <h1 class="display">Бид хэн бэ</h1>
-      <p class="lede">
-        Бээжингийн Их Сургуулийн Монгол Оюутны Холбоо нь Бээжингийн Их Сургуульд суралцаж буй Монгол Улсын иргэн оюутнуудын
-        сайн дурын үндсэн дээр байгуулагдсан оюутны байгууллага юм. Гишүүдийн хамтын ажиллагаа, эв нэгдэл, харилцан туслалцааг
-        дэмжихийн зэрэгцээ Монгол оюутнуудын эрх ашгийг хамгаалах, соёл, боловсролын хөгжилд дэмжлэг үзүүлэх, Монголын түүх,
-        соёл, уламжлалыг сурталчлах чиглэлээр үйл ажиллагаа явуулдаг.
-      </p>
+      <span class="sec-label">Бидний тухай</span>
+      <h2 id="about-h">Монгол Оюутны Холбоо</h2>
+      <div class="text">
+        <p>
+          Бээжингийн Их Сургуулийн Монгол Оюутны Холбоо нь Бээжингийн Их Сургуульд суралцаж буй Монгол Улсын иргэн оюутнуудын
+          сайн дурын үндсэн дээр байгуулагдсан оюутны байгууллага юм.
+        </p>
+        <p>
+          Гишүүдийн хамтын ажиллагаа, эв нэгдэл, харилцан туслалцааг дэмжихийн зэрэгцээ Монгол оюутнуудын эрх ашгийг хамгаалах,
+          соёл, боловсролын хөгжилд дэмжлэг үзүүлэх, Монголын түүх, соёл, уламжлалыг сурталчлах чиглэлээр үйл ажиллагаа явуулдаг.
+        </p>
+      </div>
     </div>
   </section>
 
-  <hr class="hee" />
-
   <section class="sec" aria-labelledby="mission-h">
     <div class="wrap">
-      <p class="kicker-p" id="mission-h">Эрхэм зорилго</p>
-      <p class="mission" style="margin-top:18px">
+      <span class="sec-label">Эрхэм зорилго</span>
+      <h2 id="mission-h">Бидний эрхэм зорилго</h2>
+      <p class="quote">
         Монгол оюутнуудыг нэгтгэж, тэдний эрх ашиг, сайн сайхан байдал, хөгжлийг дэмжсэн тогтвортой, хариуцлагатай,
         хүртээмжтэй оюутны байгууллагыг төлөвшүүлэх.
       </p>
     </div>
   </section>
 
-  <section class="sec" style="padding-top:0" aria-labelledby="goals-h">
+  <section class="sec" aria-labelledby="goals-h">
     <div class="wrap">
-      <div class="sec-head"><h2 id="goals-h" class="sec-title">Үндсэн зорилтууд</h2></div>
-      <ol class="goals">{goals.map((g) => <li>{g}</li>)}</ol>
+      <span class="sec-label">Зорилтууд</span>
+      <h2 id="goals-h">Үндсэн зорилтууд</h2>
+      <ol class="numbered">{goals.map((g) => <li>{g}</li>)}</ol>
     </div>
   </section>
 
-  <section class="sec night" aria-labelledby="values-h">
-    <div class="wrap" style="position:relative">
-      <p class="kicker-p">Үнэт зүйлс</p>
-      <h2 id="values-h" class="sec-title">Биднийг юу холбодог вэ</h2>
-      <ul class="steps" style="list-style:none">
-        {values.map((v) => <li><b>{v.name}</b><span>{v.text}</span></li>)}
-      </ul>
+  <section class="sec" aria-labelledby="values-h">
+    <div class="wrap">
+      <span class="sec-label">Үнэт зүйлс</span>
+      <h2 id="values-h">Биднийг юу холбодог вэ</h2>
+      <ul class="pairs">{values.map((v) => <li><b>{v.name}</b><span>{v.text}</span></li>)}</ul>
     </div>
   </section>
 
-  <section class="sec" aria-labelledby="org-h">
+  <section class="sec" id="butets" aria-labelledby="org-h">
     <div class="wrap">
-      <div class="sec-head">
-        <div>
-          <p class="kicker-p">Бүтэц</p>
-          <h2 id="org-h" class="sec-title">Хэрхэн зохион байгуулагддаг вэ</h2>
-        </div>
-        <a class="link-arrow" href="/udirdlaga">Удирдлагын баг</a>
-      </div>
-      <div class="org">
-        <div class="org-top">
-          <div class="org-card lead">
-            <span class="code">ТЭРГҮҮН</span>
-            <h3>Тэргүүн</h3>
-            <p>Холбооны өдөр тутмын үйл ажиллагааг удирдан чиглүүлж, Холбоог дотоод болон гадаад харилцаанд төлөөлнө.</p>
-          </div>
-          <div class="org-card">
-            <span class="code">ЗӨВЛӨЛ</span>
-            <h3>Удирдах Зөвлөл</h3>
-            <p>Холбооны жилийн төлөвлөгөөний хэрэгжилтийг тогтмол хянана.</p>
-          </div>
-        </div>
-        <div class="org-depts">
-          {depts.map((d) => (
-            <div class="org-card">
-              <span class="code">{d.code}</span>
-              <h3>{d.name}</h3>
-              <p>{d.text}</p>
+      <span class="sec-label">Бүтэц</span>
+      <h2 id="org-h">Хэрхэн зохион байгуулагддаг вэ</h2>
+      <ul class="rows">
+        {structure.map((s) => (
+          <li>
+            <div class="row-in">
+              <span class="k">{s.k}</span>
+              <div class="v"><p>{s.text}</p></div>
             </div>
-          ))}
-        </div>
-        <p class="muted" style="margin:6px 0 0">Хэлтэс бүр өөрийн чиг үүргийн хүрээнд ажлаа төлөвлөж, хэрэгжүүлнэ. Хэлтсийн дарга нь хэлтсийнхээ ажлыг удирдан зохион байгуулж, Тэргүүнд тайлагнана.</p>
-      </div>
+          </li>
+        ))}
+      </ul>
+      <p class="note">Хэлтэс бүр өөрийн чиг үүргийн хүрээнд ажлаа төлөвлөж, хэрэгжүүлнэ. Хэлтсийн дарга нь хэлтсийнхээ ажлыг удирдан зохион байгуулж, Тэргүүнд тайлагнана.</p>
+      <a class="more" href="/udirdlaga">Одоогийн удирдлагын баг</a>
     </div>
   </section>
 
-  <section class="sec" style="padding-top:0" aria-labelledby="hist-h">
+  <section class="sec" aria-labelledby="hist-h">
     <div class="wrap">
-      <div class="sec-head">
-        <div>
-          <p class="kicker-p">Түүх</p>
-          <h2 id="hist-h" class="sec-title">Замнал</h2>
-        </div>
-      </div>
-      <div class="grid-2" style="align-items:start">
-        <ol class="timeline-p">
+      <span class="sec-label">Түүх</span>
+      <h2 id="hist-h">Замнал</h2>
+      <ul class="rows">
+        {history.map((h) => (
           <li>
-            <time datetime="2025-09-28">2025 оны 9 дүгээр сарын 28</time>
-            <p>Холбооны Үндсэн дүрмийн анхны хувилбар батлагдав — 13 бүлэг, 48 зүйл, 204 заалт.</p>
+            <div class="row-in">
+              <time class="k" datetime={h.date}>{h.k}</time>
+              <div class="v"><p>{h.text}</p></div>
+            </div>
           </li>
-          <li>
-            <time datetime="2025-11-08">2025 оны 11 дүгээр сарын 8</time>
-            <p>Үндсэн дүрмийн анхдугаар шинэчилсэн найруулгыг баталж, 13 бүлэг, 53 зүйл, 247 заалттай болгов.</p>
-          </li>
-          <li>
-            <time datetime="2026-09-19">2026 оны 9 дүгээр сарын 19</time>
-            <p>2026–2027 оны хичээлийн жилийн сонгууль амжилттай болж, шинэ удирдлага ажил үүргээ хүлээн авав.</p>
-          </li>
-        </ol>
-        <div>
-          <div class="callout">
-            <strong>Үндсэн дүрэм</strong> — Холбооны үйл ажиллагааны үндэс. Хүчин төгөлдөр найруулга нь 2025 оны 11 дүгээр сарын 8-нд батлагдсан.
-          </div>
-          <div class="stat-row">
-            <div class="stat"><b>13</b><span>бүлэг</span></div>
-            <div class="stat"><b>53</b><span>зүйл</span></div>
-            <div class="stat"><b>247</b><span>заалт</span></div>
-          </div>
-        </div>
-      </div>
+        ))}
+      </ul>
+      <p class="note"><strong>Үндсэн дүрэм</strong> — 13 бүлэг, 53 зүйл, 247 заалт. Хүчин төгөлдөр найруулга нь 2025 оны 11 дүгээр сарын 8-нд батлагдсан.</p>
     </div>
   </section>
 </Public>

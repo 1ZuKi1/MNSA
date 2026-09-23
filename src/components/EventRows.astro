@@ -1,0 +1,39 @@
+---
+/** Upcoming events as a plain dated list: date on the left, title and place on the right. */
+import type { EventRow } from '../lib/events';
+import { dateKey } from '../lib/time';
+
+interface Props {
+  events: EventRow[];
+}
+const { events } = Astro.props;
+---
+{
+  events.length === 0 ? (
+    <p class="empty">
+      Одоогоор зарлагдсан арга хэмжээ алга. Шинэ мэдээг{' '}
+      <a href="https://www.instagram.com/pku_mongolia/" rel="noopener">Instagram</a> хуудаснаас түрүүлж хараарай.
+    </p>
+  ) : (
+    <ul class="rows">
+      {events.map((e) => {
+        const k = dateKey(e.starts_at);
+        return (
+          <li>
+            <a class="row-in" href={`/uil-ajillagaa/${e.id}`}>
+              <span class="k date">
+                {k.day}
+                <small>{k.sub}</small>
+              </span>
+              <div class="v">
+                <h3>{e.title}</h3>
+                {e.location && <p class="meta">{e.location}</p>}
+                {e.summary && <p>{e.summary}</p>}
+              </div>
+            </a>
+          </li>
+        );
+      })}
+    </ul>
+  )
+}

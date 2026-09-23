@@ -1,63 +1,63 @@
 ---
 // Static content: prerendered at build.
 import Public from '../layouts/Public.astro';
+import Band from '../components/Band.astro';
 import Icon from '../components/Icon.astro';
 
 const EMAIL = 'pku_mongolia@163.com';
 const IG = 'pku_mongolia';
 ---
 <Public title="Холбоо барих" description="Бээжингийн Их Сургуулийн Монгол Оюутны Холбоотой холбогдох албан ёсны сувгууд.">
-  <section class="page-hero">
-    <div class="wrap">
-      <p class="kicker-p">Холбоо барих</p>
-      <h1 class="display">Бидэнтэй холбогдох</h1>
-      <p class="lede">Асуулт, санал, хамтын ажиллагааны хүсэлтээ доорх албан ёсны сувгаар илгээнэ үү. Шинэ оюутан бол эргэлзэлгүй бичээрэй.</p>
-    </div>
-  </section>
+  <Band kicker="Холбоо барих" title="Бидэнтэй холбогдох" lede="Асуулт, санал, хамтын ажиллагааны хүсэлтээ доорх албан ёсны сувгаар илгээнэ үү. Шинэ оюутан бол эргэлзэлгүй бичээрэй." />
 
-  <hr class="hee" />
-
-  <section class="sec" aria-label="Албан ёсны сувгууд">
+  <section class="sec" aria-labelledby="ch-h">
     <div class="wrap">
-      <div class="channels">
-        <article class="channel">
-          <div class="ic"><Icon name="mail" /></div>
-          <h2>И-мэйл</h2>
-          <p class="muted" style="margin:0">Албан ёсны захидал, хүсэлт, хамтын ажиллагааны санал.</p>
-          <p class="val" style="margin:0"><a href={`mailto:${EMAIL}`}>{EMAIL}</a></p>
-          <div class="row-btns">
-            <a class="btn btn-primary" href={`mailto:${EMAIL}`}>Захидал бичих</a>
-            <button class="btn" type="button" data-copy={EMAIL}><Icon name="copy" /> Хуулах</button>
+      <span class="sec-label">Албан ёсны сувгууд</span>
+      <h2 id="ch-h">Хаана бичих вэ</h2>
+      <ul class="rows">
+        <li>
+          <div class="row-in">
+            <span class="k">И-мэйл<small>Албан захидал, хүсэлт</small></span>
+            <div class="v">
+              <p class="big-val"><a href={`mailto:${EMAIL}`}>{EMAIL}</a></p>
+              <div class="btn-row">
+                <a class="btn btn-primary" href={`mailto:${EMAIL}`}>Захидал бичих</a>
+                <button class="btn" type="button" data-copy={EMAIL}><Icon name="copy" /> Хуулах</button>
+              </div>
+            </div>
           </div>
-        </article>
-        <article class="channel">
-          <div class="ic"><Icon name="camera" /></div>
-          <h2>Instagram</h2>
-          <p class="muted" style="margin:0">Мэдээ, зарлал, арга хэмжээний зураг хамгийн түрүүнд энд гардаг.</p>
-          <p class="val" style="margin:0">@{IG}</p>
-          <div class="row-btns">
-            <a class="btn" href={`https://www.instagram.com/${IG}/`} rel="noopener">Instagram-д нээх</a>
+        </li>
+        <li>
+          <div class="row-in">
+            <span class="k">Instagram<small>Мэдээ, зарлал, зураг</small></span>
+            <div class="v">
+              <p class="big-val">@{IG}</p>
+              <div class="btn-row">
+                <a class="btn" href={`https://www.instagram.com/${IG}/`} rel="noopener">Instagram-д нээх</a>
+              </div>
+            </div>
           </div>
-        </article>
-        <article class="channel">
-          <div class="ic"><Icon name="handshake" /></div>
-          <h2>Хамтын ажиллагаа</h2>
-          <p class="muted" style="margin:0">
-            Бусад оюутны байгууллага, их сургууль болон холбогдох байгууллагуудтай хамтран ажиллах хүсэлтийг албан ёсны
-            сувгаар хүлээн авна.
-          </p>
-          <div class="row-btns">
-            <a class="btn" href={`mailto:${EMAIL}?subject=${encodeURIComponent('Хамтын ажиллагааны санал')}`}>Санал илгээх</a>
+        </li>
+        <li>
+          <div class="row-in">
+            <span class="k">Хамтын ажиллагаа<small>Байгууллагуудад</small></span>
+            <div class="v">
+              <p>Бусад оюутны байгууллага, их сургууль болон холбогдох байгууллагуудтай хамтран ажиллах саналыг албан ёсны и-мэйлээр хүлээн авна.</p>
+              <div class="btn-row">
+                <a class="btn" href={`mailto:${EMAIL}?subject=${encodeURIComponent('Хамтын ажиллагааны санал')}`}>Санал илгээх</a>
+              </div>
+            </div>
           </div>
-        </article>
-      </div>
+        </li>
+      </ul>
       <p class="sr-only" role="status" id="copy-status"></p>
     </div>
   </section>
 
-  <section class="sec" style="padding-top:0" aria-labelledby="faq-h">
+  <section class="sec" aria-labelledby="faq-h">
     <div class="wrap">
-      <div class="sec-head"><h2 id="faq-h" class="sec-title">Түгээмэл асуулт</h2></div>
+      <span class="sec-label">Асуулт хариулт</span>
+      <h2 id="faq-h">Түгээмэл асуулт</h2>
       <div class="faq">
         <details>
           <summary>Би шинэ оюутан. Хэнд хандах вэ?</summary>
@@ -76,10 +76,10 @@ const IG = 'pku_mongolia';
           <p>Болно. Хэлтсийн дарга нараар дамжуулан, эсвэл албан ёсны сувгаар Тэргүүнд шууд хандаж болно.</p>
         </details>
       </div>
-      <div class="callout" style="margin-top:28px;max-width:820px">
+      <p class="note">
         <strong>Анхаарах нь.</strong> Албан ёсны мэдэгдэл, хамтын ажиллагааны санал болон Холбооны нэрийн өмнөөс гаргах аливаа
         мэдээллийг зөвхөн эрх бүхий удирдлагаар дамжуулан хүргүүлнэ.
-      </div>
+      </p>
     </div>
   </section>
 </Public>

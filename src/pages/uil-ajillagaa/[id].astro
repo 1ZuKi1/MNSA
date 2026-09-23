@@ -1,6 +1,7 @@
 ---
 export const prerender = false;
 import Public from '../../layouts/Public.astro';
+import Band from '../../components/Band.astro';
 import { eventPhotos, getEvent } from '../../lib/events';
 import { int } from '../../lib/http';
 import { mediaUrl } from '../../lib/media';
@@ -12,37 +13,54 @@ if (!ev || ev.status !== 'published') return new Response(null, { status: 404 })
 const photos = await eventPhotos(ev.id);
 const past = ev.ends_at < now();
 const sameDay = fmtDate(ev.starts_at) === fmtDate(ev.ends_at);
+const when = `${fmtDateTime(ev.starts_at)} – ${sameDay ? fmtDateTime(ev.ends_at).slice(11) : fmtDateTime(ev.ends_at)}`;
 ---
 <Public title={ev.title} description={ev.summary ?? undefined} image={mediaUrl(ev.cover_media_id)}>
-  <article class="wrap ev-detail page-hero">
-    <p><a href="/uil-ajillagaa">← Бүх арга хэмжээ</a></p>
-    <p class="kicker-p" style="margin-top:22px">{past ? 'Өнгөрсөн арга хэмжээ' : 'Удахгүй болох'} · {fmtLong(ev.starts_at)}</p>
-    <h1 class="display" style="font-size:clamp(2.1rem,1.4rem + 2.8vw,3.6rem)">{ev.title}</h1>
-    {ev.summary && <p class="lede">{ev.summary}</p>}
+  <Band
+    back={{ href: '/uil-ajillagaa', label: 'Бүх арга хэмжээ' }}
+    kicker={`${past ? 'Өнгөрсөн арга хэмжээ' : 'Удахгүй болох'} · ${fmtLong(ev.starts_at)}`}
+    title={ev.title}
+    lede={ev.summary}
+  />
 
-    <dl class="ev-facts">
-      <div><dt>Хэзээ</dt><dd>{fmtDateTime(ev.starts_at)} – {sameDay ? fmtDateTime(ev.ends_at).slice(11) : fmtDateTime(ev.ends_at)}</dd></div>
-      {ev.location && <div><dt>Хаана</dt><dd>{ev.location}</dd></div>}
-      {ev.dept_name && <div><dt>Зохион байгуулсан</dt><dd>{ev.dept_name}</dd></div>}
-    </dl>
+  <section class="sec" aria-labelledby="facts-h">
+    <div class="wrap">
+      <h2 id="facts-h" class="sr-only">Дэлгэрэнгүй</h2>
+      <ul class="rows">
+        <li><div class="row-in"><span class="k">Хэзээ</span><div class="v"><p>{when}</p></div></div></li>
+        {ev.location && <li><div class="row-in"><span class="k">Хаана</span><div class="v"><p>{ev.location}</p></div></div></li>}
+        {ev.dept_name && <li><div class="row-in"><span class="k">Зохион байгуулсан</span><div class="v"><p>{ev.dept_name}</p></div></div></li>}
+      </ul>
+      {ev.body && <div class="prose" style="margin-top:32px">{ev.body}</div>}
+    </div>
+  </section>
 
-    {ev.body && <div class="prose">{ev.body}</div>}
+  {
+    photos.length > 0 && (
+      <section class="sec" aria-labelledby="photos-h">
+        <div class="wrap">
+          <span class="sec-label">Зургууд</span>
+          <h2 id="photos-h">Арга хэмжээний зургууд</h2>
+          <div class="gallery-p">
+            {photos.map((p) => (
+              <figure>
+                <a href={mediaUrl(p.media_id)} target="_blank" rel="noopener">
+                  <img src={mediaUrl(p.media_id)} alt={p.caption ?? `${ev.title} — зураг`} loading="lazy" />
+                </a>
+                {p.caption && <figcaption>{p.caption}</figcaption>}
+              </figure>
+            ))}
+          </div>
+        </div>
+      </section>
+    )
+  }
 
-    {
-      photos.length > 0 && (
-        <section class="gallery-p" aria-label="Зургууд">
-          {photos.map((p) => (
-            <figure>
-              <a href={mediaUrl(p.media_id)} target="_blank" rel="noopener">
-                <img src={mediaUrl(p.media_id)} alt={p.caption ?? `${ev.title} — зураг`} loading="lazy" />
-              </a>
-              {p.caption && <figcaption>{p.caption}</figcaption>}
-            </figure>
-          ))}
-        </section>
-      )
-    }
-
-    {ev.publisher_name && <p class="muted" style="margin-top:36px;padding-top:16px;border-top:1px solid var(--line)">Нийтэлсэн: <strong>{ev.publisher_name}</strong> · {fmtLong(ev.published_at)}</p>}
-  </article>
+  {
+    ev.publisher_name && (
+      <div class="wrap">
+        <p class="note" style="margin:0 0 48px">Нийтэлсэн: <strong>{ev.publisher_name}</strong> · {fmtLong(ev.published_at)}</p>
+      </div>
+    )
+  }
 </Public>

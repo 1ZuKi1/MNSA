@@ -60,3 +60,11 @@ export function fmtLong(ts: number | null | undefined): string {
   const p = parts(ts);
   return `${p.y} оны ${p.m}-р сарын ${p.d}`;
 }
+
+const WEEKDAYS = ['Ням', 'Даваа', 'Мягмар', 'Лхагва', 'Пүрэв', 'Баасан', 'Бямба'];
+/** Date key for event lists: { day: "10.10", sub: "Бямба · 18:00" } in Beijing time. */
+export function dateKey(ts: number) {
+  const d = new Date((ts + OFFSET) * 1000);
+  const p = parts(ts);
+  return { day: `${pad(p.m)}.${pad(p.d)}`, sub: `${WEEKDAYS[d.getUTCDay()]} · ${pad(p.h)}:${pad(p.min)}` };
+}

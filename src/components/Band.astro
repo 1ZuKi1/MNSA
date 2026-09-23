@@ -1,0 +1,38 @@
+---
+/**
+ * The navy title band at the top of every public page. The vertical Mongolian script runs down its
+ * left edge; the page title, one sentence and (optionally) buttons sit beside it — always in the same place.
+ */
+interface Props {
+  kicker?: string;
+  title: string;
+  lede?: string | null;
+  home?: boolean;
+  back?: { href: string; label: string };
+}
+const { kicker, title, lede, home = false, back } = Astro.props;
+---
+<section class:list={['band', { 'band-home': home }]}>
+  <div class="wrap band-grid">
+    <div class="band-script" aria-hidden="true">
+      <span lang="mn-Mong">ᠮᠣᠩᠭᠣᠯ ᠣᠶᠤᠲᠠᠨ ᠤ ᠬᠣᠯᠪᠣᠭ᠎ᠠ</span>
+    </div>
+    <div class="band-text">
+      {back && <p class="band-back"><a href={back.href}>← {back.label}</a></p>}
+      {kicker && <p class="kicker">{kicker}</p>}
+      {
+        home ? (
+          <h1>
+            <span class="pre">Бээжингийн Их Сургуулийн</span>
+            Монгол Оюутны <span class="gold">Холбоо</span>
+          </h1>
+        ) : (
+          <h1>{title}</h1>
+        )
+      }
+      {lede && <p class="lede">{lede}</p>}
+      <slot />
+    </div>
+  </div>
+</section>
+<hr class="hee" />

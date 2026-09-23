@@ -2,63 +2,36 @@
 // Rendered per request (because "upcoming" depends on today's date) and cached 5 minutes at Cloudflare's edge.
 export const prerender = false;
 import Public from '../../layouts/Public.astro';
+import Band from '../../components/Band.astro';
+import EventRows from '../../components/EventRows.astro';
 import { publicEvents } from '../../lib/events';
 import { mediaUrl } from '../../lib/media';
-import { fmtDate, fmtDateTime, fmtLong } from '../../lib/time';
+import { fmtLong } from '../../lib/time';
 
 const { upcoming, past } = await publicEvents();
-const month = (ts: number) => `${Number(fmtDate(ts).slice(5, 7))}-р сар`;
 ---
 <Public title="Үйл ажиллагаа" description="Бээжингийн Их Сургуулийн Монгол Оюутны Холбооны удахгүй болох болон өнгөрсөн арга хэмжээ.">
-  <section class="page-hero">
-    <div class="wrap">
-      <p class="kicker-p">Үйл ажиллагаа</p>
-      <h1 class="display">Арга хэмжээ</h1>
-      <p class="lede">Холбооны зохион байгуулдаг уулзалт, баяр ёслол, спорт, сургалт. Өнгөрсөн арга хэмжээ бүр зураг, тайлантайгаа энд хадгалагдана.</p>
-    </div>
-  </section>
-
-  <hr class="hee" />
+  <Band kicker="Үйл ажиллагаа" title="Арга хэмжээ" lede="Холбооны зохион байгуулдаг уулзалт, баяр ёслол, спорт, сургалт. Өнгөрсөн арга хэмжээ бүр зураг, тайлантайгаа энд хадгалагдана." />
 
   <section class="sec" aria-labelledby="up-h">
     <div class="wrap">
-      <div class="sec-head"><h2 id="up-h" class="sec-title">Удахгүй болох</h2></div>
-      {
-        upcoming.length === 0 ? (
-          <p class="empty-p">
-            Одоогоор зарлагдсан арга хэмжээ алга. Шинэ мэдээг <a href="https://www.instagram.com/pku_mongolia/" rel="noopener">Instagram</a> хуудаснаас хараарай.
-          </p>
-        ) : (
-          <div class="ev-list">
-            {upcoming.map((e) => (
-              <a class="ev-card" href={`/uil-ajillagaa/${e.id}`}>
-                <span class="ev-date" aria-hidden="true">
-                  <b>{Number(fmtDate(e.starts_at).slice(8))}</b>
-                  <span>{month(e.starts_at)}</span>
-                </span>
-                <span>
-                  <h3>{e.title}</h3>
-                  <p class="ev-where">{fmtDateTime(e.starts_at)}{e.location && ` · ${e.location}`}</p>
-                  {e.summary && <p style="margin-top:8px">{e.summary}</p>}
-                </span>
-              </a>
-            ))}
-          </div>
-        )
-      }
+      <span class="sec-label">Хуанли</span>
+      <h2 id="up-h">Удахгүй болох</h2>
+      <EventRows events={upcoming} />
     </div>
   </section>
 
-  <section class="sec" id="past" style="padding-top:0" aria-labelledby="past-h">
+  <section class="sec" id="past" aria-labelledby="past-h">
     <div class="wrap">
-      <div class="sec-head"><h2 id="past-h" class="sec-title">Өнгөрсөн</h2></div>
+      <span class="sec-label">Дурсамж</span>
+      <h2 id="past-h">Өнгөрсөн арга хэмжээ</h2>
       {
         past.length === 0 ? (
-          <p class="empty-p">Одоогоор алга.</p>
+          <p class="empty">Одоогоор алга.</p>
         ) : (
-          <div class="past-grid">
+          <div class="cards">
             {past.map((e) => (
-              <a class="past-card" href={`/uil-ajillagaa/${e.id}`}>
+              <a class="card-p" href={`/uil-ajillagaa/${e.id}`}>
                 <div class="img">
                   {e.cover_media_id ? <img src={mediaUrl(e.cover_media_id)} alt="" loading="lazy" /> : <img class="ph" src="/brand/logo.svg" alt="" />}
                 </div>
