@@ -81,6 +81,22 @@ Safe to re-run after every change. It rewrites the two `database_id` values in `
 
 `*.workers.dev` is usually blocked in mainland China: use the VPN to open the test links.
 
+### Going live before the domain is bought
+
+The team can start using the site for real on the same `*.workers.dev` addresses — the domain and Resend can be attached later without touching the data, since it's the same Worker and the same databases throughout.
+
+```powershell
+npx wrangler delete --name mnsa-dep
+npx wrangler d1 delete mnsa-db
+npx wrangler d1 delete mnsa-media
+npm run deploy:test -- --no-seed
+npm run import:members -- neccesary-files/members.csv
+```
+
+The first three lines clear out the demo accounts and test records (the import refuses to run while `@demo.test` accounts exist). `--no-seed` deploys fresh, empty databases instead of reloading the demo data. Then the real team is loaded from `neccesary-files/members.csv` (see step 10 below for the file format). Login codes still show on screen — `TEST_MODE` only needs `*.workers.dev`, not a finished domain — so everyone can log in today. Commit the new `database_id` values `deploy:test` writes into `wrangler.jsonc`.
+
+When `bdmnsa.com` is later bought, pick up at step 5 below (session secret is already set, so start with Resend) — nothing here needs to be redone. Once the custom domain is attached (step 9), the code-on-screen behavior turns off on its own, since it only ever worked on a `*.workers.dev` hostname.
+
 ---
 
 ## First deployment

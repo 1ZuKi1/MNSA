@@ -14,13 +14,20 @@
  *   4. sets SESSION_SECRET on both if missing
  *
  * TEST_MODE=1 shows login codes on screen (no domain → Resend can't send yet). It only works on
- * *.workers.dev hostnames, so it can never switch on at bdmnsa.com. Don't put real data in the test site.
+ * *.workers.dev hostnames, so it can never switch on at bdmnsa.com.
+ *
+ * --no-seed : skip the demo data even on an empty database. Use this to run the real association
+ * on workers.dev before the domain is bought — delete the old test databases first (README §First
+ * deployment, step 4), run this with --no-seed, then `npm run import:members`. Login codes still
+ * show on screen (TEST_MODE), so the team can log in with no domain and no Resend key yet. When the
+ * domain is later attached, TEST_MODE stops mattering — codes never show on bdmnsa.com regardless.
  */
 import { spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
 
 const DBS = ['mnsa-db', 'mnsa-media'];
+const noSeed = process.argv.includes('--no-seed');
 const c = { b: (s) => `\x1b[1m${s}\x1b[0m`, g: (s) => `\x1b[32m${s}\x1b[0m`, r: (s) => `\x1b[31m${s}\x1b[0m`, d: (s) => `\x1b[2m${s}\x1b[0m` };
 const step = (s) => console.log(`\n${c.b('▸ ' + s)}`);
 
@@ -87,7 +94,9 @@ step('Migrations');
 run('npx wrangler d1 migrations apply mnsa-db --remote');
 run('npx wrangler d1 migrations apply mnsa-media --remote');
 const count = json(run('npx wrangler d1 execute mnsa-db --remote --json --command "SELECT COUNT(*) AS n FROM users"', { quiet: true }).stdout);
-if ((count[0]?.results?.[0]?.n ?? 0) === 0) {
+if (noSeed) {
+  console.log(`  --no-seed: demo data skipped (${count[0]?.results?.[0]?.n ?? 0} users already in the database)`);
+} else if ((count[0]?.results?.[0]?.n ?? 0) === 0) {
   step('Loading demo data (empty database)');
   run('npx wrangler d1 execute mnsa-db --remote --file=./scripts/seed-dev.sql');
 } else console.log(`  ${count[0].results[0].n} users already present — demo data not reloaded`);
@@ -127,8 +136,7 @@ ${c.g(c.b('Done.'))}
   Public site   ${c.b(publicUrl)}
   Staff site    ${c.b(staffUrl)}
 
-  Log in to the staff site with any demo account (README), e.g. president@demo.test —
-  the 6-digit code appears on the page. Both sites show a red "test" banner.
+  ${noSeed ? 'Run `npm run import:members -- neccesary-files/members.csv` next to load the real team.' : 'Log in to the staff site with any demo account (README), e.g. president@demo.test —\n  the 6-digit code appears on the page.'} Both sites show a red "test" banner.
 
   Needs a VPN from mainland China: *.workers.dev addresses are commonly blocked there.
   bdmnsa.com itself won't have that problem once the domain is bought.
