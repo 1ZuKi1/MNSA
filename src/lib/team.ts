@@ -30,6 +30,7 @@ export async function publicTeam() {
 export interface StaffPerson {
   id: number;
   name: string;
+  full_name: string | null;
   student_id: string | null;
   role: Role;
   dept: DeptSlug | null;
@@ -39,7 +40,7 @@ export interface StaffPerson {
 }
 export async function staffTeam(): Promise<StaffPerson[]> {
   return many<StaffPerson>(
-    `SELECT u.id, u.name_mn AS name, u.student_id, u.role, d.slug AS dept, d.name_mn AS dept_name, u.created_at, u.term_ends_at
+    `SELECT u.id, u.name_mn AS name, u.full_name, u.student_id, u.role, d.slug AS dept, d.name_mn AS dept_name, u.created_at, u.term_ends_at
        FROM users u LEFT JOIN departments d ON d.id = u.department_id
       WHERE u.status = 'active' AND u.role <> 'maintainer' AND (u.term_ends_at IS NULL OR u.term_ends_at > ?)
       ORDER BY CASE u.role WHEN 'president' THEN 0 WHEN 'board' THEN 1 WHEN 'head' THEN 2 ELSE 3 END, d.sort_order, u.name_mn`,

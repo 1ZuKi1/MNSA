@@ -10,6 +10,7 @@ export interface MemberRow {
   id: number;
   email: string;
   name_mn: string;
+  full_name: string | null;
   student_id: string | null;
   role: Role;
   department_id: number | null;
@@ -22,7 +23,7 @@ export interface MemberRow {
   show_public: number;
 }
 
-const SELECT = `SELECT u.id, u.email, u.name_mn, u.student_id, u.role, u.department_id, d.slug AS dept_slug, d.name_mn AS dept_name,
+const SELECT = `SELECT u.id, u.email, u.name_mn, u.full_name, u.student_id, u.role, u.department_id, d.slug AS dept_slug, d.name_mn AS dept_name,
                        u.is_deputy, u.status, u.term_ends_at, u.last_login_at, u.show_public
                   FROM users u LEFT JOIN departments d ON d.id = u.department_id`;
 

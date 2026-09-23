@@ -14,7 +14,8 @@
     "db:reset": "node -e \"require('fs').rmSync('.wrangler/state',{recursive:true,force:true})\" && npm run db:migrate && npm run db:seed",
     "db:migrate:remote": "wrangler d1 migrations apply mnsa-db --remote && wrangler d1 migrations apply mnsa-media --remote",
     "deploy": "astro build && wrangler deploy",
-    "deploy:test": "node scripts/deploy-test.mjs"
+    "deploy:test": "node scripts/deploy-test.mjs",
+    "import:members": "node scripts/import-members.mjs"
   },
   "dependencies": {
     "@astrojs/cloudflare": "^14.3.3",

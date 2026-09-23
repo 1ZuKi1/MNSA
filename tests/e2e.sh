@@ -200,7 +200,7 @@ has "a plain дарга cannot invite" "$(post $J/dotood.jar /gishuud -d action=
 has "deputy (Legal) can invite a member" "$(curl -s -b $J/legal.jar -H "$S" -H "$O" -X POST -d "action=invite&student_id=2501110098&role=member&dept=dotood&name=Deputy+Test" $B/gishuud)" "Урилга үүслээ"
 has "deputy cannot invite board" "$(curl -s -b $J/legal.jar -H "$S" -H "$O" -X POST -d "action=invite&student_id=2501110097&role=board&dept=udirdlaga&name=x" $B/gishuud)" "Энэ эрхийг олгох боломжгүй"
 check "invite page opens without login" "$(curl -s -o /dev/null -w '%{http_code}' -H "$S" $B/urilga/$TOK)" 200
-has "PKU email refused" "$(curl -s -H "$S" -H "$O" -X POST -d "action=email&email=x@stu.pku.edu.cn" $B/urilga/$TOK)" "хувийн и-мэйл"
+has "a school address is accepted" "$(curl -s -o /dev/null -w '%{redirect_url}' -H "$S" -H "$O" -X POST -d "action=email&email=2600000001@stu.pku.edu.cn" $B/urilga/$TOK)" "step=code"
 rm -f $J/new.jar
 curl -s -c $J/new.jar -b $J/new.jar -H "$S" -H "$O" -o /dev/null -X POST -d "action=email&email=new.person@demo.test" $B/urilga/$TOK
 C=$(curl -s -c $J/new.jar -b $J/new.jar -H "$S" "$B/urilga/$TOK?step=code" | grep -o 'num[^>]*>[0-9]\{6\}' | grep -o '[0-9]\{6\}')

@@ -33,6 +33,7 @@ const EFFECT = [
 export function buildLetter(p: StaffPerson, president: string, start: number): Letter {
   const term = `${fmtOfficial(start)} – ${fmtOfficial(p.term_ends_at)}`;
   const sid = p.student_id || '________________';
+  // Papers carry the full name («Мягмарбаатар Эмүжин») when we have it; the site shows the short one.
 
   if (p.role === 'president') {
     return {
@@ -48,7 +49,7 @@ export function buildLetter(p: StaffPerson, president: string, start: number): L
         {
           heading: 'Хоёр. Албан тушаалтны мэдээлэл',
           facts: [
-            ['Овог, нэр', p.name],
+            ['Овог, нэр', p.full_name || p.name],
             ['Оюутны дугаар', sid],
             ['Албан тушаал', 'Бээжингийн Их Сургуулийн Монгол Оюутны Холбооны Тэргүүн'],
             ['Албан тушаалын хугацаа', term],
@@ -98,7 +99,7 @@ export function buildLetter(p: StaffPerson, president: string, start: number): L
       {
         heading: 'Хоёр. Албан тушаалтны мэдээлэл',
         facts: [
-          ['Овог, нэр', p.name],
+          ['Овог, нэр', p.full_name || p.name],
           ['Албан тушаал', head ? 'Хэлтсийн дарга' : 'Хэлтсийн гишүүн'],
           ['Хэлтэс', p.dept_name ?? ''],
           ['Оюутны дугаар', sid],

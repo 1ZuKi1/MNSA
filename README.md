@@ -111,11 +111,14 @@ Do these once, in order. Everything uses the **association's** Cloudflare accoun
 7. **Turnstile** — Cloudflare → Turnstile → add a widget for `dep.bdmnsa.com`. Put the site key in `wrangler.jsonc` under `vars` as `TURNSTILE_SITE_KEY`, and `npx wrangler secret put TURNSTILE_SECRET`.
 8. **Deploy:** `npm run deploy` (no test mode: codes go by email, no banner)
 9. **Attach the domains:** Cloudflare → Workers → `mnsa` → Settings → Domains & Routes → add custom domains `bdmnsa.com` and `dep.bdmnsa.com`.
-10. **Create the first President** — the only account that isn't made by invitation:
+10. **Load the team** from the members list (kept in `neccesary-files/members.csv`, which is never committed):
     ```bash
-    npx wrangler d1 execute mnsa-db --remote --command "INSERT INTO users (email, name_mn, student_id, role, department_id, term_ends_at, created_at) VALUES ('president@example.com', 'Б. Нэр', '0000000000', 'president', 1, strftime('%s','2027-09-30 15:59:00'), strftime('%s','now'))"
+    npm run import:members -- neccesary-files/members.csv --dry-run   # check the list, writes nothing
+    npm run import:members -- neccesary-files/members.csv             # asks you to type "yes"
     ```
-    From then on, the President invites everyone else from *Гишүүд → Урилга үүсгэх*. Everyone added shows up on the public *Удирдлагын баг* page automatically; each person (or the President) can hide themselves with the *Нийтэд* switch on *Гишүүд*.
+    One row per person: `name,full_name,student_id,email,role,dept,public`. Leave `email` empty to use the school address `<student ID>@stu.pku.edu.cn`; fill it for people without one (Gmail, QQ, 163). Roles: `president`, `board`, `head`, `member`, `maintainer` (or the Mongolian names); departments: `dotood`, `gadaad`, `surgalt`, `media`, `erh-zui`. The whole file is refused on any mistake, people already in the database are left alone, and it refuses to run while the demo accounts exist (step 4). Accounts last until 30 September of the next academic year.
+    Each person then just logs in at `dep.bdmnsa.com` with their e-mail. Anyone joining later is invited from *Гишүүд → Урилга үүсгэх* (school or personal address, student ID optional). Everyone shows on the public *Удирдлагын баг* page unless `public` is `no`; each person can hide themselves later.
+    Send one test code to a `stu.pku.edu.cn` address first — school mail filters sometimes hold mail from new domains; if it doesn't arrive, check spam, or change that person's address to a personal one on their *Гишүүд* page.
     Then the President uploads the official stamp at *Тохиргоо → Албан тамга*: a scan or straight-on photo of the real stamp pressed on white paper (a transparent PNG looks cleanest). It prints on the signature line only of documents the President approved, and its image is served only behind the staff login.
 11. **Auto-deploy on push:** Cloudflare → Workers → `mnsa` → Settings → Builds → connect `github.com/1ZuKi1/MNSA`. Build command `npm run build`, deploy command `npx wrangler deploy`.
 

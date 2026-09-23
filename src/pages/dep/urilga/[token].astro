@@ -29,8 +29,6 @@ if (inv && Astro.request.method === 'POST') {
   if (action === 'email') {
     email = normalizeEmail(str(fd, 'email', 254));
     if (!looksLikeEmail(email)) error = 'И-мэйл хаягаа зөв оруулна уу.';
-    else if (/(^|\.)pku\.edu\.cn$/.test(email.split('@')[1] ?? ''))
-      error = 'Их сургуулийн хаяг төгсөхөд хаагддаг тул хувийн и-мэйл хаягаа оруулна уу.';
     else if (await one(`SELECT 1 FROM users WHERE email = ?`, email)) error = 'Энэ хаяг бүртгэлтэй байна. Өөр хаяг оруулна уу, эсвэл Тэргүүнд хандана уу.';
     else if (!(await codeRateOk(email, ip))) error = 'Хэт олон удаа код хүслээ. 15 минутын дараа дахин оролдоно уу.';
     else {
@@ -90,7 +88,7 @@ const devCode = step === 'code' ? takeDevCode(Astro.cookies, Astro.url) : null;
                 <div class="field">
                   <label for="email">Таны и-мэйл хаяг</label>
                   <input id="email" name="email" type="email" required autocomplete="email" inputmode="email" value={email} autofocus aria-describedby="email-hint" />
-                  <span class="hint" id="email-hint">Хувийн хаяг ашиглана уу (Gmail, QQ, 163 гэх мэт) — их сургуулийн хаяг төгсөхөд хаагддаг. Нууц үг хэрэггүй: нэвтрэх бүрт код ирнэ.</span>
+                  <span class="hint" id="email-hint">Сургуулийн хаяг (<span lang="en">…@stu.pku.edu.cn</span>) эсвэл хувийн хаяг (Gmail, QQ, 163). Нууц үг хэрэггүй: нэвтрэх бүрт код ирнэ.</span>
                 </div>
                 <button class="btn btn-primary btn-lg btn-block" type="submit">Код авах <Icon name="arrow" /></button>
               </form>

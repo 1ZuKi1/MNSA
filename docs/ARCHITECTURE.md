@@ -217,7 +217,7 @@ So the **President names one deputy** who can also add and remove members. One p
 - **Nobody can remove their own role** — the cheapest protection against locking the association out of its own site
 - Removal bumps `session_version`, killing every active login instantly, everywhere
 - Every membership change writes to `audit_log` and appears on the President's dashboard
-- **Personal email addresses, not `@pku.edu.cn`** — university addresses die at graduation, which is exactly when an alum might need to be reached. Enforce this at invite time
+- **School or personal e-mail, either works** — the team logs in with `<student ID>@stu.pku.edu.cn`; people without one use Gmail, QQ or 163. (First specced as personal-only, reversed 2026-09-24: see §10.) When someone graduates their address can be changed on their page
 - Email addresses can be changed by the President; authorship is by `user_id`, so the address is only a delivery channel
 
 #### Schema additions
@@ -564,13 +564,13 @@ He filled in the form `MOX_Terguun_medeelel.docx`. His personal details and the 
 
 | Question | Answer |
 |---|---|
-| First account | his e-mail, name and student ID — used once in README step 10. He gave a PKU address: fine for his term, but invites refuse `@pku.edu.cn` for everyone else, and a personal address is safer for login-code delivery |
+| First account | his e-mail, name and student ID — used once in README step 10. He gave a PKU address; the team uses school addresses (§10) |
 | Cloudflare account on the association e-mail | **yes** — the address itself is still to be named |
 | Buying `bdmnsa.com` | **yes**, on the President's card. **Who renews in 2027 and 2028 is still open** — goes into the handover note |
 | «Техникийн хариуцагч» role for the developer | **yes** |
 | Deputy | **none** for now; the board override in §6 is the only fallback |
 | Scope | **leadership only** (~15 people) |
-| Member list | given on paper: five heads and six members across the five departments, all shown publicly. One vacant board seat named, the other still empty. A few student IDs are missing — he types them when creating each invite |
+| Member list | given on paper: five heads and six members across the five departments, all shown publicly. One vacant board seat named, the other still empty. Three people have no student ID and use personal e-mail (Gmail, QQ); everyone else uses `<ID>@stu.pku.edu.cn`. Loaded with `npm run import:members` at go-live (§10) |
 | Official letter chain | **kept** as дарга → Legal → Тэргүүн. His note: department heads write letters themselves, following the regulation — a working practice, not a system rule |
 | Event request, report, numbering, participation report | as built |
 | Document types | three added: activity plan, election committee material, constitution amendment (§5) |
@@ -601,13 +601,13 @@ He filled in the form `MOX_Terguun_medeelel.docx`. His personal details and the 
 | 5 · Live meeting minutes | not started |
 | 6 · Presidency handover page, weekly backup | not started |
 
-Verified with 40 unit tests (permissions, approval chain, dates, document types) and a 170-step end-to-end test driving every role through the real server, plus a production-build check with `wrangler dev` and an axe accessibility audit of every public page.
+Verified with 51 unit tests (permissions, approval chain, dates, document types, the members import) and a 173-step end-to-end test driving every role through the real server, plus a production-build check with `wrangler dev` and an axe accessibility audit of every public page.
 
 ### Decisions made while building
 
 - **Staff pages live under `/dep` internally**, and the Worker maps `dep.bdmnsa.com/x` → `/dep/x`. HTML requests go through the Worker (`run_worker_first`), so the staff host can never be served a public page; hashed assets, the logo and fonts bypass it and stay free.
 - **Rate limit per IP loosened to 30/hour** (per address stays 3 per 15 minutes). A whole meeting may log in at once from behind PKU's campus NAT, which shares few public IPs; 10/hour would have locked out the eleventh person.
-- **Invite links refuse `@pku.edu.cn` addresses** — they die at graduation.
+- **School addresses are accepted (2026-09-24, reversing an earlier refusal).** The team decided members log in with `<student ID>@stu.pku.edu.cn`; the three without a student ID use personal addresses. At go-live the whole team is loaded from a CSV kept outside the repo (`npm run import:members`, README step 10): the file is checked as a whole before anything is written, existing people are never overwritten, one `member.import` audit row records it, and it refuses to write to a database that still has the demo accounts. Invites stay for anyone who joins later, with the student ID optional. Accounts also carry an optional **full name** (`users.full_name`, «Мягмарбаатар Эмүжин»): the site shows the short «М. Эмүжин», papers such as the duty letter print the full one.
 - **Photos are shrunk in the browser** to ≤1600 px and usually <450 KB before upload; the server checks the file's real type from its bytes, not its name.
 - **Removing a photo frees its bytes** in the media database.
 - **Test deployment without a domain.** `npm run deploy:test` deploys the same build twice to `*.workers.dev`: `mnsa` (public) and `mnsa-dep` with `SITE_MODE=staff`. `TEST_MODE=1` shows login codes on screen and adds a banner + `noindex` — and it only takes effect on `*.workers.dev` hostnames, so a forgotten variable can never expose codes on `bdmnsa.com`. Going live means fresh databases and deleting `mnsa-dep`.

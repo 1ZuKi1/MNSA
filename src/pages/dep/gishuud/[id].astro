@@ -46,6 +46,7 @@ const expiring = m.term_ends_at !== null && m.term_ends_at - now() < 30 * 86400;
           <div class="profile" style="margin-bottom:16px">
             <span class="avatar lg" aria-hidden="true">{initials(m.name_mn)}</span>
             <dl class="kv">
+              {m.full_name && <><dt>Бүтэн нэр</dt><dd>{m.full_name}</dd></>}
               <dt>И-мэйл</dt><dd>{m.email}</dd>
               <dt>Оюутны дугаар</dt><dd class="num">{m.student_id ?? '—'}</dd>
               <dt>Эрх дуусах</dt><dd class:list={{ warnc: expiring }}>{fmtDate(m.term_ends_at)}</dd>

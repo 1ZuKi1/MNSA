@@ -23,14 +23,14 @@
       // Everything except photo bytes. Free plan: 500 MB per database.
       "binding": "DB",
       "database_name": "mnsa-db",
-      "database_id": "00000000-0000-0000-0000-000000000001",
+      "database_id": "2a2eed32-a0eb-47cc-a796-b0d3ed786cca",
       "migrations_dir": "migrations"
     },
     {
       // Photo bytes only, kept apart so they can never crowd out the records.
       "binding": "MEDIA",
       "database_name": "mnsa-media",
-      "database_id": "00000000-0000-0000-0000-000000000002",
+      "database_id": "19f6f8e6-3de7-4040-9084-f296c27337bc",
       "migrations_dir": "migrations-media"
     }
   ],
