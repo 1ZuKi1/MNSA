@@ -68,8 +68,12 @@ const stamp = await stampId();
           <label for="file">{stamp ? 'Шинэ тамганы зураг' : 'Тамганы зураг'}</label>
           <input id="file" name="file" type="file" accept="image/png,image/webp,image/jpeg" required aria-describedby="file-hint" />
           <span class="hint" id="file-hint">
-            Цагаан цаасан дээр дарсан тамгыг сканердаж эсвэл шулуун дээрээс нь зураг авна. Ил тод дэвсгэртэй PNG хамгийн цэвэрхэн гарна. 1.8 МБ-аас бага.
+            Цагаан цаасан дээр дарсан тамгыг сканердаж эсвэл шулуун дээрээс нь зураг авна. Цаасны цагаан хэсгийг илгээхээс өмнө автоматаар арилгаж, тамгыг тайрна. 1.8 МБ-аас бага.
           </span>
+        </div>
+        <div class="stamp-prep" hidden data-prep>
+          <img alt="Бэлтгэсэн тамга" data-prep-img />
+          <span role="status" data-prep-status></span>
         </div>
         <div class="btn-row">
           <button class="btn btn-primary" type="submit"><Icon name="plus" /> {stamp ? 'Тамга солих' : 'Тамга оруулах'}</button>
@@ -102,8 +106,70 @@ const stamp = await stampId();
   .empty-note { display: flex; gap: 8px; align-items: center; margin: 0; color: var(--ink-2); }
   .form-note { display: flex; gap: 8px; align-items: center; }
   .empty-note :global(.icon), .form-note :global(.icon) { width: 18px; height: 18px; flex: none; }
+  .stamp-prep { display: flex; gap: 14px; align-items: center; }
+  .stamp-prep[hidden] { display: none; }
+  .stamp-prep img {
+    width: 96px; height: 96px; object-fit: contain; border: 1px solid var(--line); border-radius: var(--radius-sm);
+    background: repeating-conic-gradient(#eee 0 25%, #fff 0 50%) 0 0 / 14px 14px;
+  }
+  .stamp-prep span { color: var(--ink-2); font-size: 0.9rem; }
   @media (max-width: 480px) {
     .sign-sample { grid-template-columns: auto minmax(64px, 1fr) auto; gap: 8px; padding: 44px 12px 40px; font-size: 0.8rem; }
     .sign-sample img { width: 88px; }
   }
 </style>
+
+<script is:inline>
+  // A scan of the stamp has white paper round it. Before upload: make the paper transparent (softly, so
+  // the ink edge stays smooth) and crop to the stamp, so 38 mm on paper is 38 mm of stamp, not of margin.
+  // If anything here fails, the original file is sent unchanged.
+  (function () {
+    var input = document.getElementById('file');
+    var box = document.querySelector('[data-prep]');
+    if (!input || !box || !window.DataTransfer || !window.HTMLCanvasElement) return;
+    var out = box.querySelector('[data-prep-img]');
+    var status = box.querySelector('[data-prep-status]');
+    input.addEventListener('change', function () {
+      var file = input.files && input.files[0];
+      box.hidden = true;
+      if (!file || !/^image\//.test(file.type)) return;
+      var url = URL.createObjectURL(file);
+      var img = new Image();
+      img.onload = function () {
+        try {
+          var s = Math.min(1, 1400 / Math.max(img.naturalWidth, img.naturalHeight));
+          var w = Math.round(img.naturalWidth * s), h = Math.round(img.naturalHeight * s);
+          var c = document.createElement('canvas'); c.width = w; c.height = h;
+          var ctx = c.getContext('2d'); ctx.drawImage(img, 0, 0, w, h);
+          var data = ctx.getImageData(0, 0, w, h), p = data.data;
+          var minX = w, minY = h, maxX = -1, maxY = -1;
+          for (var i = 0; i < p.length; i += 4) {
+            var light = Math.min(p[i], p[i + 1], p[i + 2]);
+            if (light > 235) p[i + 3] = 0;
+            else if (light > 180) p[i + 3] = Math.round(p[i + 3] * (235 - light) / 55);
+            if (p[i + 3] > 24) {
+              var k = i / 4, x = k % w, y = (k - x) / w;
+              if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y;
+            }
+          }
+          if (maxX < 0) return;
+          ctx.putImageData(data, 0, 0);
+          var pad = 4, cw = maxX - minX + 1 + 2 * pad, ch = maxY - minY + 1 + 2 * pad;
+          var o = document.createElement('canvas'); o.width = cw; o.height = ch;
+          o.getContext('2d').drawImage(c, minX - pad, minY - pad, cw, ch, 0, 0, cw, ch);
+          o.toBlob(function (blob) {
+            if (!blob || blob.size > 1800000) return;
+            var dt = new DataTransfer();
+            dt.items.add(new File([blob], 'tamga.png', { type: 'image/png' }));
+            input.files = dt.files;
+            out.src = URL.createObjectURL(blob);
+            status.textContent = 'Цаасны цагаан хэсгийг арилгаж, тамгыг тайрлаа. Хадгалахад яг ийм хэлбэрээр орно.';
+            box.hidden = false;
+          }, 'image/png');
+        } catch (e) { /* send the original */ }
+        URL.revokeObjectURL(url);
+      };
+      img.src = url;
+    });
+  })();
+</script>

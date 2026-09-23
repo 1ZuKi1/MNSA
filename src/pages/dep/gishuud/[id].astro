@@ -52,9 +52,14 @@ const expiring = m.term_ends_at !== null && m.term_ends_at - now() < 30 * 86400;
               <dt>Сүүлд нэвтэрсэн</dt><dd>{m.last_login_at ? `${fmtDateTime(m.last_login_at)} (${relDay(m.last_login_at)})` : 'Нэвтэрч байгаагүй'}</dd>
             </dl>
           </div>
-          {P.canSeeParticipation(user, m.id) && (
-            <a class="btn btn-sm" href={`/oroltsoo?user=${m.id}`}><Icon name="chart" /> {self ? 'Миний оролцоо' : 'Оролцоог харах'}</a>
-          )}
+<div class="btn-row">
+            {P.canSeeParticipation(user, m.id) && (
+              <a class="btn btn-sm" href={`/oroltsoo?user=${m.id}`}><Icon name="chart" /> {self ? 'Миний оролцоо' : 'Оролцоог харах'}</a>
+            )}
+            {(m.role === 'president' || m.role === 'head' || m.role === 'member') && (
+              <a class="btn btn-sm" href={`/gishuud/bichig?id=${m.id}`} target="_blank" rel="noopener"><Icon name="print" /> Үүргийн бичиг<span class="sr-only"> (шинэ цонхонд)</span></a>
+            )}
+          </div>
         </div>
       </section>
 

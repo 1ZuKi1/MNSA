@@ -1,0 +1,80 @@
+---
+/**
+ * Duty letters for signing at the Их Хуралдаан: ?id=all prints one for every head, member and the
+ * President; ?id=N prints one person's. The President and the deputy may print anyone's; everyone else
+ * only their own. The signing date (?date=) is also the first day of the term printed on the letter.
+ */
+export const prerender = false;
+import '@fontsource-variable/source-serif-4';
+import '@fontsource-variable/golos-text';
+import OfficialDoc from '../../../components/OfficialDoc.astro';
+import { buildLetter, needsLetter } from '../../../lib/letters';
+import { canManageMembers } from '../../../lib/permissions';
+import { staffTeam } from '../../../lib/team';
+import { fmtOfficial, fromLocal, now, toDateInput } from '../../../lib/time';
+
+const user = Astro.locals.user!;
+const asked = Astro.url.searchParams.get('id') ?? String(user.id);
+const manager = canManageMembers(user);
+if (!manager && asked !== String(user.id)) return new Response(null, { status: 404 });
+
+const team = await staffTeam();
+const people = asked === 'all' ? team.filter(needsLetter) : team.filter((p) => String(p.id) === asked && needsLetter(p));
+if (!people.length) return new Response(null, { status: 404 });
+
+const rawDate = Astro.url.searchParams.get('date') ?? '';
+let start = now();
+try {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(rawDate)) start = fromLocal(rawDate, '12:00');
+} catch {
+  /* keep today */
+}
+const president = team.find((p) => p.role === 'president')?.name ?? '';
+const letters = people.map((p) => buildLetter(p, president, start));
+const back = asked === 'all' ? '/gishuud' : `/gishuud/${asked}`;
+---
+<!doctype html>
+<html lang="mn">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="robots" content="noindex" />
+    <title>Үүргийн бичиг{asked === 'all' ? ` — ${letters.length}` : ` — ${people[0].name}`}</title>
+  </head>
+  <body>
+    <form class="toolbar" method="get">
+      <input type="hidden" name="id" value={asked} />
+      <button type="button" onclick="window.print()">Хэвлэх / PDF хадгалах</button>
+      <label>Гарын үсэг зурах огноо <input type="date" name="date" value={toDateInput(start)} onchange="this.form.submit()" /></label>
+      <noscript><button type="submit">Огноо солих</button></noscript>
+      <span class="count">{letters.length} бичиг</span>
+      <a href={back}>← Буцах</a>
+    </form>
+
+    {letters.map((l) => (
+      <OfficialDoc kind={l.kind} signers={l.signers} date={fmtOfficial(start)}>
+        {l.sections.map((s) => (
+          <section class="tsec">
+            <h3>{s.heading}</h3>
+            {s.paragraphs?.map((p) => <p>{p}</p>)}
+            {s.facts && <ul>{s.facts.map(([k, v]) => <li>{k}: {v}</li>)}</ul>}
+            {s.items && <ol>{s.items.map((x) => <li>{x}</li>)}</ol>}
+          </section>
+        ))}
+      </OfficialDoc>
+    ))}
+  </body>
+</html>
+
+<style is:global>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #e9e6e1; }
+  .toolbar { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; gap: 12px 18px; align-items: center; padding: 10px 20px; background: #fff; border-bottom: 1px solid #ddd; font: 14px 'Golos Text Variable', system-ui, sans-serif; }
+  .toolbar button { font: inherit; font-weight: 600; padding: 7px 14px; border-radius: 6px; border: 1px solid #8e0000; background: #8e0000; color: #fff; cursor: pointer; }
+  .toolbar label { display: inline-flex; gap: 8px; align-items: center; }
+  .toolbar input { font: inherit; padding: 5px 8px; border: 1px solid #bbb; border-radius: 6px; }
+  .toolbar .count { color: #555; }
+  @media print {
+    body { background: #fff; }
+    .toolbar { display: none; }
+  }
+</style>

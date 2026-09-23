@@ -41,7 +41,9 @@ if (Astro.request.method === 'POST') {
       const studentId = str(fd, 'student_id', 20);
       const role = str(fd, 'role', 20) as Role;
       const dept = str(fd, 'dept', 40) as DeptSlug;
-      if (!name || !/^\d{6,12}$/.test(studentId)) inviteError = 'Нэр болон оюутны дугаарыг (зөвхөн тоо) бүрэн оруулна уу.';
+      // Student ID is optional: the President sometimes has only an e-mail or WeChat for someone.
+      if (!name) inviteError = 'Нэрийг оруулна уу.';
+      else if (studentId && !/^\d{6,12}$/.test(studentId)) inviteError = 'Оюутны дугаар зөвхөн тооноос бүрдэнэ (6–12 орон).';
       else if (!grantable.includes(role)) inviteError = 'Энэ эрхийг олгох боломжгүй.';
       else if (role !== 'maintainer' && !depts.some((d) => d.slug === dept)) inviteError = 'Хэлтэс сонгоно уу.';
       else {
@@ -93,6 +95,7 @@ const canOpen = (m: (typeof members)[number]) => m.id === user.id || manager;
     <Fragment slot="actions">
       {manager && <a class="btn btn-primary" href="#invite"><Icon name="plus" /> Урилга үүсгэх</a>}
       {manager && <a class="btn" href="/gishuud/shine-jil"><Icon name="clock" /> Шинэ жилийн бүртгэл</a>}
+      {manager && <a class="btn" href="/gishuud/bichig?id=all" target="_blank" rel="noopener"><Icon name="print" /> Үүргийн бичиг<span class="sr-only"> (шинэ цонхонд)</span></a>}
     </Fragment>
   </PageHead>
 
@@ -164,16 +167,16 @@ const canOpen = (m: (typeof members)[number]) => m.id === user.id || manager;
           <input type="hidden" name="action" value="invite" />
           <div class="panel-head"><h2 id="inv-h"><Icon name="mail" /> Урилга үүсгэх</h2></div>
           <div class="panel-body" style="display:grid;gap:16px">
-            <p class="form-note">Нэр, оюутны дугаарыг та оруулна. И-мэйл хаягаа тухайн хүн өөрөө оруулна.</p>
+            <p class="form-note">Нэрийг та оруулна. И-мэйл хаягаа тухайн хүн өөрөө оруулна.</p>
             {inviteError && <div class="flash err" role="alert" style="margin:0"><Icon name="alert" /><span class="flash-text">{inviteError}</span></div>}
             <div class="field">
               <label for="i_name">Нэр</label>
               <input id="i_name" name="name" type="text" required maxlength="100" placeholder="Жишээ нь: Б. Болд" autocomplete="off" />
             </div>
             <div class="field">
-              <label for="i_sid">Оюутны дугаар</label>
-              <input id="i_sid" name="student_id" type="text" inputmode="numeric" required pattern="[0-9]{6,12}" aria-describedby="i_sid-hint" autocomplete="off" />
-              <span class="hint" id="i_sid-hint">Зөвхөн тоо, 6–12 орон.</span>
+              <label for="i_sid">Оюутны дугаар <span class="opt">(заавал биш)</span></label>
+              <input id="i_sid" name="student_id" type="text" inputmode="numeric" pattern="[0-9]{6,12}" aria-describedby="i_sid-hint" autocomplete="off" />
+              <span class="hint" id="i_sid-hint">Зөвхөн тоо, 6–12 орон. Мэдэхгүй бол хоосон орхино — үүргийн бичиг дээр гараар бичих зай үлдэнэ.</span>
             </div>
             <div class="two">
               <div class="field">

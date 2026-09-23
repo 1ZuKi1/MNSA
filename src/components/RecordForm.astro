@@ -76,6 +76,12 @@ const describe = (id: string, hint?: string, err?: string) => [hint && `${id}-hi
             {f.type === 'textarea' ? (
               <textarea id={id} name={id} required={f.required} rows="7"
                 aria-invalid={err ? 'true' : undefined} aria-describedby={describe(id, f.hint, err)}>{values[f.name] ?? ''}</textarea>
+            ) : f.type === 'select' ? (
+              <select id={id} name={id} required={f.required}
+                aria-invalid={err ? 'true' : undefined} aria-describedby={describe(id, f.hint, err)}>
+                <option value="">— Сонгоно уу —</option>
+                {f.options?.map((o) => <option value={o} selected={values[f.name] === o}>{o}</option>)}
+              </select>
             ) : (
               <input
                 id={id}

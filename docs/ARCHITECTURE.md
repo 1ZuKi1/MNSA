@@ -273,19 +273,25 @@ This is the centre of the whole project, and the answer to your archive question
 
 **Fixed record types**, each one a form plus a print layout, defined in code:
 
-| Type | Монголоор | Approval chain |
-|---|---|---|
-| `albn-bichig` | Албан бичиг | дарга → Legal → Тэргүүн |
-| `huselt` | Арга хэмжээний хүсэлт — event request; an approved one becomes an event | дарга → Тэргүүн |
-| `tailan` | Тайлан | дарга |
-| `tolovlogoo` | Үйл ажиллагааны төлөвлөгөө | дарга → Тэргүүн |
-| `songuuli` | Сонгуулийн хорооны материал | Legal only — a sitting President may be a candidate |
-| `durem` | Үндсэн дүрмийн өөрчлөлт | Legal → Тэргүүн |
+| Type | Монголоор | Letter | Approval chain | Signed by |
+|---|---|---|---|---|
+| `albn-bichig` | Албан бичиг | А | дарга → Legal → Тэргүүн | Тэргүүн, Эрх зүйн хэлтэс |
+| `medegdel` | Мэдэгдэл | М | Legal → Тэргүүн | Тэргүүн, Эрх зүйн хэлтэс |
+| `protokol` | Хурлын протокол | П | Тэргүүн | Тэргүүн, протокол хөтлөгч |
+| `huselt` | Арга хэмжээний хүсэлт — an approved one becomes an event | Х | дарга → Тэргүүн | Тэргүүн, хэлтсийн дарга |
+| `tailan` | Тайлан (улирал / жилийн эцсийн) | Т | дарга | the department's members |
+| `tolovlogoo` | Үйл ажиллагааны төлөвлөгөө | ТӨ | дарга → Тэргүүн | Тэргүүн, хэлтсийн дарга |
+| `juram` | Журам | Ж | Legal → Тэргүүн | Тэргүүн, Эрх зүйн хэлтэс |
+| `durem` | Үндсэн дүрмийн өөрчлөлт | ҮД | Legal → Тэргүүн | Тэргүүн, Эрх зүйн хэлтэс |
+| `songuuli` | Сонгуулийн хорооны материал | С | Legal only — a sitting President may be a candidate | Сонгуулийн хорооны дарга, Эрх зүйн хэлтэс |
+| `choloolol` | Албан тушаалаас чөлөөлөх (fixed wording) | ГЦ | Тэргүүн | Тэргүүн, the person released |
 
-The last three were added from the President's answers (2026-09-23). Steps the author owns are skipped automatically, so a дарга's own plan goes straight to the Тэргүүн. Meeting minutes (`protokol`), regulations and contracts are not built yet.
+М, П, Ж and ГЦ are the letters the association already used on paper (М-0001, П-0006, Ж-0006, ГЦ-0001); the others were chosen to match. They live in `record-types.ts` and can be changed there. The forms follow the association's own templates: the report has the template's sections (work done, results, problems, suggestions, next steps), a new report lists the department's current members, and a new protocol lists the President and every department head (the paper form had left out the Сургалтын хэлтэс). Steps the author owns are skipped automatically, so a дарга's own plan goes straight to the Тэргүүн.
+
+**Duty letters** («… үүрэг, хариуцлагыг хүлээн зөвшөөрсөн тухай албан бичиг», Үндсэн дүрэм 18.1.3) are not records: they are printed straight from the member list — one per head and member, and the President's own — at *Гишүүд → Үүргийн бичиг*, dated for the Их Хуралдаан. Name, department, student ID and term come from the data, which fixes the old files where two different heads were both written as «Дотоод хэлтсийн дарга». Board members don't get one (there is no template for them yet).
 
 1. Staff open the form **on the website** and fill in fields. No Word, no attachment, no email.
-2. The site renders it into the official layout — letterhead, seal, document number, department, dates, body, and a signature block carrying the real approver names and approval timestamps.
+2. The site renders it in the association's own layout (as on М-0001 and П-0006): the logo as a faint watermark, the kind of document in large capitals, the subject in bold capitals, numbered content, the signers left and right with a dotted line for the wet signature and the stamp over the Тэргүүн's, and the number, date and «Бээжин хот, Бүгд Найрамдах Хятад Ард Улс» centred at the bottom. A one-line record of the electronic approval sits in small print under it.
 3. It routes automatically to the дарга, then Legal, then the Тэргүүн, per your existing workflow.
 4. It lands in the archive with a number already assigned.
 
@@ -298,12 +304,15 @@ This isn't a compromise, it's the better engineering choice: it costs nothing, n
 ### Numbering, automatic
 
 ```
-МОХ-ЭЗХ/2026-2027/014
- │    │        │     └── sequence
- │    │        └── academic year
- │    └── department code
+МОХ-ДХ/2627/Ж/001
+ │   │   │   │  └── sequence
+ │   │   │   └── document type (Ж = Журам)
+ │   │   └── academic year 2026–2027
+ │   └── department code
  └── association
 ```
+
+The format is the President's (his own example on the form, 2026-09-23). Each department numbers each type separately, from 001 every academic year.
 
 Assigned by the database **on first submission**, never on draft — so abandoned drafts don't burn numbers, and two people cannot possibly be given the same one.
 
@@ -567,6 +576,7 @@ He filled in the form `MOX_Terguun_medeelel.docx`. His personal details and the 
 | Document types | three added: activity plan, election committee material, constitution amendment (§5) |
 | Board editing another department's sent-back document | **yes** (as built; now covered by a unit test) |
 | Letterhead | **signature line and stamp** — built (§10) |
+| Numbering | he rewrote the example as **МОХ-ДХ/2627/Ж/001** — department / year / type letter / sequence. Built |
 | Public text | value taglines and department duties rewritten in his words; official Chinese name **北京大学蒙古国留学生学生会**; no WeChat on the site; **no Mongolian script in the title band** |
 | Handover | agrees with §6; domain renewal and the Cloudflare password go in the handover note |
 
@@ -585,13 +595,13 @@ He filled in the form `MOX_Terguun_medeelel.docx`. His personal details and the 
 | 0 · Project, Cloudflare config, D1 schema, deploy pipeline | ✅ built — needs the domain + account to go live |
 | 1 · Public site redesign | ✅ Нүүр, Танилцуулга, Удирдлагын баг (generated from the member list), Үйл ажиллагаа, Холбоо барих — WCAG AA, 0 axe violations |
 | 2 · Login, sessions, members, invites, deputy, annual renewal | ✅ |
-| 3 · Records system (6 types, numbering, versions, archive, print-to-PDF with signature line and stamp) | ✅ |
+| 3 · Records system (10 types, numbering, versions, archive, print-to-PDF in the association's own layout, duty letters) | ✅ |
 | 4 · Approval routing + dashboards | ✅ |
 | 5b · Events, task board, participation report, photos | ✅ |
 | 5 · Live meeting minutes | not started |
 | 6 · Presidency handover page, weekly backup | not started |
 
-Verified with 37 unit tests (permissions, approval chain, dates) and a 138-step end-to-end test driving every role through the real server, plus a production-build check with `wrangler dev` and an axe accessibility audit of every public page.
+Verified with 40 unit tests (permissions, approval chain, dates, document types) and a 170-step end-to-end test driving every role through the real server, plus a production-build check with `wrangler dev` and an axe accessibility audit of every public page.
 
 ### Decisions made while building
 
@@ -604,7 +614,11 @@ Verified with 37 unit tests (permissions, approval chain, dates) and a 138-step 
 - **Staff workspace redesign.** Sidebar on desktop, a drawer on phones, with counts next to the menu for decisions waiting and active tasks. The dashboard is a to-do list first (decisions → returned documents → my tasks), with «Дууссан» and «Би хийнэ» right in the list. A document page shows the approval chain as a stepper with the decision form at the top, so an approver on a phone doesn't scroll past the whole letter. Tables turn into cards on phones. Each member has their own page (role, department, e-mail change, deputy, public visibility, removal). Every destructive action asks first, every form submits only once (no duplicate records on a slow connection), long forms warn before leaving with unsaved text, and form errors are listed at the top with links to each field. WCAG 2.2 AA: 0 axe violations across 40 staff page views, desktop and phone.
 - **The public team page is built from the member list** (`show_public`, on by default; each person can hide themselves). No separate list to keep in sync at handover.
 - **Visual identity:** a navy title band with a thin gold rule, then plain sections that all share one left edge; maroon, flag blue and Soyombo gold from the logo. The vertical Mongolian script was taken out of the band at the President's request (2026-09-23), and its font with it. Fonts are self-hosted (Golos Text, Source Serif 4) — Google Fonts is unreliable from mainland China.
-- **The official Chinese name 北京大学蒙古国留学生学生会** (from the President) is on the letterhead, the public footer and the about page. Chinese text falls back to the reader's system Chinese font; nothing extra is downloaded.
+- **The official Chinese name 北京大学蒙古国留学生学生会** (from the President, and Үндсэн дүрэм 1.1.3) is under the association's name on printed documents, in the public footer and on the about page. Chinese text falls back to the reader's system Chinese font; nothing extra is downloaded.
+- **The association's own papers were the model (2026-09-23).** The constitution (Анхдугаар шинэчилсэн найруулга), the 2026–2027 newcomer guide, and samples of every paper they use: М-0001 (notice), П-0006 (vote protocol), Ж-0006 (election regulation), ГЦ-0001 (release from office), the report and heads'-meeting templates, and the duty letters for heads, members and the President. From them: the print layout, four new document types, the numbering letters, the report's sections, the duty letters, the newcomer guide page (*Шинэ оюутанд*), the yearly calendar on *Танилцуулга* (election in week 2, Их Хуралдаан in week 3, election committee in spring week 14), and the note that every Mongolian student at PKU is a member without registering (8.1). Wording taken from the papers was kept, with spelling fixed (e.g. «Албан тушаалтны», «дамжуулах», «Оюутны дугаар» for «Сурагчийн дугаар», «Тэргүүн» where the President's letter said «Ерөнхийлөгч»).
+- **The stamp scan is cleaned in the browser.** On *Тохиргоо* the page makes the white paper transparent and crops to the stamp before upload, so 38 mm on paper is 38 mm of stamp.
+- **Invites no longer need a student ID** — the President had only an e-mail for some people. A duty letter leaves a line to write it by hand.
+- **Logo images come from the official file** (`brand/LOGO-original.png`, transparent). The printed watermark is `public/brand/watermark.svg`: the logo in one colour at 15%.
 - **Signature line and stamp on printed documents.** Whoever holds the last step of the chain signs: «Тэргүүн», «Эрх зүйн хэлтсийн дарга», or that department's дарга, with the approver's real name once approved. The stamp is the President's: uploaded on *Тохиргоо* (President only, every change in the audit log), stored in the media database marked `private`, served only at `dep.bdmnsa.com/tamga` behind the login (the public `/media` route refuses private images), and printed only when the document is approved *and* its final approval was the President's.
 
 ---

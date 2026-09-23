@@ -5,6 +5,7 @@ import Band from '../components/Band.astro';
 import Icon from '../components/Icon.astro';
 
 const EMAIL = 'pku_mongolia@163.com';
+const GMAIL = 'pkumongolia@gmail.com';
 const IG = 'pku_mongolia';
 ---
 <Public title="Холбоо барих" description="Бээжингийн Их Сургуулийн Монгол Оюутны Холбоотой холбогдох албан ёсны сувгууд.">
@@ -24,6 +25,14 @@ const IG = 'pku_mongolia';
                 <a class="btn btn-primary" href={`mailto:${EMAIL}`}>Захидал бичих</a>
                 <button class="btn" type="button" data-copy={EMAIL}><Icon name="copy" /> <span class="copy-label">Хуулах</span></button>
               </div>
+            </div>
+          </div>
+        </li>
+        <li>
+          <div class="row-in">
+            <span class="k">Gmail<small>Хятадаас гадна байгаа бол</small></span>
+            <div class="v">
+              <p class="big-val"><a href={`mailto:${GMAIL}`}>{GMAIL}</a></p>
             </div>
           </div>
         </li>

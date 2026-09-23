@@ -22,6 +22,7 @@ const nav = [
   { href: '/taniltsuulga', label: 'Танилцуулга' },
   { href: '/udirdlaga', label: 'Удирдлагын баг' },
   { href: '/uil-ajillagaa', label: 'Үйл ажиллагаа' },
+  { href: '/shine-oyutan', label: 'Шинэ оюутанд' },
   { href: '/holboo-barih', label: 'Холбоо барих' },
 ];
 const current = (h: string) => (h === '/' ? path === '/' : path === h || path.startsWith(h + '/'));
@@ -91,13 +92,14 @@ const ogImage = new URL(image ?? '/brand/logo-512.png', Astro.url).href;
             <h2>Холбогдох</h2>
             <ul>
               <li><a href="mailto:pku_mongolia@163.com">pku_mongolia@163.com</a></li>
+              <li><a href="mailto:pkumongolia@gmail.com">pkumongolia@gmail.com</a></li>
               <li><a href="https://www.instagram.com/pku_mongolia/" rel="noopener">Instagram · @pku_mongolia</a></li>
             </ul>
           </div>
         </div>
         <div class="pf-bottom">
           <span>© {new Date().getFullYear()} МОХ</span>
-          <span>Peking University · MNSA</span>
+          <span lang="en">Mongolian Student Association at Peking University</span>
         </div>
       </div>
     </footer>
@@ -121,7 +123,7 @@ const ogImage = new URL(image ?? '/brand/logo-512.png', Astro.url).href;
           document.addEventListener('click', function (e) {
             if (nav.classList.contains('open') && !e.target.closest('.ph-header')) set(false);
           });
-          matchMedia('(min-width: 901px)').addEventListener('change', function (m) { if (m.matches) set(false); });
+          matchMedia('(min-width: 1201px)').addEventListener('change', function (m) { if (m.matches) set(false); });
         }
         // A soft shadow under the header once the page has scrolled.
         var header = document.querySelector('.ph-header');

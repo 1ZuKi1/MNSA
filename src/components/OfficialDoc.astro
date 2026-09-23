@@ -1,0 +1,135 @@
+---
+/**
+ * One printed page (or several) in the association's own format, as on М-0001, П-0006 and the duty
+ * letters: the logo as a faint watermark, a large heading in capitals, the subject in bold capitals,
+ * numbered content, the signers left and right with a dotted line for the wet signature, and the
+ * number / date / place block centred at the bottom. Used by documents and by the duty letters.
+ */
+export interface SignerBlock {
+  title: string;
+  names: string[];
+  /** Stamp image URL, printed over this signature (the Тэргүүн's, on documents they approved). */
+  stamp?: string | null;
+}
+export interface MetaLine {
+  label: string;
+  value: string;
+}
+interface Props {
+  kind?: string;
+  subtitle?: string;
+  recipient?: string;
+  meta?: MetaLine[];
+  signers: SignerBlock[];
+  number?: string | null;
+  date: string;
+  draft?: boolean;
+  trail?: string | null;
+}
+const { kind, subtitle, recipient, meta = [], signers, number, date, draft = false, trail } = Astro.props;
+const pair = signers.length === 2 && signers.every((s) => s.names.length <= 1);
+---
+<article class:list={['sheet', { draft }]}>
+  <img class="wm" src="/brand/watermark.svg" alt="" aria-hidden="true" />
+  {recipient && <p class="to">{recipient}</p>}
+  {kind && <h1 class:list={['kind', { long: kind.length > 24 }]}>{kind}</h1>}
+  {subtitle && (kind ? <h2 class="subject">{subtitle}</h2> : <h1 class="subject solo">{subtitle}</h1>)}
+  {
+    meta.length > 0 && (
+      <dl class="meta">
+        {meta.map((m) => (
+          <div><dt>{m.label}:</dt> <dd>{m.value}</dd></div>
+        ))}
+      </dl>
+    )
+  }
+
+  <div class="content"><slot /></div>
+
+  <div class:list={['signs', { pair }]}>
+    {signers.map((s) => (
+      <div class="signer">
+        <div class="s-title">{s.title}</div>
+        {(s.names.length ? s.names : ['']).map((n) => (
+          <div class="s-line">
+            <span class="s-name">{n || '________________'}</span>
+            <span class="s-dots">/………………../{s.stamp && <img class="stamp" src={s.stamp} alt="Тамга" />}</span>
+          </div>
+        ))}
+      </div>
+    ))}
+  </div>
+
+  <footer class="place">
+    {number && <p>Дугаар: <span class="num">{number}</span></p>}
+    <p>Огноо: {date}</p>
+    <p>Бээжин хот, Бүгд Найрамдах Хятад Ард Улс</p>
+    <p class="org">Бээжингийн Их Сургуулийн Монгол Оюутны Холбоо</p>
+    <p class="org-zh" lang="zh-Hans">北京大学蒙古国留学生学生会</p>
+  </footer>
+  {trail && <p class="trail">{trail}</p>}
+</article>
+
+<style is:global>
+  @page { size: A4; margin: 20mm 20mm 18mm; }
+  .sheet {
+    position: relative; width: 210mm; min-height: 297mm; margin: 20px auto; padding: 22mm 20mm 18mm; background: #fff;
+    box-shadow: 0 2px 16px rgba(0, 0, 0, .12); color: #111; font: 12pt/1.6 'Source Serif 4 Variable', 'Times New Roman', Georgia, serif;
+    overflow: hidden;
+  }
+  /* The logo as a faint red watermark, like the association's Word documents (public/brand/watermark.svg: the logo in one colour at 15%). */
+  .sheet .wm {
+    position: absolute; left: 50%; top: 50%; width: 120mm; height: auto; transform: translate(-50%, -50%);
+    pointer-events: none; z-index: 0;
+  }
+  .sheet > :not(.wm) { position: relative; z-index: 1; }
+  .sheet.draft::before {
+    content: 'НООРОГ'; position: absolute; inset: 0; display: grid; place-items: center; z-index: 2; pointer-events: none;
+    font: 700 96pt 'Golos Text Variable', sans-serif; color: rgba(142, 0, 0, .08); transform: rotate(-24deg);
+  }
+  .sheet .to { margin: 0 0 18px 50%; font-weight: 600; }
+  .sheet .kind { font: 700 24pt/1.2 'Source Serif 4 Variable', 'Times New Roman', serif; text-align: center; margin: 0 0 14px; letter-spacing: .02em; }
+  .sheet .kind.long { font-size: 15pt; }
+  .sheet .subject { font: 700 13pt/1.35 'Source Serif 4 Variable', 'Times New Roman', serif; text-align: center; text-transform: uppercase; margin: 0 auto 26px; max-width: 150mm; }
+  .sheet .subject.solo { margin-top: 10px; }
+  .sheet .meta { margin: 0 0 18px; }
+  .sheet .meta div { margin: 0 0 2px; }
+  .sheet .meta dt { display: inline; font-weight: 700; }
+  .sheet .meta dd { display: inline; margin: 0; }
+  .sheet .content { margin-bottom: 8px; }
+  .sheet .para { white-space: pre-wrap; margin: 0 0 10px; text-align: justify; }
+  .sheet .sec { margin: 0 0 12px; break-inside: avoid-page; }
+  .sheet .sec h3 { font: 700 12pt/1.4 'Source Serif 4 Variable', 'Times New Roman', serif; margin: 0 0 4px; }
+  .sheet .sec .para { padding-left: 1.4em; }
+  .sheet .tsec { margin: 0 0 14px; }
+  .sheet .tsec h3 { font: 700 12pt 'Source Serif 4 Variable', 'Times New Roman', serif; text-align: center; margin: 0 0 8px; }
+  .sheet .tsec p { text-indent: 1.4em; text-align: justify; margin: 0 0 6px; }
+  .sheet .tsec ol, .sheet .tsec ul { margin: 0; padding-left: 2.2em; }
+  .sheet .tsec li { margin: 0 0 4px; text-align: justify; }
+  .sheet .closing { text-align: center; font-weight: 700; font-style: italic; margin: 26px 12mm 0; }
+  .sheet .attach { margin-top: 14px; }
+  .signs { margin-top: 20mm; display: grid; gap: 10mm 16mm; break-inside: avoid-page; }
+  .signs.pair { grid-template-columns: 1fr 1fr; }
+  .signs.pair .signer:last-child { text-align: right; }
+  .s-title { margin-bottom: 6px; }
+  .s-line { margin-bottom: 4px; white-space: nowrap; }
+  .s-dots { position: relative; display: inline-block; margin-left: 4px; }
+  .stamp {
+    position: absolute; left: 50%; top: 50%; width: 38mm; height: auto; transform: translate(-50%, -52%);
+    mix-blend-mode: multiply; opacity: .95; pointer-events: none;
+  }
+  .place { margin-top: 16mm; text-align: center; break-inside: avoid-page; }
+  .place p { margin: 0 0 6px; }
+  .place .org { font-size: 14pt; margin-top: 4px; }
+  .place .org-zh { font-size: 9pt; color: #555; font-family: 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', 'Source Han Sans SC', sans-serif; }
+  .trail { margin: 12mm 0 0; padding-top: 6px; border-top: 1px solid #e3e3e3; font: 7.5pt/1.5 'Golos Text Variable', sans-serif; color: #777; }
+  .sheet .num { font-variant-numeric: tabular-nums; }
+  @media print {
+    .sheet { width: auto; min-height: 0; margin: 0; padding: 0; box-shadow: none; overflow: visible; break-after: page; }
+    .sheet:last-of-type { break-after: auto; }
+    /* fixed = repeated on every printed page */
+    .sheet .wm { position: fixed; }
+    .sheet ~ .sheet .wm { display: none; } /* one watermark per page, even when many letters print together */
+    .sheet .wm, .stamp { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>

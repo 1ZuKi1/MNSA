@@ -127,7 +127,7 @@ export async function claimInvite(inv: InviteRow, email: string, ip: string | nu
      VALUES (?,?,?,?,?,'active',?,?,?,?) RETURNING id`,
     email,
     inv.name_mn,
-    inv.student_id,
+    inv.student_id || null,
     inv.role,
     inv.department_id,
     termEnd(t),

@@ -61,6 +61,24 @@ export function fmtLong(ts: number | null | undefined): string {
   return `${p.y} оны ${p.m}-р сарын ${p.d}`;
 }
 
+/**
+ * The association's official date line: «2025 оны 12 дугаар сарын 23». Months 1, 4, 9 and 11 take «дүгээр»
+ * (нэг, дөрөв, ес, арван нэг have front vowels); the rest take «дугаар».
+ */
+export function fmtOfficial(ts: number | null | undefined): string {
+  if (!ts) return '—';
+  const p = parts(ts);
+  return `${p.y} оны ${p.m} ${ordinalSuffix(p.m)} сарын ${p.d}`;
+}
+export const ordinalSuffix = (m: number) => ([1, 4, 9, 11].includes(m) ? 'дүгээр' : 'дугаар');
+/** The same for a "YYYY-MM-DD" date typed into a form. */
+export function fmtOfficialDate(date: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+  if (!m) return date;
+  const month = Number(m[2]);
+  return `${m[1]} оны ${month} ${ordinalSuffix(month)} сарын ${Number(m[3])}`;
+}
+
 const WEEKDAYS = ['Ням', 'Даваа', 'Мягмар', 'Лхагва', 'Пүрэв', 'Баасан', 'Бямба'];
 /** Date key for event lists: { day: "10.10", sub: "Бямба · 18:00" } in Beijing time. */
 export function dateKey(ts: number) {

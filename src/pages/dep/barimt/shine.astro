@@ -8,7 +8,8 @@ import { departments } from '../../../lib/db';
 import { readRecordForm } from '../../../lib/forms';
 import { clientIp, withFlash } from '../../../lib/http';
 import { canCreateRecordIn } from '../../../lib/permissions';
-import { getRecordType, RECORD_TYPE_LIST } from '../../../lib/record-types';
+import { getRecordType, RECORD_TYPE_LIST, TYPE_GROUPS } from '../../../lib/record-types';
+import { prefill } from '../../../lib/prefill';
 import { createRecord, getRecord, submitRecord } from '../../../lib/records';
 import { STEP_LABEL, type DeptSlug } from '../../../lib/types';
 import { stepApplies } from '../../../lib/permissions';
@@ -32,6 +33,8 @@ const chainText = (chain: typeof RECORD_TYPE_LIST[number]['chain']) => {
   return steps.length ? steps.join(' → ') : 'шууд батлагдана';
 };
 const typeHref = (slug: string) => `/barimt/shine?type=${slug}${askedDept ? `&dept=${askedDept}` : ''}`;
+
+if (Astro.request.method === 'GET' && type) values = await prefill(type, dept as DeptSlug, user);
 
 if (Astro.request.method === 'POST') {
   const form = readRecordForm(await Astro.request.formData());
@@ -64,14 +67,21 @@ if (Astro.request.method === 'POST') {
 
   {
     !type ? (
-      <div class="type-grid">
-        {RECORD_TYPE_LIST.map((t) => (
-          <a class="type-card" href={typeHref(t.slug)}>
-            <span class="ic"><Icon name={t.icon} /></span>
-            <h2>{t.label}</h2>
-            <p>{t.description}</p>
-            <span class="chain-note">Батлах: {chainText(t.chain)}</span>
-          </a>
+      <div class="stack" style="--stack:26px">
+        {TYPE_GROUPS.map((g) => (
+          <section aria-labelledby={`g-${g.key}`}>
+            <h2 class="group-h" id={`g-${g.key}`}>{g.label}</h2>
+            <div class="type-grid">
+              {RECORD_TYPE_LIST.filter((t) => t.group === g.key).map((t) => (
+                <a class="type-card" href={typeHref(t.slug)}>
+                  <span class="ic"><Icon name={t.icon} /></span>
+                  <h3>{t.label}</h3>
+                  <p>{t.description}</p>
+                  <span class="chain-note">Батлах: {chainText(t.chain)}</span>
+                </a>
+              ))}
+            </div>
+          </section>
         ))}
       </div>
     ) : (

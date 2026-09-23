@@ -135,6 +135,8 @@ src/
     events.ts          Events, task board, participation report, photos
     members.ts         Invites, roles, deputy, annual renewal
     settings.ts        The official stamp (President only; stored private, never on the public site)
+    letters.ts         Duty letters («үүрэг, хариуцлагыг хүлээн зөвшөөрсөн тухай») printed from the member list
+    prefill.ts         Starting values for new documents (department members, meeting attendance)
     team.ts            The public team page, built from the member list
     site.ts            Test-mode switches and the public/staff addresses
     nav.ts             The two counts next to the staff menu (waiting decisions, my tasks)
@@ -154,7 +156,7 @@ tests/                 Unit tests + e2e.sh
 docs/ARCHITECTURE.md   Why everything is the way it is
 ```
 
-**Adding a new kind of document** — add an entry to `RECORD_TYPES` in `src/lib/record-types.ts`: fields, an icon and an approval chain. The form, validation, archive, numbering and print layout all follow automatically.
+**Adding a new kind of document** — add an entry to `RECORD_TYPES` in `src/lib/record-types.ts`: fields, a type letter for the number, an icon, an approval chain and a `print` description (heading, who signs). The form, validation, archive, numbering and the printed page (`components/OfficialDoc.astro`) all follow automatically.
 
 **Changing who can do what** — change `src/lib/permissions.ts` and its tests in `tests/permissions.test.ts`. Pages never decide permissions themselves.
 
@@ -162,7 +164,9 @@ docs/ARCHITECTURE.md   Why everything is the way it is
 
 ## Not built yet
 
-- Public text: the President confirmed or rewrote everything on *Танилцуулга* (2026-09-23) but left the four new-student steps on the homepage and the Сургалтын хэлтэс description unmarked — confirm those once more
+- Public text: the new-student steps on the homepage now follow the association's 2026–2027 guide; the Сургалтын хэлтэс description was left unmarked by the President — confirm it once more
+- *Шинэ оюутанд* has prices and procedures from the 2026–2027 guide: update it every summer
+- Duty letters for board members (no template yet)
 - Live meeting minutes (Phase 5)
 - The September handover page for the presidency (Phase 6) — renewal of members already works
 - Weekly automatic backup of the database

@@ -35,7 +35,15 @@ export function advance(chain: Step[], from: number, author: Author, dept: DeptS
   return { index: i, auto, done: i >= chain.length };
 }
 
-/** МОХ-ЭЗХ/2026-2027/014 */
-export function formatNumber(deptCode: string, year: string, seq: number): string {
-  return `МОХ-${deptCode}/${year}/${String(seq).padStart(3, '0')}`;
+/** "2026-2027" → "2627" */
+export const shortYear = (year: string) => year.replace(/^\d\d(\d\d)-\d\d(\d\d)$/, '$1$2');
+
+/**
+ * The President's format (2026-09-23): department code / academic year / document type / sequence,
+ * e.g. МОХ-ДХ/2627/Ж/001. Each department numbers each type separately, starting again every year.
+ */
+export const numberPrefix = (deptCode: string, year: string, typeCode: string) => `МОХ-${deptCode}/${shortYear(year)}/${typeCode}/`;
+
+export function formatNumber(deptCode: string, year: string, typeCode: string, seq: number): string {
+  return numberPrefix(deptCode, year, typeCode) + String(seq).padStart(3, '0');
 }

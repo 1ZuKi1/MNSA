@@ -5,7 +5,7 @@ import * as P from './permissions';
 import { getRecordType, type RecordType } from './record-types';
 import { academicYear, now } from './time';
 import type { DeptSlug, RecordStatus, Role, SessionUser, Step, Visibility } from './types';
-import { advance } from './workflow';
+import { advance, numberPrefix } from './workflow';
 import { staffOrigin } from './site';
 
 export interface RecordRow {
@@ -272,15 +272,12 @@ export async function submitRecord(a: SessionUser, r: RecordRow, ip: string | nu
   const t = now();
   if (!r.number) {
     // Counter bump and number assignment in one transaction: no gaps, no duplicates.
-    const key = `${r.dept_code}/${r.academic_year}`;
+    const prefix = numberPrefix(r.dept_code, r.academic_year, getRecordType(r.type)!.code);
     await db().batch([
-      stmt(`INSERT INTO counters (key, value) VALUES (?, 1) ON CONFLICT(key) DO UPDATE SET value = value + 1`, key),
+      stmt(`INSERT INTO counters (key, value) VALUES (?, 1) ON CONFLICT(key) DO UPDATE SET value = value + 1`, prefix),
       stmt(
-        `UPDATE records SET number = 'МОХ-' || ?1 || '/' || ?2 || '/' || printf('%03d', (SELECT value FROM counters WHERE key = ?3))
-          WHERE id = ?4 AND number IS NULL`,
-        r.dept_code,
-        r.academic_year,
-        key,
+        `UPDATE records SET number = ?1 || printf('%03d', (SELECT value FROM counters WHERE key = ?1)) WHERE id = ?2 AND number IS NULL`,
+        prefix,
         r.id,
       ),
     ]);

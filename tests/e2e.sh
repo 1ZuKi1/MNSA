@@ -39,7 +39,7 @@ loc=$(post $J/dotood2.jar /barimt/shine -d "type=albn-bichig&dept=dotood&visibil
 RID=$(echo "$loc" | grep -o 'barimt/[0-9]*' | grep -o '[0-9]*'); echo "  record #$RID ($loc)"
 has "submitted flash" "$loc" "ok=submitted"
 pg=$(get $J/dotood2.jar /barimt/$RID)
-has "number assigned on submit" "$pg" "МОХ-ДХ/2026-2027/002"
+has "number assigned on submit, in the President's format" "$pg" "МОХ-ДХ/2627/А/001"
 has "awaiting the дарга" "$pg" "Хэлтсийн даргын"
 has "дарга's queue shows it" "$(get $J/dotood.jar /)" "Танхим ашиглах"
 hasnt "other дарга's queue doesn't" "$(get $J/gadaad.jar /)" "Танхим ашиглах"
@@ -55,8 +55,10 @@ has "status is approved" "$pg" "b-approved"
 check "print page renders" "$(code $J/dotood2.jar /barimt/$RID/hevleh)" 200
 has "print shows all three signers" "$(get $J/dotood2.jar /barimt/$RID/hevleh)" "Ж. Саруул"
 pr=$(get $J/dotood2.jar /barimt/$RID/hevleh)
-has "print has the President's signature line" "$pr" 'class="sign-role">Тэргүүн'
-has "…with the approver's name on it" "$pr" 'class="sign-name">Б. Тэмүүлэн'
+has "print has the President's signature line" "$pr" 's-title">Холбооны Тэргүүн'
+has "…with the approver's name on it" "$pr" 's-name">Б. Тэмүүлэн'
+has "…and Legal's beside it" "$pr" 's-title">Эрх Зүйн Хэлтэс'
+has "…and the official date line" "$pr" "оны 9 дүгээр сарын"
 hasnt "…and no stamp while none is uploaded" "$pr" "/tamga?v="
 has "letterhead carries the Chinese name" "$pr" "北京大学蒙古国留学生学生会"
 has "approved record is locked" "$(curl -s -o /dev/null -w '%{redirect_url}' -b $J/dotood.jar -H "$S" $B/barimt/$RID/zasah)" "err=denied"
@@ -78,13 +80,40 @@ has "Legal approves it" "$(post $J/legal.jar /barimt/$EID -d action=approve)" "o
 has "…and it is done — no President step" "$(get $J/dotood2.jar /barimt/$EID)" "b-approved"
 has "a required field is enforced" "$(curl -s -b $J/dotood2.jar -H "$S" -H "$O" -X POST -d "type=tolovlogoo&dept=dotood&visibility=staff&then=save" --data-urlencode "title=x" --data-urlencode "f_period=x" $B/barimt/shine)" "Заавал бөглөнө"
 
+echo "── records: the association's own document kinds"
+pg=$(get $J/president.jar '/barimt/shine?type=protokol')
+has "a new protocol lists every department head" "$pg" "Сургалтын хэлтэс: О. Энхжин"
+has "…and the writer as note-taker" "$pg" 'value="Б. Тэмүүлэн"'
+has "a new report lists the department" "$(get $J/dotood2.jar '/barimt/shine?type=tailan')" "Г. Анударь (Хэлтсийн дарга), Э. Билгүүн"
+has "a meeting kind must come from the list" "$(curl -s -b $J/president.jar -H "$S" -H "$O" -X POST -d "type=protokol&dept=udirdlaga&visibility=staff&then=save" --data-urlencode "title=x" --data-urlencode "f_meeting_type=Хуурамч" --data-urlencode "f_meeting_date=2026-10-01" --data-urlencode "f_attendees=x" --data-urlencode "f_agenda=x" --data-urlencode "f_decisions=x" $B/barimt/shine)" "Жагсаалтаас сонгоно уу"
+loc=$(post $J/legal.jar /barimt/shine -d "type=medegdel&dept=erh-zui&visibility=staff&then=submit" --data-urlencode "title=Намрын улирлын үйл ажиллагаа хаагдаж буй тухай" \
+  --data-urlencode "f_body=1. Тухай
+1.1. Намрын улирлын үйл ажиллагаа дууслаа." --data-urlencode "f_closing=Энэ хүрээд мэдэгдэж байна.")
+MID2=$(echo "$loc" | grep -o 'barimt/[0-9]*' | grep -o '[0-9]*')
+has "Legal's notice goes straight to the President" "$(get $J/legal.jar /barimt/$MID2)" "Тэргүүний шийдвэрийг"
+has "President approves the notice" "$(post $J/president.jar /barimt/$MID2 -d action=approve)" "ok=approved"
+pr=$(get $J/legal.jar /barimt/$MID2/hevleh)
+has "notice prints under its own heading" "$pr" '>МЭДЭГДЭЛ<'
+has "…numbered with its type letter" "$pr" "МОХ-ЭЗХ/2627/М/001"
+has "…with the closing line" "$pr" 'class="closing">Энэ хүрээд'
+loc=$(post $J/president.jar /barimt/shine -d "type=choloolol&dept=udirdlaga&visibility=staff&then=submit" --data-urlencode "title=Б. Номин-Эрдэнийг чөлөөлөх тухай" \
+  --data-urlencode "f_person=Баяржаргалын Номин-Эрдэнэ" --data-urlencode "f_position=Хэлтсийн дарга" --data-urlencode "f_department=Дотоод хэлтэс" \
+  -d "f_term_start=2025-09-28&f_request_date=2025-10-27&f_effective_date=2025-10-27")
+CID=$(echo "$loc" | grep -o 'barimt/[0-9]*' | grep -o '[0-9]*')
+has "the President's own release is approved on submit" "$(get $J/president.jar /barimt/$CID)" "b-approved"
+pr=$(get $J/president.jar /barimt/$CID/hevleh)
+has "release prints the association's wording" "$pr" "Гурав. Нөхцөл, журам"
+has "…with the dates written out" "$pr" "2025 оны 10 дугаар сарын 27"
+has "…and the person signs beside the President" "$pr" 's-name">Баяржаргалын Номин-Эрдэнэ'
+has "…numbered ГЦ" "$pr" "МОХ-УД/2627/ГЦ/001"
+
 echo "── records: the department wall, open reading"
 check "other dept can READ approved record" "$(code $J/gadaad.jar /barimt/$RID)" 200
 check "maintainer can read" "$(code $J/dev.jar /barimt/$RID)" 200
 check "dept-only draft hidden from other dept" "$(code $J/gadaad.jar /barimt/4)" 404
 check "dept-only draft hidden from board (draft)" "$(code $J/board.jar /barimt/4)" 404
 check "dept-only draft visible to its author" "$(code $J/legal.jar /barimt/4)" 200
-pg=$(curl -s -b $J/dotood2.jar -H "$S" -H "$O" -X POST -d "type=tailan&dept=gadaad&visibility=staff&then=save" --data-urlencode "title=x" --data-urlencode "f_period=x" --data-urlencode "f_summary=x" $B/barimt/shine)
+pg=$(curl -s -b $J/dotood2.jar -H "$S" -H "$O" -X POST -d "type=tailan&dept=gadaad&visibility=staff&then=save" --data-urlencode "title=x" --data-urlencode "f_report_kind=Улирлын эцсийн" --data-urlencode "f_period=x" --data-urlencode "f_work=x" $B/barimt/shine)
 has "posting into another dept is refused, with the reason" "$pg" "Энэ хэлтэст бичих эрх танд байхгүй"
 check "…and nothing was created" "$(get $J/president.jar '/barimt?dept=gadaad' | grep -c 'class="row-link"')" 0
 has "maintainer cannot create records" "$(curl -s -o /dev/null -w '%{redirect_url}' -b $J/dev.jar -H "$S" $B/barimt/shine)" "err=denied"
@@ -146,7 +175,8 @@ check "…and not through the public photo route" "$(curl -s -o /dev/null -w '%{
 has "the President-approved letter now carries the stamp" "$(get $J/dotood2.jar /barimt/$RID/hevleh)" "/tamga?v="
 pr=$(get $J/president.jar /barimt/3/hevleh)
 hasnt "a report approved by a дарга gets no stamp" "$pr" "/tamga?v="
-has "…and is signed by that дарга" "$pr" "Медиа хэлтсийн дарга"
+has "…and is signed by the department's members" "$pr" 's-title">Хэлтсийн гишүүд'
+has "…each of them by name" "$pr" 's-name">Ц. Мөнхжин'
 hasnt "the unapproved amendment gets no stamp" "$(get $J/legal.jar /barimt/$DID/hevleh)" "/tamga?v="
 has "audit log shows the stamp change" "$(get $J/president.jar /burtgel)" "Тамга сольсон"
 has "President removes the stamp" "$(post $J/president.jar /tohirgoo -d action=remove_stamp)" "ok=removed"
@@ -186,6 +216,17 @@ has "removed member is logged out instantly" "$(curl -s -o /dev/null -w '%{redir
 has "President cannot remove themselves" "$(post $J/president.jar /gishuud -d action=remove -d user=1)" "err=denied"
 
 echo "── member pages"
+pg=$(get $J/president.jar '/gishuud/bichig?id=all&date=2026-09-26')
+has "duty letters: one for each head" "$pg" "ХЭЛТСИЙН ДАРГЫН ҮҮРЭГ"
+has "…each member" "$pg" "ХЭЛТСИЙН ГИШҮҮНИЙ ҮҮРЭГ"
+has "…and the President" "$pg" "ХОЛБООНЫ ТЭРГҮҮНИЙ ҮҮРЭГ"
+has "…dated for the Их Хуралдаан" "$pg" "2026 оны 9 дүгээр сарын 26"
+hasnt "…but not for the board" "$pg" "Д. Номин"
+has "a member prints their own letter" "$(get $J/dotood2.jar /gishuud/bichig)" "Э. Билгүүн"
+check "…but not everyone's" "$(code $J/dotood2.jar '/gishuud/bichig?id=all')" 404
+check "…nor someone else's" "$(code $J/dotood2.jar '/gishuud/bichig?id=3')" 404
+has "an invite without a student ID is fine" "$(curl -s -b $J/president.jar -H "$S" -H "$O" -X POST -d "action=invite&student_id=&role=member&dept=media" --data-urlencode "name=Б. Эсэншихэр" $B/gishuud)" "Урилга үүслээ"
+has "…but a malformed one is refused" "$(curl -s -b $J/president.jar -H "$S" -H "$O" -X POST -d "action=invite&student_id=12ab&role=member&dept=media" --data-urlencode "name=x" $B/gishuud)" "зөвхөн тооноос"
 check "a member opens their own page" "$(code $J/dotood2.jar /gishuud/4)" 200
 check "…but not someone else's" "$(code $J/dotood2.jar /gishuud/3)" 404
 has "President changes an e-mail" "$(post $J/president.jar /gishuud -d action=email -d user=6 -d back=/gishuud/6 --data-urlencode email=surgalt.new@demo.test)" "ok=saved"
@@ -208,7 +249,7 @@ check "logout" "$(curl -s -o /dev/null -w '%{http_code}' -b $J/board.jar -H "$S"
 
 echo "── public site"
 pub(){ curl -s -H "$P" "$B$1"; }
-for pg in / /taniltsuulga /udirdlaga /uil-ajillagaa /holboo-barih; do
+for pg in / /taniltsuulga /udirdlaga /uil-ajillagaa /shine-oyutan /holboo-barih; do
   check "public $pg renders" "$(curl -s -o /dev/null -w '%{http_code}' -H "$P" $B$pg)" 200
 done
 has "nav lists all five pages" "$(pub /)" "Удирдлагын баг"
@@ -220,6 +261,10 @@ has "contact page has the email" "$(pub /holboo-barih)" "pku_mongolia@163.com"
 hasnt "no Mongolian script in the title band" "$(pub /)" "band-script"
 has "footer shows the Chinese name" "$(pub /)" "北京大学蒙古国留学生学生会"
 has "about page: the President's wording" "$(pub /taniltsuulga)" "Жилээс жилд өсөж дэвшинэ"
+has "about page: the yearly calendar from the constitution" "$(pub /taniltsuulga)" "Намрын улирал, 2-р долоо хоног"
+has "newcomer guide: the two deadlines" "$(pub /shine-oyutan)" "24 цагт"
+has "newcomer guide: in the menu" "$(pub /)" 'href="/shine-oyutan"'
+has "contact page: the Gmail address" "$(pub /holboo-barih)" "pkumongolia@gmail.com"
 has "member hides themselves" "$(post $J/dotood2.jar /gishuud -d action=public_off -d user=4)" "ok=saved"
 hasnt "…and is gone from the team page" "$(pub /udirdlaga)" "Билгүүн"
 has "other dept head cannot toggle them" "$(post $J/gadaad.jar /gishuud -d action=public_on -d user=4)" "err=denied"

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { advance, formatNumber } from '../src/lib/workflow';
 import { RECORD_TYPES } from '../src/lib/record-types';
-import { academicYear, fromLocal, termEnd, fmtDate } from '../src/lib/time';
+import { academicYear, fromLocal, termEnd, fmtDate, fmtOfficial, fmtOfficialDate } from '../src/lib/time';
 import type { DeptSlug, Role, Step } from '../src/lib/types';
 
 const u = (id: number, role: Role, dept: DeptSlug | null) => ({ id, role, dept, isDeputy: false });
@@ -56,7 +56,8 @@ describe('the document types added from the President\'s form', () => {
 
 describe('numbers and dates', () => {
   it('formats document numbers', () => {
-    expect(formatNumber('ЭЗХ', '2026-2027', 14)).toBe('МОХ-ЭЗХ/2026-2027/014');
+    expect(formatNumber('ДХ', '2026-2027', 'Ж', 1)).toBe('МОХ-ДХ/2627/Ж/001'); // the President's own example
+    expect(formatNumber('ЭЗХ', '2026-2027', 'ГЦ', 14)).toBe('МОХ-ЭЗХ/2627/ГЦ/014');
   });
 
   it('academic year flips on 1 September, Beijing time', () => {
@@ -67,5 +68,35 @@ describe('numbers and dates', () => {
   it('accounts made any time in 2026–2027 expire at the end of September 2027', () => {
     expect(fmtDate(termEnd(fromLocal('2026-09-05')))).toBe('2027.09.30');
     expect(fmtDate(termEnd(fromLocal('2027-06-01')))).toBe('2027.09.30');
+  });
+});
+
+describe('the association\'s official date line', () => {
+  it('writes the month ordinal with the right vowel', () => {
+    expect(fmtOfficialDate('2025-12-23')).toBe('2025 оны 12 дугаар сарын 23');
+    expect(fmtOfficialDate('2025-11-08')).toBe('2025 оны 11 дүгээр сарын 8');
+    expect(fmtOfficialDate('2026-09-01')).toBe('2026 оны 9 дүгээр сарын 1');
+    expect(fmtOfficialDate('2025-10-27')).toBe('2025 оны 10 дугаар сарын 27');
+    expect(fmtOfficialDate('2026-04-02')).toBe('2026 оны 4 дүгээр сарын 2');
+    expect(fmtOfficialDate('2026-01-15')).toBe('2026 оны 1 дүгээр сарын 15');
+  });
+  it('uses Beijing time for timestamps', () => {
+    expect(fmtOfficial(fromLocal('2026-09-26', '00:30'))).toBe('2026 оны 9 дүгээр сарын 26');
+  });
+});
+
+describe('every document type is complete', () => {
+  it('has a unique type letter, a chain and signers that exist', () => {
+    const codes = Object.values(RECORD_TYPES).map((t) => t.code);
+    expect(new Set(codes).size).toBe(codes.length);
+    for (const t of Object.values(RECORD_TYPES)) {
+      expect(t.chain.length).toBeGreaterThan(0);
+      for (const s of t.print.signers) {
+        if ('step' in s) expect(t.chain).toContain(s.step);
+        if ('field' in s) expect(t.fields.map((f) => f.name)).toContain(s.field);
+      }
+      for (const n of [...(t.print.meta ?? []), ...(t.print.plain ?? [])]) expect(t.fields.map((f) => f.name)).toContain(n);
+      for (const f of t.fields) if (f.type === 'select') expect(f.options?.length).toBeGreaterThan(0);
+    }
   });
 });
