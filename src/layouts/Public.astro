@@ -83,7 +83,7 @@ const ogImage = new URL(image ?? '/brand/logo-512.png', Astro.url).href;
           <div>
             <p class="pf-name">Бээжингийн Их Сургуулийн<br />Монгол Оюутны Холбоо</p>
             <p class="pf-zh" lang="zh-Hans">北京大学蒙古国留学生学生会</p>
-            <p style="margin-top:10px">Бээжингийн Их Сургуульд суралцаж буй Монгол оюутнуудын сайн дурын байгууллага.</p>
+            <p class="pf-about">Бээжингийн Их Сургуульд суралцаж буй Монгол оюутнуудын сайн дурын байгууллага.</p>
           </div>
           <div>
             <h2>Хуудсууд</h2>
@@ -128,6 +128,24 @@ const ogImage = new URL(image ?? '/brand/logo-512.png', Astro.url).href;
             if (nav.classList.contains('open') && !e.target.closest('.ph-header')) set(false);
           });
           matchMedia('(min-width: 1201px)').addEventListener('change', function (m) { if (m.matches) set(false); });
+        }
+        // Sections rise in as they scroll into view. Only armed when the browser can do it and the
+        // visitor hasn't asked for less motion, so nothing is ever left hidden.
+        if ('IntersectionObserver' in window && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+          var groups = document.querySelectorAll('.band-text, main .sec > .wrap');
+          var io = new IntersectionObserver(function (entries) {
+            entries.forEach(function (e) {
+              if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+            });
+          }, { rootMargin: '0px 0px -8% 0px' });
+          groups.forEach(function (g) {
+            Array.prototype.forEach.call(g.children, function (el, i) {
+              el.classList.add('rv');
+              el.style.setProperty('--i', String(Math.min(i, 6)));
+              io.observe(el);
+            });
+          });
+          document.documentElement.classList.add('reveal-on');
         }
         // A soft shadow under the header once the page has scrolled.
         var header = document.querySelector('.ph-header');
