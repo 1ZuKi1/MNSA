@@ -75,6 +75,11 @@ describe('writing is walled by department', () => {
     expect(P.canEditRecord(dotoodMember, rec({ status: 'rejected' }))).toBe(true);
   });
 
+  it('the board may fix a sent-back document from any department (President decision, 2026-09)', () => {
+    expect(P.canEditRecord(board, rec({ status: 'rejected', dept: 'gadaad' }))).toBe(true);
+    expect(P.canEditRecord(gadaadHead, rec({ status: 'rejected', dept: 'dotood' }))).toBe(false);
+  });
+
   it('the maintainer never edits content', () => {
     expect(P.canEditRecord(maintainer, draft)).toBe(false);
     expect(P.canCreateRecordIn(maintainer, 'dotood')).toBe(false);
@@ -177,5 +182,12 @@ describe('members: President adds everyone, one deputy as backup', () => {
     expect(P.canSeeAudit(maintainer)).toBe(true);
     expect(P.canSeeAudit(board)).toBe(true);
     expect(P.canSeeAudit(dotoodHead)).toBe(false);
+  });
+});
+
+describe('settings', () => {
+  it('only the President manages the official stamp', () => {
+    expect(P.canManageSettings(president)).toBe(true);
+    for (const a of [board, legalHead, dotoodHead, mediaMember, maintainer]) expect(P.canManageSettings(a)).toBe(false);
   });
 });

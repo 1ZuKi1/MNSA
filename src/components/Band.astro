@@ -1,7 +1,7 @@
 ---
 /**
- * The navy title band at the top of every public page. The vertical Mongolian script runs down its
- * left edge; the page title, one sentence and (optionally) buttons sit beside it — always in the same place.
+ * The navy title band at the top of every public page: kicker, page title, one sentence and (optionally)
+ * buttons, always in the same place behind a thin gold rule.
  */
 interface Props {
   kicker?: string;
@@ -13,10 +13,7 @@ interface Props {
 const { kicker, title, lede, home = false, back } = Astro.props;
 ---
 <section class:list={['band', { 'band-home': home }]}>
-  <div class="wrap band-grid">
-    <div class="band-script" aria-hidden="true">
-      <span lang="mn-Mong">ᠮᠣᠩᠭᠣᠯ ᠣᠶᠤᠲᠠᠨ ᠤ ᠬᠣᠯᠪᠣᠭ᠎ᠠ</span>
-    </div>
+  <div class="wrap">
     <div class="band-text">
       {back && <p class="band-back"><a href={back.href}><span aria-hidden="true">←</span> {back.label}</a></p>}
       {kicker && <p class="kicker">{kicker}</p>}

@@ -1,0 +1,109 @@
+---
+/**
+ * The President's settings. One thing for now: the official stamp printed on documents they approved.
+ * The image is stored private (never served on the public site) and every change is in the audit log.
+ */
+export const prerender = false;
+import Staff from '../../layouts/Staff.astro';
+import PageHead from '../../components/PageHead.astro';
+import Icon from '../../components/Icon.astro';
+import { clientIp, str, withFlash } from '../../lib/http';
+import { BadImage, storeImage } from '../../lib/media';
+import { canManageSettings } from '../../lib/permissions';
+import { clearStamp, setStamp, stampId } from '../../lib/settings';
+
+const user = Astro.locals.user!;
+if (!canManageSettings(user)) return new Response(null, { status: 404 });
+
+if (Astro.request.method === 'POST') {
+  const fd = await Astro.request.formData();
+  const action = str(fd, 'action', 20);
+  const ip = clientIp(Astro.request);
+  try {
+    if (action === 'stamp') {
+      const file = fd.get('file');
+      if (!(file instanceof File) || file.size === 0) throw new BadImage('empty');
+      await setStamp(user.id, await storeImage(file, user.id, undefined, undefined, { private: true }), ip);
+      return Astro.redirect(withFlash('/tohirgoo', 'stamp'));
+    }
+    if (action === 'remove_stamp') {
+      await clearStamp(user.id, ip);
+      return Astro.redirect(withFlash('/tohirgoo', 'removed'));
+    }
+  } catch (e) {
+    if (e instanceof BadImage) return Astro.redirect(withFlash('/tohirgoo', 'image', 'err'));
+    throw e;
+  }
+  return Astro.redirect(withFlash('/tohirgoo', 'invalid', 'err'));
+}
+
+const stamp = await stampId();
+---
+<Staff title="Тохиргоо">
+  <PageHead title="Тохиргоо" sub="Зөвхөн Тэргүүн харж, өөрчилнө. Өөрчлөлт бүр үйлдлийн бүртгэлд үлдэнэ." />
+
+  <section class="panel" aria-labelledby="stamp-h" style="max-width:760px">
+    <div class="panel-head"><h2 id="stamp-h"><Icon name="stamp" /> Албан тамга</h2></div>
+    <div class="panel-body stack" style="--stack:16px">
+      <p style="margin:0">
+        Тамга нь <strong>Тэргүүний баталсан</strong> баримтыг хэвлэхэд гарын үсгийн мөрөн дээр гарна.
+        Ноорог, хянагдаж буй, буцаагдсан баримт дээр хэзээ ч гарахгүй.
+      </p>
+
+      {
+        stamp ? (
+          <div class="sign-sample" aria-label="Хэвлэхэд ийм харагдана">
+            <span class="role">Тэргүүн</span>
+            <span class="line"><img src={`/tamga?v=${stamp}`} alt="Одоогийн тамга" /></span>
+            <span class="role">{user.name}</span>
+          </div>
+        ) : (
+          <p class="empty-note"><Icon name="alert" /> Тамга оруулаагүй байна. Хэвлэсэн баримт дээр зөвхөн гарын үсгийн мөр гарна.</p>
+        )
+      }
+
+      <form method="post" enctype="multipart/form-data" class="stack" style="--stack:12px">
+        <input type="hidden" name="action" value="stamp" />
+        <div class="field">
+          <label for="file">{stamp ? 'Шинэ тамганы зураг' : 'Тамганы зураг'}</label>
+          <input id="file" name="file" type="file" accept="image/png,image/webp,image/jpeg" required aria-describedby="file-hint" />
+          <span class="hint" id="file-hint">
+            Цагаан цаасан дээр дарсан тамгыг сканердаж эсвэл шулуун дээрээс нь зураг авна. Ил тод дэвсгэртэй PNG хамгийн цэвэрхэн гарна. 1.8 МБ-аас бага.
+          </span>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" type="submit"><Icon name="plus" /> {stamp ? 'Тамга солих' : 'Тамга оруулах'}</button>
+        </div>
+      </form>
+
+      {
+        stamp && (
+          <form method="post" data-confirm="Тамгыг устгах уу? Дараагийн хэвлэлтээс эхлэн баримт дээр гарахгүй.">
+            <button class="linkish danger" name="action" value="remove_stamp">Тамгыг устгах</button>
+          </form>
+        )
+      }
+
+      <p class="form-note">
+        <Icon name="lock" /> Тамганы зураг зөвхөн ажлын орчинд нэвтэрсэн хүнд харагдана. Нийтийн сайтад хэзээ ч гарахгүй.
+      </p>
+    </div>
+  </section>
+</Staff>
+
+<style>
+  .sign-sample {
+    display: grid; grid-template-columns: auto minmax(120px, 220px) auto; align-items: end; gap: 14px;
+    padding: 56px 20px 50px; background: #fff; border: 1px solid var(--line); border-radius: var(--radius-sm);
+    font-weight: 600; text-transform: uppercase; letter-spacing: 0.02em; justify-content: start;
+  }
+  .sign-sample .line { position: relative; height: 2.2em; border-bottom: 1px solid var(--ink); }
+  .sign-sample img { position: absolute; left: 50%; top: 50%; width: 120px; height: auto; transform: translate(-50%, -50%); mix-blend-mode: multiply; }
+  .empty-note { display: flex; gap: 8px; align-items: center; margin: 0; color: var(--ink-2); }
+  .form-note { display: flex; gap: 8px; align-items: center; }
+  .empty-note :global(.icon), .form-note :global(.icon) { width: 18px; height: 18px; flex: none; }
+  @media (max-width: 480px) {
+    .sign-sample { grid-template-columns: auto minmax(64px, 1fr) auto; gap: 8px; padding: 44px 12px 40px; font-size: 0.8rem; }
+    .sign-sample img { width: 88px; }
+  }
+</style>

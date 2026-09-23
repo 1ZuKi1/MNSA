@@ -9,6 +9,7 @@
  *   Legal (Эрх зүйн хэлтэс) reviews every department's official letters but cannot edit them.
  *   Events belong to the President and the Media department.
  *   The maintainer can read, but governs nothing.
+ *   The official stamp is the President's alone.
  */
 import type { DeptSlug, RecordStatus, Role, SessionUser, Step, Visibility } from './types';
 
@@ -163,4 +164,11 @@ export function canSetDeputy(a: Actor): boolean {
 
 export function canSeeAudit(a: Actor): boolean {
   return isPresident(a) || isBoard(a) || a.role === 'maintainer';
+}
+
+// ------------------------------------------------------------------ settings
+
+/** The official stamp (and any future association-wide setting) belongs to the President alone. */
+export function canManageSettings(a: Actor): boolean {
+  return isPresident(a);
 }

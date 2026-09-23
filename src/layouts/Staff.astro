@@ -5,7 +5,7 @@ import '../styles/staff.css';
 import Icon from '../components/Icon.astro';
 import type { IconName } from '../lib/icons';
 import { cleanStaffPath } from '../lib/hosts';
-import { canSeeAudit, canSeeParticipation } from '../lib/permissions';
+import { canManageSettings, canSeeAudit, canSeeParticipation } from '../lib/permissions';
 import { ROLE_LABEL } from '../lib/types';
 import { flashFrom } from '../lib/http';
 import { isTestMode, publicOrigin } from '../lib/site';
@@ -42,6 +42,7 @@ const groups: { label: string; items: NavItem[] }[] = user
           { href: '/gishuud', label: 'Гишүүд', icon: 'users' },
           { href: '/oroltsoo', label: canSeeParticipation(user) ? 'Оролцоо' : 'Миний оролцоо', icon: 'chart' },
           ...(canSeeAudit(user) ? [{ href: '/burtgel', label: 'Үйлдлийн бүртгэл', icon: 'shield' as IconName }] : []),
+          ...(canManageSettings(user) ? [{ href: '/tohirgoo', label: 'Тохиргоо', icon: 'stamp' as IconName }] : []),
         ],
       },
     ]

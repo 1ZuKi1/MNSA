@@ -35,6 +35,7 @@
 
   --font-sans: 'Golos Text Variable', 'Golos Text', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-serif: 'Source Serif 4 Variable', 'Source Serif 4', Georgia, 'Times New Roman', serif;
+  --font-zh: 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', 'Source Han Sans SC', sans-serif;
 
   --radius: 10px;
   --radius-sm: 6px;
@@ -42,6 +43,9 @@
   --wrap: 1120px;
   --gutter: clamp(16px, 4vw, 32px);
 }
+
+/* Chinese text (the association's Chinese name) — Golos and Source Serif have no CJK glyphs. */
+:lang(zh-Hans) { font-family: var(--font-zh); }
 
 *,
 *::before,

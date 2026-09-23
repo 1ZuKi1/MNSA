@@ -54,7 +54,29 @@ pg=$(get $J/dotood2.jar /barimt/$RID)
 has "status is approved" "$pg" "b-approved"
 check "print page renders" "$(code $J/dotood2.jar /barimt/$RID/hevleh)" 200
 has "print shows all three signers" "$(get $J/dotood2.jar /barimt/$RID/hevleh)" "Ж. Саруул"
+pr=$(get $J/dotood2.jar /barimt/$RID/hevleh)
+has "print has the President's signature line" "$pr" 'class="sign-role">Тэргүүн'
+has "…with the approver's name on it" "$pr" 'class="sign-name">Б. Тэмүүлэн'
+hasnt "…and no stamp while none is uploaded" "$pr" "/tamga?v="
+has "letterhead carries the Chinese name" "$pr" "北京大学蒙古国留学生学生会"
 has "approved record is locked" "$(curl -s -o /dev/null -w '%{redirect_url}' -b $J/dotood.jar -H "$S" $B/barimt/$RID/zasah)" "err=denied"
+
+echo "── records: the types added from the President's form"
+pg=$(get $J/dotood2.jar /barimt/shine)
+has "type list: activity plan" "$pg" "Үйл ажиллагааны төлөвлөгөө"
+has "type list: election committee material" "$pg" "Сонгуулийн хорооны материал"
+has "type list: constitution amendment" "$pg" "Үндсэн дүрмийн өөрчлөлт"
+loc=$(post $J/legal.jar /barimt/shine -d "type=durem&dept=erh-zui&visibility=staff&then=submit" --data-urlencode "title=23.4 дэх заалтыг өөрчлөх" \
+  --data-urlencode "f_articles=5-р бүлэг, 23.4" --data-urlencode "f_proposed_text=Шинэ найруулга." --data-urlencode "f_rationale=Үндэслэл.")
+DID=$(echo "$loc" | grep -o 'barimt/[0-9]*' | grep -o '[0-9]*')
+has "Legal's own amendment goes straight to the President" "$(get $J/legal.jar /barimt/$DID)" "Тэргүүний шийдвэрийг"
+loc=$(post $J/dotood2.jar /barimt/shine -d "type=songuuli&dept=dotood&visibility=staff&then=submit" --data-urlencode "title=Сонгуулийн зар" \
+  --data-urlencode "f_kind=Сонгуулийн зар" --data-urlencode "f_election=2027–2028 оны удирдлагын сонгууль" --data-urlencode "f_body=Нэр дэвшүүлэх хугацаа эхэллээ.")
+EID=$(echo "$loc" | grep -o 'barimt/[0-9]*' | grep -o '[0-9]*')
+has "election material waits for Legal" "$(get $J/dotood2.jar /barimt/$EID)" "Эрх зүйн хэлтсийн шийдвэрийг"
+has "Legal approves it" "$(post $J/legal.jar /barimt/$EID -d action=approve)" "ok=approved"
+has "…and it is done — no President step" "$(get $J/dotood2.jar /barimt/$EID)" "b-approved"
+has "a required field is enforced" "$(curl -s -b $J/dotood2.jar -H "$S" -H "$O" -X POST -d "type=tolovlogoo&dept=dotood&visibility=staff&then=save" --data-urlencode "title=x" --data-urlencode "f_period=x" $B/barimt/shine)" "Заавал бөглөнө"
 
 echo "── records: the department wall, open reading"
 check "other dept can READ approved record" "$(code $J/gadaad.jar /barimt/$RID)" 200
@@ -106,6 +128,30 @@ echo "not an image" > $J/fake.jpg
 has "a fake .jpg is rejected" "$(curl -s -o /dev/null -w "%{redirect_url}" -b $J/media.jar -H "$S" -H "$O" -F action=photo -F "file=@$J/fake.jpg;type=image/jpeg" $B/uil-ajillagaa/2)" "err=invalid"
 has "non-media cannot upload" "$(curl -s -o /dev/null -w "%{redirect_url}" -b $J/dotood.jar -H "$S" -H "$O" -F action=photo -F "file=@$J/p.jpg;type=image/jpeg" $B/uil-ajillagaa/2)" "err=denied"
 has "past event shows cover publicly" "$(curl -s -H "$P" $B/uil-ajillagaa)" "/media/"
+
+echo "── official stamp"
+check "settings: President only" "$(code $J/president.jar /tohirgoo)" 200
+check "…not the board" "$(code $J/board.jar /tohirgoo)" 404
+check "…not the maintainer" "$(code $J/dev.jar /tohirgoo)" 404
+check "…and a дарга cannot post to it" "$(curl -s -o /dev/null -w '%{http_code}' -b $J/legal.jar -H "$S" -H "$O" -X POST -F action=stamp -F "file=@$J/p.jpg;type=image/jpeg" $B/tohirgoo)" 404
+echo "iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAABs0lEQVR42u1bwRECMQg8qMEirMgircgi7EFfzjiOehAWQnR55wK7B4SEZNsolL8WqVR2PhxvlnGn60V+ggAr4JmESFfQVWTIKsCziJCOsV2ZKyQTOOovZeqRDKOyklaGTkEaUrV8IfXrauC/6RpJxBIFXwk8wyZdGfwnGzyeINXgszL6qI1SAX60SELo2ZvDTYDHqBGDooR77U0z5vlbhFtHqshv3woaPAJ4dE6P7YqMxwzwr3NZ8kl4GRxJWlngR0mwYlLU36+oDTLsUGSMVhRGDx2o8weNLiOV4L0kvNr0brxufy66iutnhQI9AFX2dpW9PKAruj8yDBgCJIAEkAASQAJIwPxd2axaRL27p9Vkr7plCHQ6nJhRitMDvLunDl5g/fuW3S3EAypJQO9C1aMUPTaa0RFj1XKI4D14yCAh2ncId4a8HRkkCYjW2CdhczRaSaEJbNUeRxgUCYcWFyRQJHjrCsS8kCsyGSRULI/w5mj0NlZH8C4P2ANd7Q0oO9ylMPKW5mzwQx5gAfzzl6WzM3qlHj6YmLFTQ27B2xBQRUTbR1OZZCz1bK5LbFMoFJPcAV19sGmRciE2AAAAAElFTkSuQmCC" | base64 -d > $J/stamp.png
+has "a fake image is refused" "$(curl -s -o /dev/null -w "%{redirect_url}" -b $J/president.jar -H "$S" -H "$O" -F action=stamp -F "file=@$J/fake.jpg;type=image/jpeg" $B/tohirgoo)" "err=image"
+has "President uploads the stamp" "$(curl -s -o /dev/null -w "%{redirect_url}" -b $J/president.jar -H "$S" -H "$O" -F action=stamp -F "file=@$J/stamp.png;type=image/png" $B/tohirgoo)" "ok=stamp"
+check "stamp is served to logged-in staff" "$(curl -s -o /dev/null -w '%{http_code} %{content_type}' -b $J/dotood2.jar -H "$S" $B/tamga)" "200 image/png"
+has "…and never stored in any cache" "$(curl -s -D - -o /dev/null -b $J/dotood2.jar -H "$S" $B/tamga)" "no-store"
+has "…not without a login" "$(curl -s -o /dev/null -w '%{redirect_url}' -H "$S" $B/tamga)" "/nevtreh"
+check "…not on the public host" "$(curl -s -o /dev/null -w '%{http_code}' -H "$P" $B/tamga)" 404
+SID=$(get $J/president.jar /tohirgoo | grep -o 'tamga?v=[A-Za-z0-9_-]*' | head -1 | cut -d= -f2)
+check "…and not through the public photo route" "$(curl -s -o /dev/null -w '%{http_code}' -H "$P" $B/media/$SID)" 404
+has "the President-approved letter now carries the stamp" "$(get $J/dotood2.jar /barimt/$RID/hevleh)" "/tamga?v="
+pr=$(get $J/president.jar /barimt/3/hevleh)
+hasnt "a report approved by a дарга gets no stamp" "$pr" "/tamga?v="
+has "…and is signed by that дарга" "$pr" "Медиа хэлтсийн дарга"
+hasnt "the unapproved amendment gets no stamp" "$(get $J/legal.jar /barimt/$DID/hevleh)" "/tamga?v="
+has "audit log shows the stamp change" "$(get $J/president.jar /burtgel)" "Тамга сольсон"
+has "President removes the stamp" "$(post $J/president.jar /tohirgoo -d action=remove_stamp)" "ok=removed"
+hasnt "…and it is gone from the print" "$(get $J/dotood2.jar /barimt/$RID/hevleh)" "/tamga?v="
+check "…and from /tamga" "$(code $J/dotood2.jar /tamga)" 404
 
 echo "── participation report"
 pg=$(get $J/president.jar /oroltsoo)
@@ -171,6 +217,9 @@ has "team page lists the President" "$(pub /udirdlaga)" "Тэмүүлэн"
 has "team page lists members" "$(pub /udirdlaga)" "Билгүүн"
 hasnt "maintainer is not on the team page" "$(pub /udirdlaga)" "Техникийн"
 has "contact page has the email" "$(pub /holboo-barih)" "pku_mongolia@163.com"
+hasnt "no Mongolian script in the title band" "$(pub /)" "band-script"
+has "footer shows the Chinese name" "$(pub /)" "北京大学蒙古国留学生学生会"
+has "about page: the President's wording" "$(pub /taniltsuulga)" "Жилээс жилд өсөж дэвшинэ"
 has "member hides themselves" "$(post $J/dotood2.jar /gishuud -d action=public_off -d user=4)" "ok=saved"
 hasnt "…and is gone from the team page" "$(pub /udirdlaga)" "Билгүүн"
 has "other dept head cannot toggle them" "$(post $J/gadaad.jar /gishuud -d action=public_on -d user=4)" "err=denied"

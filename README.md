@@ -116,6 +116,7 @@ Do these once, in order. Everything uses the **association's** Cloudflare accoun
     npx wrangler d1 execute mnsa-db --remote --command "INSERT INTO users (email, name_mn, student_id, role, department_id, term_ends_at, created_at) VALUES ('president@example.com', 'Б. Нэр', '0000000000', 'president', 1, strftime('%s','2027-09-30 15:59:00'), strftime('%s','now'))"
     ```
     From then on, the President invites everyone else from *Гишүүд → Урилга үүсгэх*. Everyone added shows up on the public *Удирдлагын баг* page automatically; each person (or the President) can hide themselves with the *Нийтэд* switch on *Гишүүд*.
+    Then the President uploads the official stamp at *Тохиргоо → Албан тамга*: a scan or straight-on photo of the real stamp pressed on white paper (a transparent PNG looks cleanest). It prints on the signature line only of documents the President approved, and its image is served only behind the staff login.
 11. **Auto-deploy on push:** Cloudflare → Workers → `mnsa` → Settings → Builds → connect `github.com/1ZuKi1/MNSA`. Build command `npm run build`, deploy command `npx wrangler deploy`.
 
 ---
@@ -133,6 +134,7 @@ src/
     records.ts         Documents: create, edit, submit, approve, auto-numbering
     events.ts          Events, task board, participation report, photos
     members.ts         Invites, roles, deputy, annual renewal
+    settings.ts        The official stamp (President only; stored private, never on the public site)
     team.ts            The public team page, built from the member list
     site.ts            Test-mode switches and the public/staff addresses
     nav.ts             The two counts next to the staff menu (waiting decisions, my tasks)
@@ -152,7 +154,7 @@ tests/                 Unit tests + e2e.sh
 docs/ARCHITECTURE.md   Why everything is the way it is
 ```
 
-**Adding a new kind of document** — add an entry to `RECORD_TYPES` in `src/lib/record-types.ts`: fields and an approval chain. The form, validation, archive, numbering and print layout all follow automatically.
+**Adding a new kind of document** — add an entry to `RECORD_TYPES` in `src/lib/record-types.ts`: fields, an icon and an approval chain. The form, validation, archive, numbering and print layout all follow automatically.
 
 **Changing who can do what** — change `src/lib/permissions.ts` and its tests in `tests/permissions.test.ts`. Pages never decide permissions themselves.
 
@@ -160,7 +162,7 @@ docs/ARCHITECTURE.md   Why everything is the way it is
 
 ## Not built yet
 
-- Public text to confirm with the board: the value taglines and department descriptions on *Танилцуулга*, the new-student steps on the homepage, the vertical Mongolian script in the hero
+- Public text: the President confirmed or rewrote everything on *Танилцуулга* (2026-09-23) but left the four new-student steps on the homepage and the Сургалтын хэлтэс description unmarked — confirm those once more
 - Live meeting minutes (Phase 5)
 - The September handover page for the presidency (Phase 6) — renewal of members already works
 - Weekly automatic backup of the database

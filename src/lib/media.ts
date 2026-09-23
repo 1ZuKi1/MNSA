@@ -19,22 +19,32 @@ function sniff(b: Uint8Array): string | null {
 
 export class BadImage extends Error {}
 
-export async function storeImage(file: File, userId: number, width?: number, height?: number): Promise<string> {
+export async function storeImage(
+  file: File,
+  userId: number,
+  width?: number,
+  height?: number,
+  opts: { private?: boolean; allow?: string[] } = {},
+): Promise<string> {
   if (file.size > MAX_BYTES) throw new BadImage('too-large');
   const bytes = new Uint8Array(await file.arrayBuffer());
   const mime = sniff(bytes);
-  if (!mime || !ALLOWED.has(mime)) throw new BadImage('type');
+  if (!mime || !ALLOWED.has(mime) || (opts.allow && !opts.allow.includes(mime))) throw new BadImage('type');
   const id = randomToken(16); // unguessable: the URL is the permission
   await mediaDb()
-    .prepare(`INSERT INTO media (id, mime, bytes, width, height, size, created_by, created_at) VALUES (?,?,?,?,?,?,?,?)`)
-    .bind(id, mime, bytes, width ?? null, height ?? null, bytes.byteLength, userId, now())
+    .prepare(`INSERT INTO media (id, mime, bytes, width, height, size, private, created_by, created_at) VALUES (?,?,?,?,?,?,?,?,?)`)
+    .bind(id, mime, bytes, width ?? null, height ?? null, bytes.byteLength, opts.private ? 1 : 0, userId, now())
     .run();
   return id;
 }
 
-export async function loadImage(id: string): Promise<{ mime: string; bytes: ArrayBuffer } | null> {
+/** Public by default: a private image (the stamp) is only returned when the caller asks for it explicitly. */
+export async function loadImage(id: string, opts: { private?: boolean } = {}): Promise<{ mime: string; bytes: ArrayBuffer } | null> {
   if (!/^[A-Za-z0-9_-]{16,40}$/.test(id)) return null;
-  const row = await mediaDb().prepare(`SELECT mime, bytes FROM media WHERE id = ?`).bind(id).first<{ mime: string; bytes: number[] | ArrayBuffer }>();
+  const row = await mediaDb()
+    .prepare(`SELECT mime, bytes FROM media WHERE id = ? AND private = ?`)
+    .bind(id, opts.private ? 1 : 0)
+    .first<{ mime: string; bytes: number[] | ArrayBuffer }>();
   if (!row) return null;
   const bytes = row.bytes instanceof ArrayBuffer ? row.bytes : new Uint8Array(row.bytes).buffer;
   return { mime: row.mime, bytes };

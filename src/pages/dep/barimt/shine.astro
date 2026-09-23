@@ -27,7 +27,6 @@ const askedDept = Astro.url.searchParams.get('dept');
 let dept = askedDept && depts.some((d) => d.slug === askedDept)
   ? askedDept
   : user.dept && depts.some((d) => d.slug === user.dept) ? user.dept : depts[0].slug;
-const ICON = { 'albn-bichig': 'mail', huselt: 'calendar', tailan: 'doc' } as const;
 const chainText = (chain: typeof RECORD_TYPE_LIST[number]['chain']) => {
   const steps = chain.filter((s) => stepApplies(s, dept as DeptSlug)).map((s) => STEP_LABEL[s]);
   return steps.length ? steps.join(' → ') : 'шууд батлагдана';
@@ -68,7 +67,7 @@ if (Astro.request.method === 'POST') {
       <div class="type-grid">
         {RECORD_TYPE_LIST.map((t) => (
           <a class="type-card" href={typeHref(t.slug)}>
-            <span class="ic"><Icon name={ICON[t.slug as keyof typeof ICON] ?? 'doc'} /></span>
+            <span class="ic"><Icon name={t.icon} /></span>
             <h2>{t.label}</h2>
             <p>{t.description}</p>
             <span class="chain-note">Батлах: {chainText(t.chain)}</span>

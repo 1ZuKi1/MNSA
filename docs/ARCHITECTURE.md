@@ -273,14 +273,16 @@ This is the centre of the whole project, and the answer to your archive question
 
 **Fixed record types**, each one a form plus a print layout, defined in code:
 
-| Type | Монголоор |
-|---|---|
-| `albn-bichig` | Албан бичиг |
-| `protokol` | Хурлын протокол — generated from live minutes |
-| `juram` | Журам / дүрэм |
-| `geree` | Гэрээ |
-| `tailan` | Тайлан |
-| `huselt` | Хүсэлт — event / budget request |
+| Type | Монголоор | Approval chain |
+|---|---|---|
+| `albn-bichig` | Албан бичиг | дарга → Legal → Тэргүүн |
+| `huselt` | Арга хэмжээний хүсэлт — event request; an approved one becomes an event | дарга → Тэргүүн |
+| `tailan` | Тайлан | дарга |
+| `tolovlogoo` | Үйл ажиллагааны төлөвлөгөө | дарга → Тэргүүн |
+| `songuuli` | Сонгуулийн хорооны материал | Legal only — a sitting President may be a candidate |
+| `durem` | Үндсэн дүрмийн өөрчлөлт | Legal → Тэргүүн |
+
+The last three were added from the President's answers (2026-09-23). Steps the author owns are skipped automatically, so a дарга's own plan goes straight to the Тэргүүн. Meeting minutes (`protokol`), regulations and contracts are not built yet.
 
 1. Staff open the form **on the website** and fill in fields. No Word, no attachment, no email.
 2. The site renders it into the official layout — letterhead, seal, document number, department, dates, body, and a signature block carrying the real approver names and approval timestamps.
@@ -547,16 +549,26 @@ Phase 3 is the one that delivers what you actually asked for. Phase 6 deliberate
 
 ### Still open
 
-### Needs the President
+### Answered by the President (2026-09-23)
 
-These aren't technical calls — they belong to whoever holds the office:
+He filled in the form `MOX_Terguun_medeelel.docx`. His personal details and the member list stay out of this repository.
 
-1. **The President's own email** — seeds the first account
-2. **The member list** — names, emails, departments, roles
-3. **Who is the deputy** — the one other person who can manage members
-4. **Domain renewal** — whose card pays it in 2027 and 2028, written into the handover
-5. **The two `Нэргүй` board slots**
-6. **Scope** — workspace for the ~15 leadership, or all ~50 students?
+| Question | Answer |
+|---|---|
+| First account | his e-mail, name and student ID — used once in README step 10. He gave a PKU address: fine for his term, but invites refuse `@pku.edu.cn` for everyone else, and a personal address is safer for login-code delivery |
+| Cloudflare account on the association e-mail | **yes** — the address itself is still to be named |
+| Buying `bdmnsa.com` | **yes**, on the President's card. **Who renews in 2027 and 2028 is still open** — goes into the handover note |
+| «Техникийн хариуцагч» role for the developer | **yes** |
+| Deputy | **none** for now; the board override in §6 is the only fallback |
+| Scope | **leadership only** (~15 people) |
+| Member list | given on paper: five heads and six members across the five departments, all shown publicly. One vacant board seat named, the other still empty. A few student IDs are missing — he types them when creating each invite |
+| Official letter chain | **kept** as дарга → Legal → Тэргүүн. His note: department heads write letters themselves, following the regulation — a working practice, not a system rule |
+| Event request, report, numbering, participation report | as built |
+| Document types | three added: activity plan, election committee material, constitution amendment (§5) |
+| Board editing another department's sent-back document | **yes** (as built; now covered by a unit test) |
+| Letterhead | **signature line and stamp** — built (§10) |
+| Public text | value taglines and department duties rewritten in his words; official Chinese name **北京大学蒙古国留学生学生会**; no WeChat on the site; **no Mongolian script in the title band** |
+| Handover | agrees with §6; domain renewal and the Cloudflare password go in the handover note |
 
 ### Still technical
 
@@ -573,13 +585,13 @@ These aren't technical calls — they belong to whoever holds the office:
 | 0 · Project, Cloudflare config, D1 schema, deploy pipeline | ✅ built — needs the domain + account to go live |
 | 1 · Public site redesign | ✅ Нүүр, Танилцуулга, Удирдлагын баг (generated from the member list), Үйл ажиллагаа, Холбоо барих — WCAG AA, 0 axe violations |
 | 2 · Login, sessions, members, invites, deputy, annual renewal | ✅ |
-| 3 · Records system (3 types, numbering, versions, archive, print-to-PDF) | ✅ |
+| 3 · Records system (6 types, numbering, versions, archive, print-to-PDF with signature line and stamp) | ✅ |
 | 4 · Approval routing + dashboards | ✅ |
 | 5b · Events, task board, participation report, photos | ✅ |
 | 5 · Live meeting minutes | not started |
 | 6 · Presidency handover page, weekly backup | not started |
 
-Verified with 31 unit tests (permissions, approval chain, dates) and a 79-step end-to-end test driving every role through the real server, plus a production-build check with `wrangler dev` and an axe accessibility audit of every public page.
+Verified with 37 unit tests (permissions, approval chain, dates) and a 138-step end-to-end test driving every role through the real server, plus a production-build check with `wrangler dev` and an axe accessibility audit of every public page.
 
 ### Decisions made while building
 
@@ -591,8 +603,9 @@ Verified with 31 unit tests (permissions, approval chain, dates) and a 79-step e
 - **Test deployment without a domain.** `npm run deploy:test` deploys the same build twice to `*.workers.dev`: `mnsa` (public) and `mnsa-dep` with `SITE_MODE=staff`. `TEST_MODE=1` shows login codes on screen and adds a banner + `noindex` — and it only takes effect on `*.workers.dev` hostnames, so a forgotten variable can never expose codes on `bdmnsa.com`. Going live means fresh databases and deleting `mnsa-dep`.
 - **Staff workspace redesign.** Sidebar on desktop, a drawer on phones, with counts next to the menu for decisions waiting and active tasks. The dashboard is a to-do list first (decisions → returned documents → my tasks), with «Дууссан» and «Би хийнэ» right in the list. A document page shows the approval chain as a stepper with the decision form at the top, so an approver on a phone doesn't scroll past the whole letter. Tables turn into cards on phones. Each member has their own page (role, department, e-mail change, deputy, public visibility, removal). Every destructive action asks first, every form submits only once (no duplicate records on a slow connection), long forms warn before leaving with unsaved text, and form errors are listed at the top with links to each field. WCAG 2.2 AA: 0 axe violations across 40 staff page views, desktop and phone.
 - **The public team page is built from the member list** (`show_public`, on by default; each person can hide themselves). No separate list to keep in sync at handover.
-- **Visual identity:** a night-sky hero with the logo as the moon and a gold sun (from the soyombo), the vertical Mongolian script, an алхан хээ ornament as the section divider, maroon for the new-student band. Fonts are self-hosted (Golos Text, Source Serif 4, Noto Sans Mongolian) — Google Fonts is unreliable from mainland China.
-- **Letterhead reads "Peking University · MNSA"** — I did not invent an official Chinese name; add it if one exists.
+- **Visual identity:** a navy title band with a thin gold rule, then plain sections that all share one left edge; maroon, flag blue and Soyombo gold from the logo. The vertical Mongolian script was taken out of the band at the President's request (2026-09-23), and its font with it. Fonts are self-hosted (Golos Text, Source Serif 4) — Google Fonts is unreliable from mainland China.
+- **The official Chinese name 北京大学蒙古国留学生学生会** (from the President) is on the letterhead, the public footer and the about page. Chinese text falls back to the reader's system Chinese font; nothing extra is downloaded.
+- **Signature line and stamp on printed documents.** Whoever holds the last step of the chain signs: «Тэргүүн», «Эрх зүйн хэлтсийн дарга», or that department's дарга, with the approver's real name once approved. The stamp is the President's: uploaded on *Тохиргоо* (President only, every change in the audit log), stored in the media database marked `private`, served only at `dep.bdmnsa.com/tamga` behind the login (the public `/media` route refuses private images), and printed only when the document is approved *and* its final approval was the President's.
 
 ---
 

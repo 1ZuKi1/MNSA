@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { advance, formatNumber } from '../src/lib/workflow';
+import { RECORD_TYPES } from '../src/lib/record-types';
 import { academicYear, fromLocal, termEnd, fmtDate } from '../src/lib/time';
 import type { DeptSlug, Role, Step } from '../src/lib/types';
 
@@ -31,6 +32,25 @@ describe('approval chain', () => {
 
   it('a one-step report by a дарга is approved on submit', () => {
     expect(advance(['head'], 0, u(3, 'head', 'dotood'), 'dotood').done).toBe(true);
+  });
+});
+
+describe('the document types added from the President\'s form', () => {
+  it('election material goes to Legal only, never to the President', () => {
+    expect(RECORD_TYPES.songuuli.chain).toEqual(['legal']);
+    expect(advance(RECORD_TYPES.songuuli.chain, 0, u(4, 'member', 'dotood'), 'dotood')).toEqual({ index: 0, auto: [], done: false });
+  });
+
+  it('a constitution amendment by Legal skips its own step and waits for the President', () => {
+    expect(advance(RECORD_TYPES.durem.chain, 0, u(9, 'head', 'erh-zui'), 'erh-zui')).toEqual({ index: 1, auto: ['legal'], done: false });
+  });
+
+  it('an activity plan by a дарга goes straight to the President', () => {
+    expect(advance(RECORD_TYPES.tolovlogoo.chain, 0, u(3, 'head', 'dotood'), 'dotood')).toEqual({ index: 1, auto: ['head'], done: false });
+  });
+
+  it('the official letter keeps its three-step chain', () => {
+    expect(RECORD_TYPES['albn-bichig'].chain).toEqual(LETTER);
   });
 });
 
