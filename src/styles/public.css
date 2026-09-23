@@ -306,6 +306,9 @@ a.row-in h3 { transition: color var(--t); }
 
 /* ---------- team page: photo on top, name under it; departments share rows ---------- */
 .team-head { text-align: center; }
+/* centred heading: the label's gold rule sits on both sides */
+.team-head .sec-label { justify-content: center; }
+.team-head .sec-label::after { content: ''; width: 22px; height: 2px; border-radius: 2px; background: var(--gold-deep); }
 .team-head h2 { margin-bottom: clamp(22px, 3vw, 32px); }
 .depts-head { margin-top: clamp(44px, 6vw, 64px); }
 .center { text-align: center; }
