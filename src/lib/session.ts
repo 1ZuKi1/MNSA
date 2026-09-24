@@ -58,8 +58,9 @@ export function setSessionCookie(cookies: AstroCookies, url: URL, token: string)
   });
 }
 
+/** Browsers ignore a __Host- cookie's delete unless it also says Secure — without it, logout does nothing. */
 export function clearSessionCookie(cookies: AstroCookies, url: URL) {
-  cookies.delete(cookieName(url), { path: '/' });
+  cookies.delete(cookieName(url), { path: '/', secure: url.protocol === 'https:', httpOnly: true, sameSite: 'lax' });
 }
 
 interface UserRow {
