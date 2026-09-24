@@ -348,17 +348,18 @@ a.row-in h3 { transition: color var(--t); }
 .depts-head { margin-top: clamp(44px, 6vw, 64px); }
 .center { text-align: center; }
 .center .note { margin-left: auto; margin-right: auto; }
+/* Every portrait is the same size — the President's. */
 .members {
-  --size: 104px;
+  --size: 152px;
   list-style: none; margin: 0; padding: 0;
   display: flex; flex-wrap: wrap; justify-content: center; gap: 22px clamp(12px, 2vw, 22px);
 }
 .member { width: calc(var(--size) + 28px); display: flex; flex-direction: column; align-items: center; text-align: center; }
-.leadership { --size: 128px; gap: 28px clamp(20px, 4vw, 48px); align-items: flex-end; }
+.leadership { gap: 28px clamp(20px, 4vw, 48px); align-items: flex-end; }
 .leadership .member { width: calc(var(--size) + 72px); }
-.leadership .member.lead { --size: 152px; }
+/* A 3:4 portrait frame, like an ID photo: shoulders and hair fit, not just the face. */
 .portrait {
-  width: var(--size); height: var(--size); border-radius: 50%; overflow: hidden; flex: none;
+  width: var(--size); height: calc(var(--size) * 4 / 3); border-radius: var(--radius); overflow: hidden; flex: none;
   display: grid; place-items: center; margin-bottom: 12px;
   background: var(--tint, var(--blue)); color: #fff;
   font: 620 calc(var(--size) * 0.3) / 1 var(--font-display); letter-spacing: 0.02em;
@@ -376,7 +377,7 @@ a.row-in h3 { transition: color var(--t); }
 /* A card per department; each is as wide as its people need, so two to three share a row. */
 .depts { display: flex; flex-wrap: wrap; justify-content: center; gap: clamp(14px, 2vw, 20px); }
 .dept {
-  flex: var(--n) 1 calc(var(--n) * 142px + 36px); max-width: 100%;
+  flex: var(--n) 1 calc(var(--n) * 190px + 36px); max-width: 100%;
   background: var(--surface); border: 1px solid var(--line); border-top: 3px solid var(--tint);
   border-radius: var(--radius-lg); padding: 20px clamp(14px, 2vw, 22px) 24px;
 }
@@ -385,13 +386,12 @@ a.row-in h3 { transition: color var(--t); }
 .dept .vacant { text-align: center; }
 .team .note { margin-top: clamp(28px, 4vw, 40px); }
 @media (max-width: 560px) {
-  .members, .dept .members { --size: 76px; gap: 18px 8px; }
+  .members, .dept .members { --size: 112px; gap: 18px 8px; }
   .member { width: calc(var(--size) + 22px); }
   .member .n { font-size: 0.9rem; }
   .member .r { font-size: 0.78rem; }
-  .leadership { --size: 96px; gap: 22px 16px; }
+  .leadership { gap: 22px 16px; }
   .leadership .member { width: calc(var(--size) + 48px); }
-  .leadership .member.lead { --size: 112px; }
   .dept { flex-basis: 100%; padding: 16px 12px 18px; }
   .dept h3 { margin-bottom: 14px; }
 }

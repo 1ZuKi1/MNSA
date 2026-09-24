@@ -1,7 +1,7 @@
 ---
 // Generated from the members table: when the President adds, moves or removes someone in the staff
-// workspace, or someone uploads their photo, this page follows within 5 minutes. Nobody edits HTML
-// when the team changes.
+// workspace, or someone uploads or removes their photo, this page follows at once (it is never cached).
+// Nobody edits HTML when the team changes.
 //
 // Top to bottom: the President and the board in one row, then the five departments as cards that share
 // rows (a card is as wide as its people need, so a whole team fits on about two screens). Everyone is a
@@ -16,6 +16,7 @@ import { deptTint, initials, publicTeam, type TeamMember } from '../lib/team';
 import { academicYear } from '../lib/time';
 import type { DeptSlug } from '../lib/types';
 
+Astro.response.headers.set('Cache-Control', 'no-cache');
 const team = await publicTeam();
 const depts = (await departments()).filter((d) => !d.is_leadership);
 const year = academicYear();
@@ -40,7 +41,7 @@ const board = team.board.map((m) => card(m, 'Удирдах Зөвлөлийн �
           {[...lead, ...board].map((c) => (
             <li class:list={['member', { lead: c.lead }]}>
               <span class="portrait" style={`--tint:${c.tint}`}>
-                {c.photo ? <img src={c.photo} alt="" width="152" height="152" /> : <span aria-hidden="true">{initials(c.m.name)}</span>}
+                {c.photo ? <img src={c.photo} alt="" width="152" height="203" /> : <span aria-hidden="true">{initials(c.m.name)}</span>}
               </span>
               <span class="n">{c.m.name}</span>
               <span class="r">{c.role}</span>
@@ -67,7 +68,7 @@ const board = team.board.map((m) => card(m, 'Удирдах Зөвлөлийн �
                     return (
                       <li class="member">
                         <span class="portrait">
-                          {photo ? <img src={photo} alt="" width="104" height="104" loading="lazy" /> : <span aria-hidden="true">{initials(m.name)}</span>}
+                          {photo ? <img src={photo} alt="" width="152" height="203" loading="lazy" /> : <span aria-hidden="true">{initials(m.name)}</span>}
                         </span>
                         <span class="n">{m.name}</span>
                         <span class="r">{m.role === 'head' ? 'Хэлтсийн дарга' : 'Гишүүн'}</span>

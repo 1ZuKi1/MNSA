@@ -1,0 +1,125 @@
+---
+/**
+ * Lets the person choose which part of a photo shows in the 3:4 frame on the public team page: drag the
+ * photo, zoom with the slider (or move with arrow keys), and only what is in the frame is uploaded — so
+ * the preview is exactly what everyone sees. Works on every <form data-portrait-form> on the page. The
+ * form needs a file input, a submit button with value="photo", an element with [data-status], hidden
+ * inputs w and h, and a [data-crop] block holding a .crop-stage (with a <canvas>) and a range input.
+ */
+---
+<script is:inline>
+  (function () {
+    var RATIO = 3 / 4; // width / height — must match .portrait in public.css
+    var OUT_W = 600;   // uploaded width; the public page shows it 152 px wide, so this is sharp on any screen
+    function encode(canvas, type, q) { return new Promise(function (r) { canvas.toBlob(r, type, q); }); }
+    document.querySelectorAll('form[data-portrait-form]').forEach(function (form) {
+      var input = form.querySelector('input[type=file]');
+      var status = form.querySelector('[data-status]');
+      var button = form.querySelector('button[value=photo]');
+      var drop = form.querySelector('.drop');
+      var box = form.querySelector('[data-crop]');
+      var stage = box.querySelector('.crop-stage');
+      var canvas = stage.querySelector('canvas');
+      var zoom = box.querySelector('input[type=range]');
+      var bmp = null, name = '', cx = 0, cy = 0, z = 1, pending = 0, drag = null;
+
+      // The crop is a 3:4 box of cw × ch image pixels, centred on (cx, cy). At zoom 1 it is as big as fits.
+      function cw() { return Math.min(bmp.width, bmp.height * RATIO) / z; }
+      function ch() { return cw() / RATIO; }
+      function clamp() {
+        cx = Math.min(Math.max(cx, cw() / 2), bmp.width - cw() / 2);
+        cy = Math.min(Math.max(cy, ch() / 2), bmp.height - ch() / 2);
+      }
+      function draw(ctx, w, h) {
+        ctx.drawImage(bmp, cx - cw() / 2, cy - ch() / 2, cw(), ch(), 0, 0, w, h);
+      }
+      function paint() {
+        var w = Math.round(stage.clientWidth * (window.devicePixelRatio || 1));
+        var h = Math.round(w / RATIO);
+        if (canvas.width !== w) { canvas.width = w; canvas.height = h; }
+        draw(canvas.getContext('2d'), w, h);
+      }
+      // Put the cropped photo into the file input, so the form uploads exactly what is in the frame.
+      async function commit() {
+        var mine = ++pending;
+        button.disabled = true;
+        var out = document.createElement('canvas');
+        out.width = Math.min(OUT_W, Math.round(cw()));
+        out.height = Math.round(out.width / RATIO);
+        draw(out.getContext('2d'), out.width, out.height);
+        var blob = await encode(out, 'image/webp', 0.85);
+        var type = blob && blob.type === 'image/webp' ? 'image/webp' : 'image/jpeg'; // Safari can't encode WebP
+        if (type === 'image/jpeg') blob = await encode(out, type, 0.85);
+        if (mine !== pending) return; // a newer crop is on its way
+        if (!blob) { status.textContent = 'Зургийг бэлтгэж чадсангүй. Өөр зураг сонгоно уу.'; return; }
+        var dt = new DataTransfer();
+        dt.items.add(new File([blob], name + (type === 'image/webp' ? '.webp' : '.jpg'), { type: type }));
+        input.files = dt.files;
+        form.elements.namedItem('w').value = String(out.width);
+        form.elements.namedItem('h').value = String(out.height);
+        status.textContent = 'Байршуулахад бэлэн: хүрээн доторх хэсэг хадгалагдана.';
+        button.disabled = false;
+      }
+
+      input.addEventListener('change', async function () {
+        var f = input.files && input.files[0];
+        if (!f) return;
+        button.disabled = true;
+        status.textContent = 'Бэлтгэж байна…';
+        try {
+          bmp = await createImageBitmap(f, { imageOrientation: 'from-image' });
+        } catch (e) {
+          bmp = null;
+          box.hidden = true;
+          input.value = '';
+          if (drop) drop.classList.remove('has-file');
+          status.textContent = 'Энэ зургийг нээж чадсангүй. JPG эсвэл PNG зураг сонгоно уу.';
+          button.disabled = false;
+          return;
+        }
+        name = f.name.replace(/\.[^.]+$/, '');
+        // Start centred, a little above the middle — where the face usually is in a portrait photo.
+        z = 1; zoom.value = '1';
+        cx = bmp.width / 2;
+        cy = ch() / 2 + (bmp.height - ch()) * 0.25;
+        clamp();
+        box.hidden = false;
+        if (drop) drop.classList.add('has-file');
+        paint();
+        commit();
+      });
+
+      stage.addEventListener('pointerdown', function (e) {
+        if (!bmp) return;
+        drag = { x: e.clientX, y: e.clientY };
+        stage.setPointerCapture(e.pointerId);
+      });
+      stage.addEventListener('pointermove', function (e) {
+        if (!drag) return;
+        var k = cw() / stage.clientWidth; // image pixels per screen pixel
+        cx -= (e.clientX - drag.x) * k;
+        cy -= (e.clientY - drag.y) * k;
+        drag = { x: e.clientX, y: e.clientY };
+        clamp();
+        paint();
+      });
+      function end() { if (drag) { drag = null; commit(); } }
+      stage.addEventListener('pointerup', end);
+      stage.addEventListener('pointercancel', end);
+      stage.addEventListener('keydown', function (e) {
+        var step = cw() * 0.05;
+        var d = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[e.key];
+        if (!d || !bmp) return;
+        e.preventDefault();
+        cx += d[0]; cy += d[1];
+        clamp(); paint(); commit();
+      });
+      zoom.addEventListener('input', function () {
+        if (!bmp) return;
+        z = parseFloat(zoom.value) || 1;
+        clamp(); paint();
+      });
+      zoom.addEventListener('change', function () { if (bmp) commit(); });
+    });
+  })();
+</script>

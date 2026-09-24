@@ -98,7 +98,20 @@ h1, h2, h3 { text-wrap: balance; }
 .avatar.photo img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 25%; display: block; }
 .avatar.xl { width: 112px; height: 112px; font-size: 2rem; }
 .portrait-row { display: flex; align-items: center; gap: 16px; }
-.portrait-row .preview { width: 112px; height: 112px; border-radius: 50%; object-position: 50% 25%; }
+/* the portrait as the public team page shows it: a 3:4 frame (see .portrait in public.css) */
+.portrait-row .avatar.xl { height: calc(112px * 4 / 3); border-radius: var(--radius); }
+/* portrait crop: drag the photo inside the frame; what the frame shows is what is uploaded */
+.cropper { display: grid; gap: 12px; justify-items: center; }
+.crop-stage {
+  width: min(100%, 240px); aspect-ratio: 3 / 4; overflow: hidden; border-radius: var(--radius);
+  background: var(--line); box-shadow: 0 0 0 1px var(--line-strong, var(--line)); cursor: grab; touch-action: none;
+}
+.crop-stage:active { cursor: grabbing; }
+.crop-stage:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.crop-stage canvas { width: 100%; height: 100%; display: block; }
+.crop-zoom { display: flex; align-items: center; gap: 10px; width: min(100%, 240px); font-size: 0.85rem; font-weight: 600; }
+.crop-zoom input { flex: 1; }
+.cropper .form-note { text-align: center; }
 
 /* ---------- top bar + drawer (phones and small tablets) ---------- */
 .topbar { display: none; }
