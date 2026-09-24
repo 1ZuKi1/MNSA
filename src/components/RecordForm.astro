@@ -1,6 +1,8 @@
 ---
 import Icon from './Icon.astro';
-import type { RecordType } from '../lib/record-types';
+import TimeInput from './TimeInput.astro';
+import { isRange, rangeParts, type RecordType } from '../lib/record-types';
+import { staffTeam } from '../lib/team';
 import type { DeptRow } from '../lib/db';
 import type { Visibility } from '../lib/types';
 
@@ -13,17 +15,26 @@ interface Props {
   /** Departments this person may file into; omit on edit (department is fixed once created). */
   depts?: DeptRow[];
   dept?: string;
+  /** Every department, for the optional second one. */
+  allDepts: DeptRow[];
+  coDept: string | null;
+  /** On edit: the fixed main department, which can't also be the second one. */
+  mainDept?: string;
   submitLabel: string;
   cancelHref: string;
 }
-const { type, title, values, errors, visibility, depts, dept, submitLabel, cancelHref } = Astro.props;
+const { type, title, values, errors, visibility, depts, dept, allDepts, coDept, mainDept, submitLabel, cancelHref } = Astro.props;
 
 // Error summary at the top: every problem, each linking to its field (WCAG 3.3.1).
-const labels: Record<string, [string, string]> = { title: ['Гарчиг', 'title'], dept: ['Хэлтэс', 'dept'] };
+const labels: Record<string, [string, string]> = { title: ['Гарчиг', 'title'], dept: ['Хэлтэс', 'dept'], co_dept: ['Хамтран хариуцах хэлтэс', 'co_dept'] };
 for (const f of type.fields) labels[f.name] = [f.label, `f_${f.name}`];
 // In the order the fields appear on the form.
 const problems = Object.keys(labels).filter((k) => errors[k]).map((k) => [k, errors[k]] as const);
 const describe = (id: string, hint?: string, err?: string) => [hint && `${id}-hint`, err && `${id}-err`].filter(Boolean).join(' ') || undefined;
+// Names offered while typing, from the member list (only fetched when a field asks for them).
+const team = type.fields.some((f) => typeof f.suggest === 'string') ? await staffTeam() : [];
+const suggestions = (s: NonNullable<RecordType['fields'][number]['suggest']>) =>
+  s === 'people' ? team.map((p) => p.name) : s === 'full-names' ? team.map((p) => p.full_name ?? p.name) : s;
 ---
 <form method="post" class="panel form" data-guard>
   <input type="hidden" name="type" value={type.slug} />
@@ -63,10 +74,53 @@ const describe = (id: string, hint?: string, err?: string) => [hint && `${id}-hi
       )
     }
 
+    <div class="field">
+      <label for="co_dept">Хамтран хариуцах хэлтэс <span class="opt">(заавал биш)</span></label>
+      <select id="co_dept" name="co_dept" aria-invalid={errors.co_dept ? 'true' : undefined} aria-describedby={describe('co_dept', 'x', errors.co_dept)}>
+        <option value="">— Байхгүй —</option>
+        {allDepts.map((d) => (
+          <option value={d.slug} selected={d.slug === coDept} disabled={d.slug === (mainDept ?? dept)}>{d.name_mn}</option>
+        ))}
+      </select>
+      <span class="hint" id="co_dept-hint">Баримт хоёр хэлтэст хамаарвал сонгоно уу. Тухайн хэлтсийн дарга мөн батлах бөгөөд баримт хоёр хэлтсийн архивт харагдана.</span>
+      {errors.co_dept && <span class="error" id="co_dept-err"><Icon name="alert" /> {errors.co_dept}</span>}
+    </div>
+
     {
       type.fields.map((f) => {
         const id = `f_${f.name}`;
         const err = errors[f.name];
+        if (isRange(f.type)) {
+          // Two pickers, start and end, under one label; kept as one value (see forms.ts).
+          const days = f.type === 'daterange';
+          const [from, to] = rangeParts(f.type, values[f.name] ?? '');
+          const typed = values[f.name] && !from ? values[f.name] : '';
+          return (
+            <fieldset class="field">
+              <legend class="label">
+                {f.label}
+                {!f.required && <span class="opt"> (заавал биш)</span>}
+              </legend>
+              <div class="dt range">
+                {days ? (
+                  <input id={id} name={id} type="date" value={from} required={f.required} aria-label={`${f.label}: эхлэх`}
+                    aria-invalid={err ? 'true' : undefined} aria-describedby={describe(id, f.hint || typed, err)} />
+                ) : (
+                  <TimeInput id={id} name={id} value={from} required={f.required} label={`${f.label}: эхлэх`}
+                    invalid={!!err} describedby={describe(id, f.hint || typed, err)} />
+                )}
+                <span class="range-sep" aria-hidden="true">–</span>
+                {days ? (
+                  <input name={`${id}_to`} type="date" value={to} required={f.required} aria-label={`${f.label}: дуусах`} aria-invalid={err ? 'true' : undefined} />
+                ) : (
+                  <TimeInput name={`${id}_to`} value={to} label={`${f.label}: дуусах`} invalid={!!err} />
+                )}
+              </div>
+              {(f.hint || typed) && <span class="hint" id={`${id}-hint`}>{typed ? `Өмнө бичсэн: «${typed}». Шинээр сонгоно уу.` : f.hint}</span>}
+              {err && <span class="error" id={`${id}-err`}><Icon name="alert" /> {err}</span>}
+            </fieldset>
+          );
+        }
         return (
           <div class="field">
             <label for={id}>
@@ -90,10 +144,13 @@ const describe = (id: string, hint?: string, err?: string) => [hint && `${id}-hi
                 inputmode={f.type === 'number' ? 'decimal' : undefined}
                 required={f.required}
                 value={values[f.name] ?? ''}
+                list={f.suggest ? `${id}-list` : undefined}
+                autocomplete={f.suggest ? 'off' : undefined}
                 aria-invalid={err ? 'true' : undefined}
                 aria-describedby={describe(id, f.hint, err)}
               />
             )}
+            {f.suggest && <datalist id={`${id}-list`}>{[...new Set(suggestions(f.suggest))].map((o) => <option value={o} />)}</datalist>}
             {f.hint && <span class="hint" id={`${id}-hint`}>{f.hint}</span>}
             {err && <span class="error" id={`${id}-err`}><Icon name="alert" /> {err}</span>}
           </div>
@@ -126,6 +183,18 @@ const describe = (id: string, hint?: string, err?: string) => [hint && `${id}-hi
 </form>
 
 <script is:inline>
-  // After a failed save, move focus to the list of problems so screen-reader and keyboard users land on it.
-  (function () { var s = document.getElementById('errors'); if (s) s.focus(); })();
+  (function () {
+    // After a failed save, move focus to the list of problems so screen-reader and keyboard users land on it.
+    var s = document.getElementById('errors'); if (s) s.focus();
+    // The second department can't be the main one: follow the main choice (new documents only).
+    var main = document.getElementById('dept'), co = document.getElementById('co_dept');
+    if (main && co) {
+      var sync = function () {
+        Array.prototype.forEach.call(co.options, function (o) { o.disabled = !!o.value && o.value === main.value; });
+        if (co.value && co.value === main.value) co.value = '';
+      };
+      main.addEventListener('change', sync);
+      sync();
+    }
+  })();
 </script>

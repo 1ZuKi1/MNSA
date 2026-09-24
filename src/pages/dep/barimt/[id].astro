@@ -5,12 +5,12 @@ import PageHead from '../../../components/PageHead.astro';
 import Icon from '../../../components/Icon.astro';
 import { clientIp, int, str, withFlash } from '../../../lib/http';
 import * as P from '../../../lib/permissions';
-import { getRecordType } from '../../../lib/record-types';
+import { getRecordType, showField } from '../../../lib/record-types';
 import {
-  asRecordLike, Conflict, decideRecord, Denied, fieldsOf, getRecord, recordHistory, submitRecord, voidRecord, withdrawRecord,
+  asRecordLike, Conflict, decideRecord, Denied, fieldsOf, getRecord, recordChain, recordHistory, submitRecord, voidRecord, withdrawRecord,
 } from '../../../lib/records';
 import { fmtDate, fmtDateTime, relDay } from '../../../lib/time';
-import { STATUS_LABEL, STEP_GEN, STEP_LABEL, ROLE_LABEL } from '../../../lib/types';
+import { STATUS_LABEL, STEP_GEN, STEP_LABEL, ROLE_LABEL, type Step } from '../../../lib/types';
 
 const user = Astro.locals.user!;
 const id = int(Astro.params.id);
@@ -48,7 +48,11 @@ const can = {
   void: P.canVoidRecord(user, like),
   makeEvent: type.createsEvent && rec.status === 'approved' && P.canEditEvents(user),
 };
-const standIn = can.decide && rec.awaiting ? !P.isStepOwner(user, rec.awaiting, rec.dept_slug) : false;
+const standIn = can.decide && rec.awaiting ? !P.isStepOwner(user, rec.awaiting, rec.dept_slug, rec.co_dept_slug) : false;
+// The second department's дарга is named by department, so the two дарга steps can't be mixed up.
+const coGen = rec.co_dept_name?.replace(/хэлтэс$/, 'хэлтсийн') ?? '';
+const stepLabel = (s: Step) => (s === 'cohead' && coGen ? `${coGen} дарга` : STEP_LABEL[s]);
+const stepGen = (s: Step) => (s === 'cohead' && coGen ? `${coGen} даргын` : STEP_GEN[s]);
 const fields = fieldsOf(rec);
 const history = await recordHistory(rec.id);
 const lastRejection = rec.status === 'rejected' ? [...history].reverse().find((h) => h.action === 'reject') : null;
@@ -56,18 +60,19 @@ const lastDecision = [...history].reverse().find((h) => h.action === 'approve' |
 
 // The chain as the stepper shows it: which steps are done, which one is waiting, where it stopped.
 const rejectedStep = lastRejection?.step ?? null;
-const chain = type.chain
+const steps = recordChain(rec);
+const chain = steps
   .map((s, i) => ({ s, i }))
-  .filter(({ s }) => P.stepApplies(s, rec.dept_slug))
+  .filter(({ s }) => P.stepApplies(s, rec.dept_slug, rec.co_dept_slug))
   .map(({ s, i }) => {
     let state = '';
     if (rec.status === 'approved' || rec.status === 'void' || (rec.status === 'in_review' && i < rec.step)) state = 'done';
     else if (rec.status === 'in_review' && i === rec.step) state = 'now';
     else if (rec.status === 'rejected' && rejectedStep) {
-      const ri = type.chain.indexOf(rejectedStep);
+      const ri = steps.indexOf(rejectedStep);
       state = i < ri ? 'done' : i === ri ? 'stop' : '';
     }
-    return { step: s, label: STEP_LABEL[s], state };
+    return { step: s, label: stepLabel(s), state };
   });
 
 const ACTION_LABEL: Record<string, string> = {
@@ -76,7 +81,7 @@ const ACTION_LABEL: Record<string, string> = {
 };
 const headline = {
   draft: 'Ноорог — хянуулахаар илгээгээгүй байна.',
-  in_review: rec.awaiting ? `${STEP_GEN[rec.awaiting]} шийдвэрийг хүлээж байна.` : 'Хянагдаж байна.',
+  in_review: rec.awaiting ? `${stepGen(rec.awaiting)} шийдвэрийг хүлээж байна.` : 'Хянагдаж байна.',
   approved: `Батлагдсан${lastDecision ? ` · ${fmtDate(lastDecision.created_at)}` : ''}.`,
   rejected: 'Буцаагдсан. Засаад дахин илгээж болно.',
   void: 'Хүчингүй болсон.',
@@ -95,6 +100,7 @@ const hasActions = can.decide || can.submit || can.withdraw || can.makeEvent || 
     <span class={`badge b-${rec.status}`}>{STATUS_LABEL[rec.status]}</span>
     <span>{type.label}</span>
     {rec.number && <span class="num">{rec.number}</span>}
+    {rec.co_dept_name && <span class="tag"><Icon name="folder" /> {rec.dept_name}, {rec.co_dept_name}</span>}
     {rec.visibility === 'dept' && <span class="tag"><Icon name="lock" /> Зөвхөн хэлтэс ба удирдлага</span>}
   </PageHead>
 
@@ -128,7 +134,7 @@ const hasActions = can.decide || can.submit || can.withdraw || can.makeEvent || 
               {standIn && (
                 <p class="flash warn" style="margin:0">
                   <Icon name="alert" />
-                  <span class="flash-text">Та Тэргүүний хувьд {STEP_GEN[rec.awaiting!].toLowerCase()} оронд шийдвэрлэж байна. Энэ нь бүртгэлд тэмдэглэгдэнэ.</span>
+                  <span class="flash-text">Та Тэргүүний хувьд {stepGen(rec.awaiting!).toLowerCase()} оронд шийдвэрлэж байна. Энэ нь бүртгэлд тэмдэглэгдэнэ.</span>
                 </p>
               )}
               <div class="field">
@@ -183,7 +189,7 @@ const hasActions = can.decide || can.submit || can.withdraw || can.makeEvent || 
           fields[f.name] ? (
             <section class="doc-field">
               <h3>{f.label}</h3>
-              <p>{f.type === 'date' ? fields[f.name].replaceAll('-', '.') : fields[f.name]}</p>
+              <p>{showField(f, fields[f.name])}</p>
             </section>
           ) : null,
         )}
@@ -197,6 +203,7 @@ const hasActions = can.decide || can.submit || can.withdraw || can.makeEvent || 
           <dl class="kv">
             <dt>Дугаар</dt><dd class="num">{rec.number ?? '—'}</dd>
             <dt>Хэлтэс</dt><dd>{rec.dept_name}</dd>
+            {rec.co_dept_name && <><dt>Хамтран хариуцах</dt><dd><a href={`/heltes/${rec.co_dept_slug}`}>{rec.co_dept_name}</a></dd></>}
             <dt>Боловсруулсан</dt><dd>{rec.author_name}</dd>
             <dt>Хичээлийн жил</dt><dd>{rec.academic_year}</dd>
             <dt>Хувилбар</dt><dd>{rec.version}</dd>
@@ -211,7 +218,7 @@ const hasActions = can.decide || can.submit || can.withdraw || can.makeEvent || 
               <li class={`t-${h.action}`}>
                 <div>
                   <strong>{h.actor_name}</strong> — {ACTION_LABEL[h.action] ?? h.action}
-                  {h.step && <span class="muted"> ({STEP_LABEL[h.step]})</span>}
+                  {h.step && <span class="muted"> ({stepLabel(h.step)})</span>}
                 </div>
                 <div class="when">{fmtDateTime(h.created_at)} · {ROLE_LABEL[h.actor_role]}</div>
                 {h.comment && <blockquote>{h.comment}</blockquote>}

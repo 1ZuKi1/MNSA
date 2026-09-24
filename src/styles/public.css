@@ -186,7 +186,6 @@ html:has(body.public) { scroll-padding-top: calc(var(--header-h) + 16px); }
   display: inline-flex; align-items: center; gap: 6px; margin-top: 24px; padding: 4px 0;
   font-weight: 620; text-decoration: none; color: var(--blue); transition: color var(--t);
 }
-.more-row { display: flex; flex-wrap: wrap; gap: 0 28px; }
 .more::after { content: '→'; display: inline-block; transition: transform var(--t); }
 
 .note { color: var(--ink-3); font-size: 0.92rem; margin: 18px 0 0; max-width: 42em; }
@@ -260,25 +259,64 @@ a.row-in h3 { transition: color var(--t); }
   .row-in .date small { display: inline; margin-left: 6px; }
 }
 
-/* ---------- numbered steps ---------- */
-.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 18px 32px; grid-template-columns: repeat(2, 1fr); counter-reset: s; }
-@media (max-width: 720px) { .steps { grid-template-columns: 1fr; } }
-.steps li { counter-increment: s; display: grid; grid-template-columns: auto 1fr; gap: 2px 14px; }
-.steps li::before {
+/* ---------- newcomer (home): the heading and links beside the steps, centred on the steps card ----------
+   The card and the note under it sit in the right column's two rows; the heading is centred on the first
+   row only, so the note below the card doesn't pull it off centre. Everything scrolls together. */
+.newcomer {
+  display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  column-gap: clamp(28px, 5vw, 64px); row-gap: 16px; align-items: start;
+}
+.newcomer-head { grid-column: 1; grid-row: 1; align-self: center; }
+.newcomer-body { display: contents; }
+.newcomer .timeline-steps { grid-column: 2; grid-row: 1; }
+.newcomer-body > .note { grid-column: 2; grid-row: 2; margin: 0; }
+.newcomer-head .intro { margin: 0; }
+.more-col { display: grid; justify-items: start; gap: 2px; margin-top: 20px; }
+.more-col .more { margin-top: 0; }
+@media (max-width: 860px) {
+  .newcomer { grid-template-columns: 1fr; row-gap: 28px; }
+  .newcomer-head, .newcomer .timeline-steps, .newcomer-body > .note { grid-column: auto; grid-row: auto; }
+  .newcomer-body > .note { margin-top: -12px; }
+}
+
+.timeline-steps {
+  list-style: none; margin: 0; padding: clamp(20px, 3vw, 30px); counter-reset: s; max-width: 48rem;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg);
+  box-shadow: 0 18px 40px -30px rgba(13, 33, 56, 0.35);
+}
+.timeline-steps li { counter-increment: s; position: relative; display: grid; grid-template-columns: 34px 1fr; column-gap: 16px; padding-bottom: 24px; }
+.timeline-steps li:last-child { padding-bottom: 0; }
+.timeline-steps li::before {
   content: counter(s); grid-row: span 2; width: 34px; height: 34px; border-radius: 50%;
   display: grid; place-items: center; background: var(--maroon); color: #fff; font-weight: 700; font-size: 0.95rem;
 }
-.steps b { font-weight: 650; }
-.steps span { color: var(--ink-2); font-size: 0.97rem; }
+/* the line from one step to the next */
+.timeline-steps li:not(:last-child)::after { content: ''; position: absolute; left: 16px; top: 40px; bottom: 6px; width: 2px; border-radius: 2px; background: var(--line); }
+.timeline-steps b { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-weight: 650; padding-top: 5px; }
+.timeline-steps li > span { color: var(--ink-2); font-size: 0.97rem; }
+.due {
+  display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px 2px 7px; border-radius: 999px;
+  background: var(--warn-tint); color: var(--warn); font-size: 0.8rem; font-weight: 650;
+}
+.due svg { width: 14px; height: 14px; }
 
-/* ---------- pillars (home: what we do) ---------- */
-.pillars { list-style: none; margin: 0; padding: 0; display: grid; gap: 28px 32px; grid-template-columns: repeat(3, 1fr); }
-@media (max-width: 800px) { .pillars { grid-template-columns: 1fr; gap: 22px; } }
-.pillars li { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; align-items: start; }
-.pillars .ic { grid-row: span 2; width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; background: var(--maroon-tint); color: var(--maroon); }
-.pillars .ic svg { width: 22px; height: 22px; }
-.pillars b { font: 620 1.15rem/1.3 var(--font-display); }
-.pillars span:last-child { color: var(--ink-2); font-size: 0.97rem; }
+/* ---------- what we do (home): one panel in three parts, divided by hairlines (not three cards) ---------- */
+.triad {
+  list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg);
+  box-shadow: 0 18px 40px -32px rgba(13, 33, 56, 0.35);
+}
+.triad li { display: grid; align-content: start; gap: 8px; padding: clamp(22px, 3vw, 32px); }
+.triad li + li { border-left: 1px solid var(--line); }
+.triad .ic { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; margin-bottom: 8px; background: var(--maroon-tint); color: var(--maroon); }
+.triad .ic svg { width: 24px; height: 24px; }
+.triad b { font: 620 1.3rem/1.25 var(--font-display); }
+.triad li > span:last-child { color: var(--ink-2); font-size: 0.98rem; }
+@media (max-width: 760px) {
+  .triad { grid-template-columns: 1fr; }
+  .triad li + li { border-left: 0; border-top: 1px solid var(--line); }
+}
+
 
 /* ---------- simple pairs grid (values) ---------- */
 .pairs { list-style: none; margin: 0; padding: 0; display: grid; gap: 22px 32px; grid-template-columns: repeat(3, 1fr); }
@@ -306,9 +344,6 @@ a.row-in h3 { transition: color var(--t); }
 
 /* ---------- team page: photo on top, name under it; departments share rows ---------- */
 .team-head { text-align: center; }
-/* centred heading: the label's gold rule sits on both sides */
-.team-head .sec-label { justify-content: center; }
-.team-head .sec-label::after { content: ''; width: 22px; height: 2px; border-radius: 2px; background: var(--gold-deep); }
 .team-head h2 { margin-bottom: clamp(22px, 3vw, 32px); }
 .depts-head { margin-top: clamp(44px, 6vw, 64px); }
 .center { text-align: center; }
@@ -333,6 +368,9 @@ a.row-in h3 { transition: color var(--t); }
 .portrait img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 25%; display: block; }
 .member .n { font-weight: 650; font-size: 0.98rem; line-height: 1.3; text-wrap: balance; }
 .leadership .member.lead .n { font: 620 1.22rem/1.25 var(--font-display); }
+.leadership .member.lead .r { color: var(--maroon); font-weight: 600; }
+/* in a department, the ring around each photo takes the department's colour */
+.dept .portrait { box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px color-mix(in srgb, var(--tint) 45%, transparent); }
 .member .r { color: var(--ink-3); font-size: 0.84rem; line-height: 1.35; margin-top: 3px; text-wrap: balance; }
 
 /* A card per department; each is as wide as its people need, so two to three share a row. */
@@ -369,7 +407,9 @@ a.row-in h3 { transition: color var(--t); }
 }
 .card-p .img { aspect-ratio: 16 / 10; background: var(--ivory-2); display: grid; place-items: center; overflow: hidden; }
 .card-p .img img { width: 100%; height: 100%; object-fit: cover; transition: transform 400ms var(--ease); }
-.card-p .img .ph { width: 22%; height: auto; opacity: 0.45; }
+.card-p .ph-date { display: grid; justify-items: center; gap: 4px; color: var(--maroon); }
+.card-p .ph-date b { font: 620 clamp(2rem, 1.4rem + 2vw, 2.8rem)/1 var(--font-display); font-variant-numeric: tabular-nums lining-nums; }
+.card-p .ph-date small { font-weight: 600; color: var(--ink-3); letter-spacing: 0.04em; }
 .card-p .body { padding: 16px 18px 20px; }
 .card-p .when { color: var(--ink-3); font-size: 0.88rem; margin: 0; }
 .card-p h3 { font: 620 1.12rem/1.3 var(--font-display); margin: 4px 0 6px; transition: color var(--t); }
@@ -388,7 +428,6 @@ a.row-in h3 { transition: color var(--t); }
 .sub-h { font: 620 1.2rem/1.3 var(--font-display); margin: 40px 0 16px; }
 .pairs.warn li { border-top-color: var(--warn); }
 .pairs.warn b { font-size: 1.05rem; }
-.steps.one { grid-template-columns: 1fr; max-width: 48rem; }
 .table-scroll { overflow-x: auto; }
 .table-scroll:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 .plain-t { width: 100%; border-collapse: collapse; min-width: 34rem; }
@@ -487,7 +526,7 @@ a.row-in h3 { transition: color var(--t); }
 .pf-name { font: 600 1.12rem/1.35 var(--font-display); color: #fff; margin: 0 0 8px; }
 .pf-zh { margin: 0; color: var(--on-night-2); }
 .pf-about { margin: 10px 0 0; max-width: 26em; }
-.pf h2 { font: 600 0.92rem var(--font-sans); letter-spacing: 0.01em; color: var(--gold); margin: 0 0 14px; }
+.pf h2 { font: 600 0.92rem var(--font-sans); letter-spacing: 0.01em; color: #fff; margin: 0 0 14px; }
 .pf ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .pf-bottom { margin-top: 44px; padding-top: 20px; border-top: 1px solid rgba(255, 255, 255, 0.12); display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; font-size: 0.86rem; }
 
@@ -522,7 +561,7 @@ a.row-in h3 { transition: color var(--t); }
   .rows > li:has(> a.row-in:hover), .rows > li:has(+ li > a.row-in:hover) { border-bottom-color: transparent; }
   .card-p:hover { border-color: var(--line-strong); box-shadow: var(--lift); transform: translateY(-2px); color: var(--ink); }
   .card-p:hover h3 { color: var(--blue); }
-  .card-p:hover .img img:not(.ph) { transform: scale(1.04); }
+  .card-p:hover .img img { transform: scale(1.04); }
   .big-val a:hover { color: var(--blue); }
   .faq summary:hover { color: var(--maroon); }
   .gallery-p a:hover img { transform: scale(1.04); }

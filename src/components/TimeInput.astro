@@ -1,0 +1,37 @@
+---
+/**
+ * A time of day, typed in 24-hour form: ЦЦ:ММ (hour : minute). The colon puts itself in as you type
+ * ("1830" → 18:30) and a lone hour is completed on leaving the box ("9" → 09:00); the server accepts the
+ * same shortcuts (normalizeTime in lib/forms.ts), so it works without the script too. The browser's own
+ * clock box isn't used: it follows the computer's language and shows AM/PM on an English one.
+ */
+interface Props {
+  name: string;
+  id?: string;
+  value?: string;
+  required?: boolean;
+  /** Screen-reader name, e.g. «Эхлэх цаг». */
+  label: string;
+  invalid?: boolean;
+  describedby?: string;
+}
+const { name, id, value = '', required = false, label, invalid = false, describedby } = Astro.props;
+---
+<input
+  id={id}
+  name={name}
+  type="text"
+  inputmode="numeric"
+  autocomplete="off"
+  maxlength="5"
+  placeholder="ЦЦ:ММ"
+  pattern="([01][0-9]|2[0-3]):[0-5][0-9]"
+  title="24 цагийн хэлбэрээр, жишээ нь 18:30"
+  value={value}
+  required={required}
+  aria-label={`${label} (ЦЦ:ММ)`}
+  aria-invalid={invalid ? 'true' : undefined}
+  aria-describedby={describedby}
+  data-time
+  class="time-input"
+/>

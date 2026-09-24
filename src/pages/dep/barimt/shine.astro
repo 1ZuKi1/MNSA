@@ -24,6 +24,7 @@ let title = '';
 let values: Record<string, string> = {};
 let errors: Record<string, string> = {};
 let visibility: 'staff' | 'dept' = 'staff';
+let coDept: DeptSlug | null = null;
 const askedDept = Astro.url.searchParams.get('dept');
 let dept = askedDept && depts.some((d) => d.slug === askedDept)
   ? askedDept
@@ -39,12 +40,13 @@ if (Astro.request.method === 'GET' && type) values = await prefill(type, dept as
 if (Astro.request.method === 'POST') {
   const form = readRecordForm(await Astro.request.formData());
   if (form) {
-    ({ type, title, values, errors, visibility } = form);
+    ({ type, title, values, errors, visibility, coDept } = form);
     dept = (form.dept || dept) as DeptSlug;
     if (!depts.some((d) => d.slug === dept)) errors.dept = 'Энэ хэлтэст бичих эрх танд байхгүй.';
-    if (form.ok && !errors.dept) {
+    if (coDept && (coDept === dept || !allDepts.some((d) => d.slug === coDept))) errors.co_dept = 'Үндсэн хэлтсээс өөр хэлтэс сонгоно уу.';
+    if (form.ok && !errors.dept && !errors.co_dept) {
       const ip = clientIp(Astro.request);
-      const id = await createRecord(user, { type: form.type, dept: dept as DeptSlug, title, values, visibility }, ip);
+      const id = await createRecord(user, { type: form.type, dept: dept as DeptSlug, coDept, title, values, visibility }, ip);
       if (form.then === 'submit') {
         await submitRecord(user, (await getRecord(id))!, ip);
         return Astro.redirect(withFlash(`/barimt/${id}`, 'submitted'));
@@ -93,6 +95,8 @@ if (Astro.request.method === 'POST') {
         visibility={visibility}
         depts={depts}
         dept={dept}
+        allDepts={allDepts}
+        coDept={coDept}
         submitLabel="Ноорог хадгалах"
         cancelHref="/barimt"
       />

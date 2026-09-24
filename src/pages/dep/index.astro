@@ -61,20 +61,16 @@ const due = (ts: number | null) => (ts === null ? null : dayDiff(ts, t));
 
   <div class="stats">
     <a class:list={['stat', { hot: waiting.length > 0 }]} href="#todo">
-      <span class="ic"><Icon name="inbox" /></span>
       <span><b>{waiting.length}</b><span>шийдвэр хүлээж буй</span></span>
     </a>
     <a class:list={['stat', { hot: returned.length > 0 }]} href="#todo">
-      <span class="ic"><Icon name="undo" /></span>
       <span><b>{returned.length}</b><span>буцаагдсан баримт</span></span>
     </a>
-    <a class="stat blue" href="#todo">
-      <span class="ic"><Icon name="check" /></span>
+    <a class="stat" href="#todo">
       <span><b>{board.mine.length}</b><span>миний идэвхтэй ажил</span></span>
     </a>
     {canTakeTask(user) && (
       <a class="stat" href="#open-tasks">
-        <span class="ic"><Icon name="hand" /></span>
         <span><b>{board.open.length}</b><span>хүн хэрэгтэй ажил</span></span>
       </a>
     )}
@@ -105,7 +101,7 @@ const due = (ts: number | null) => (ts === null ? null : dayDiff(ts, t));
                         <a class="item-title" href={`/barimt/${r.id}#decide`}>{r.title}</a>
                         <span class="item-meta">
                           <span>{getRecordType(r.type)?.label}</span>
-                          <span>{r.dept_name}</span>
+                          <span>{r.dept_name}{r.co_dept_name && `, ${r.co_dept_name}`}</span>
                           <span>{r.author_name}</span>
                           <span>{relDay(r.submitted_at)} ирсэн</span>
                         </span>

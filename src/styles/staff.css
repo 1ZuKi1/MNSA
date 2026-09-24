@@ -52,7 +52,7 @@ h1, h2, h3 { text-wrap: balance; }
 .side-brand small { display: block; font-size: 0.78rem; color: var(--on-night-2); }
 
 .nav-group + .nav-group { margin-top: 18px; }
-.nav-label { font-size: 0.75rem; font-weight: 650; letter-spacing: 0.12em; text-transform: uppercase; color: var(--on-night-2); padding: 0 10px 6px; }
+.nav-label { font-size: 0.82rem; font-weight: 600; color: var(--on-night-2); padding: 0 10px 6px; }
 .nav-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
 .nav-list a {
   position: relative; display: flex; align-items: center; gap: 12px; padding: 10px 10px; border-radius: 10px;
@@ -89,7 +89,7 @@ h1, h2, h3 { text-wrap: balance; }
 /* ---------- avatar ---------- */
 .avatar {
   flex: none; width: 36px; height: 36px; border-radius: 50%; display: inline-grid; place-items: center;
-  font-size: 0.8rem; font-weight: 700; color: #fff; background: var(--maroon); letter-spacing: 0.02em;
+  font-size: 0.8rem; font-weight: 700; color: #fff; background: var(--tint, var(--maroon)); letter-spacing: 0.02em;
 }
 .avatar.sm { width: 28px; height: 28px; font-size: 0.7rem; }
 .avatar.lg { width: 64px; height: 64px; font-size: 1.3rem; }
@@ -184,7 +184,8 @@ h1, h2, h3 { text-wrap: balance; }
 .panel-head .more:hover { text-decoration: underline; }
 .panel-body { padding: 14px 20px 20px; }
 .panel-body > :last-child { margin-bottom: 0; }
-.panel.attention { border-color: var(--gold-deep); box-shadow: 0 0 0 3px rgba(255, 211, 0, 0.18), var(--shadow); }
+/* something is waiting on you here: a gold edge along the top instead of a glow */
+.panel.attention { border-color: var(--gold-deep); box-shadow: inset 0 3px 0 var(--gold), var(--shadow); }
 .cols { display: grid; gap: 18px; grid-template-columns: minmax(0, 1fr); align-items: start; }
 @media (min-width: 1000px) { .cols { grid-template-columns: minmax(0, 1.75fr) minmax(0, 1fr); } }
 .cols > div > .panel + .panel { margin-top: 18px; }
@@ -193,27 +194,26 @@ h1, h2, h3 { text-wrap: balance; }
 h2.sec-title { font-size: 1.12rem; margin: 0 0 12px; display: flex; align-items: center; gap: 10px; }
 h2.sec-title .badge { font-size: 0.8rem; }
 
-/* ---------- stat tiles ---------- */
-.stats { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); margin: 0 0 20px; }
-.stat {
-  display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: var(--radius-lg);
-  background: var(--surface); border: 1px solid var(--line); text-decoration: none; color: var(--ink);
-  transition: border-color var(--t), box-shadow var(--t), transform var(--t);
+/* ---------- stat strip: one surface, numbers side by side; only what needs you gets colour ---------- */
+.stats {
+  display: grid; gap: 1px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr)); margin: 0 0 20px;
+  background: var(--line); border: 1px solid var(--line); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow);
 }
-.stat .ic { width: 40px; height: 40px; border-radius: 11px; display: grid; place-items: center; background: var(--sunk); color: var(--ink-2); flex: none; }
-.stat .ic .icon { width: 21px; height: 21px; }
-.stat b { display: block; font-size: 1.45rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.stat { position: relative; display: block; padding: 16px 20px 15px; background: var(--surface); text-decoration: none; color: var(--ink); transition: background-color var(--t); }
+.stat b { display: block; font-size: 1.85rem; font-weight: 650; line-height: 1.1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 .stat span { display: block; font-size: 0.86rem; color: var(--ink-3); line-height: 1.3; }
-@media (max-width: 560px) {
-  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-  .stat { flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px; }
-  .stat .ic { width: 34px; height: 34px; }
-}
-.stat.hot .ic { background: #fff4c2; color: var(--warn); }
+.stat b + span { margin-top: 4px; }
+/* waiting on you: a gold edge on top and the number in amber */
+.stat.hot::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 3px; background: var(--gold); }
 .stat.hot b { color: var(--warn); }
-.stat.blue .ic { background: var(--blue-tint); color: var(--blue); }
-.stat.ok .ic { background: var(--ok-tint); color: var(--ok); }
-.stat:active { transform: translateY(1px); }
+a.stat:active { background: var(--sunk); }
+@media (max-width: 560px) {
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stat { padding: 13px 14px 12px; }
+  .stat b { font-size: 1.5rem; }
+  /* an odd last number takes the whole row, so the strip never shows an empty cell */
+  .stat:last-child:nth-child(odd) { grid-column: 1 / -1; }
+}
 
 /* ---------- item rows (dashboard and short lists) ---------- */
 .items { list-style: none; margin: 0; padding: 0; }
@@ -232,9 +232,9 @@ a.item-title:hover { color: var(--blue); text-decoration: underline; text-underl
 .item-meta > * + *::before { content: '·'; margin-right: 10px; color: var(--line-strong); }
 .item-act { grid-column: 3; grid-row: 1 / span 2; display: flex; gap: 6px; align-items: center; }
 .item-act form { margin: 0; }
-.group-label { margin: 16px 0 2px; font-size: 0.76rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); display: flex; align-items: center; gap: 8px; }
+.group-label { margin: 18px 0 2px; font-size: 0.9rem; font-weight: 650; color: var(--ink-2); display: flex; align-items: center; gap: 8px; }
 .group-label:first-child { margin-top: 0; }
-.group-label .n { font-variant-numeric: tabular-nums; color: var(--ink-2); }
+.group-label .n { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; display: inline-grid; place-items: center; background: var(--sunk); font-size: 0.76rem; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--ink-2); }
 @media (max-width: 560px) {
   .item { grid-template-columns: auto minmax(0, 1fr); }
   .item-act { grid-column: 2; grid-row: auto; margin-top: 6px; }
@@ -286,10 +286,11 @@ a.item-title:hover { color: var(--blue); text-decoration: underline; text-underl
 .table-wrap { border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface); overflow: hidden; box-shadow: var(--shadow); }
 table.t { width: 100%; border-collapse: collapse; font-size: 0.93rem; }
 .t th, .t td { padding: 12px 14px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: middle; }
-.t thead th { font-size: 0.76rem; font-weight: 700; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.05em; background: var(--sunk); white-space: nowrap; }
+.t thead th { font-size: 0.84rem; font-weight: 650; color: var(--ink-3); text-transform: none; letter-spacing: 0; background: var(--sunk); white-space: nowrap; }
 .t tbody tr:last-child > * { border-bottom: 0; }
 .t tbody tr { transition: background-color var(--t); }
 .t .num { text-align: right; font-variant-numeric: tabular-nums; }
+.t .num.start { text-align: left; }
 .t th.num { text-align: right; }
 .t td.actions { text-align: right; white-space: nowrap; }
 .t tr.zero td { color: var(--ink-3); }
@@ -364,6 +365,8 @@ a.row-link:hover { color: var(--blue); text-decoration: underline; text-underlin
 
 .status-panel { border-left: 5px solid var(--line-strong); }
 .status-panel.s-in_review { border-left-color: var(--gold-deep); }
+/* the gold bar on the left already marks it; no second gold edge on top */
+.status-panel.attention { box-shadow: var(--shadow); }
 .status-panel.s-approved { border-left-color: var(--ok); }
 .status-panel.s-rejected, .status-panel.s-void { border-left-color: var(--bad); }
 .status-panel.s-draft { border-left-color: var(--blue); }
@@ -377,7 +380,7 @@ a.row-link:hover { color: var(--blue); text-decoration: underline; text-underlin
 
 /* ---------- document body ---------- */
 .doc-field + .doc-field { margin-top: 20px; }
-.doc-field h3 { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-3); margin: 0 0 6px; }
+.doc-field h3 { font-size: 0.86rem; font-weight: 650; color: var(--ink-3); margin: 0 0 4px; }
 .doc-field p { margin: 0; white-space: pre-wrap; font-size: 1.02rem; line-height: 1.7; }
 .pre { white-space: pre-wrap; }
 
@@ -398,6 +401,8 @@ a.row-link:hover { color: var(--blue); text-decoration: underline; text-underlin
 .form { max-width: 780px; }
 .form .panel-body { display: grid; gap: 18px; }
 .field + .field { margin-top: 0; }
+/* a field never stretches to its row neighbour's height: label, box, hint stay packed at the top */
+.field { align-content: start; }
 .field > label, .field > .label, legend.label { font-weight: 650; font-size: 0.92rem; color: var(--ink); }
 .field .hint { font-size: 0.84rem; color: var(--ink-3); }
 .field .error { display: flex; align-items: center; gap: 6px; font-size: 0.86rem; color: var(--bad); font-weight: 600; }
@@ -423,6 +428,7 @@ a.row-link:hover { color: var(--blue); text-decoration: underline; text-underlin
 .choice:has(input:checked) { border-color: var(--maroon); box-shadow: 0 0 0 3px var(--maroon-tint); }
 .choice:has(input:focus-visible) { outline: 2px solid var(--blue); outline-offset: 2px; }
 fieldset.field { border: 0; padding: 0; margin: 0; min-width: 0; }
+legend.label { padding: 0; }
 .form-actions {
   position: sticky; bottom: 0; z-index: 5; display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center;
   padding: 14px 20px; margin: 0; border-top: 1px solid var(--line); background: color-mix(in srgb, var(--surface) 94%, transparent);
@@ -430,7 +436,24 @@ fieldset.field { border: 0; padding: 0; margin: 0; min-width: 0; }
 }
 .form-actions .grow { flex: 1; }
 .form-note { font-size: 0.86rem; color: var(--ink-3); margin: 0; }
-.dt { display: grid; grid-template-columns: minmax(0, 1fr) 120px; gap: 8px; }
+.dt { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 8px; }
+
+/* ---------- dates and times: one treatment on every form ----------
+   The whole box opens the calendar (script in Staff.astro), and under a date the day is spelled out the
+   association's way (Бямба, 2026.10.10), because the box itself shows the browser's own format. Times are
+   typed as ЦЦ:ММ (components/TimeInput.astro). */
+.time-input { font-variant-numeric: tabular-nums; letter-spacing: 0.04em; }
+.staff input[type='date'] { cursor: pointer; }
+.staff input[type='date']::-webkit-calendar-picker-indicator { cursor: pointer; opacity: 0.7; }
+.date-echo { font-size: 0.86rem; font-weight: 600; color: var(--ink-2); }
+.date-echo:empty { display: none; }
+/* short answers get short boxes: a date or a number does not need the whole width of the form */
+.form .panel-body > .field:has(> input[type='date']),
+.form .panel-body > .field:has(> input[inputmode='decimal']) { max-width: 22rem; }
+/* a period or a time span: start – end on one line */
+.dt.range { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; }
+.range-sep { color: var(--ink-3); font-weight: 600; }
+.form .panel-body > .field:has(> .dt.range) { max-width: 30rem; }
 .two { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); }
 
 /* ---------- type chooser ---------- */
@@ -443,7 +466,7 @@ fieldset.field { border: 0; padding: 0; margin: 0; min-width: 0; }
 .type-card .ic { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; background: var(--maroon-tint); color: var(--maroon); }
 .type-card .ic .icon { width: 23px; height: 23px; }
 .type-card h3 { margin: 4px 0 0; font-size: 1.12rem; }
-.group-h { font-size: 0.8rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-3); margin: 0 0 12px; }
+.group-h { font-size: 0.95rem; font-weight: 650; color: var(--ink-2); margin: 0 0 12px; }
 .type-card p { margin: 0; color: var(--ink-2); font-size: 0.92rem; }
 .type-card .chain-note { margin-top: auto; padding-top: 8px; font-size: 0.82rem; color: var(--ink-3); }
 .type-card:active { transform: translateY(1px); }
@@ -524,7 +547,7 @@ fieldset.field { border: 0; padding: 0; margin: 0; min-width: 0; }
 }
 .drop .icon { width: 28px; height: 28px; color: var(--ink-3); grid-row: span 2; }
 .drop b { font-size: 0.95rem; }
-.drop span { font-size: 0.85rem; color: var(--ink-3); }
+.drop span { font-size: 0.85rem; font-weight: 500; color: var(--ink-3); }
 .drop input { position: absolute; width: 1px; height: 1px; opacity: 0; }
 .drop:focus-within { outline: 2px solid var(--blue); outline-offset: 2px; }
 .drop.has-file { border-style: solid; border-color: var(--ok); background: var(--ok-tint); }
@@ -548,10 +571,12 @@ fieldset.field { border: 0; padding: 0; margin: 0; min-width: 0; }
 .dept-grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); }
 .dept {
   position: relative; display: flex; flex-direction: column; gap: 6px; padding: 18px 20px; border-radius: var(--radius-lg);
-  background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); color: var(--ink);
+  background: var(--surface); border: 1px solid var(--line); color: var(--ink);
+  /* the department's colour along the top, as on the public team page */
+  box-shadow: inset 0 3px 0 var(--tint, var(--maroon)), var(--shadow);
   transition: border-color var(--t), box-shadow var(--t), transform var(--t);
 }
-.dept .code { font-size: 0.76rem; font-weight: 700; letter-spacing: 0.08em; color: var(--maroon); }
+.dept .code { font-size: 0.76rem; font-weight: 700; letter-spacing: 0.08em; color: var(--tint, var(--maroon)); }
 .dept h2 { margin: 0; font-size: 1.12rem; }
 .dept h2 a { color: var(--ink); text-decoration: none; }
 .dept h2 a::after { content: ''; position: absolute; inset: 0; border-radius: var(--radius-lg); }
@@ -566,22 +591,51 @@ fieldset.field { border: 0; padding: 0; margin: 0; min-width: 0; }
 .bar { width: 70px; height: 6px; border-radius: 99px; background: var(--sunk); overflow: hidden; }
 .bar span { display: block; height: 100%; background: var(--ok); }
 
-/* ---------- login / invite (no sidebar) ---------- */
-body.bare { background: var(--night); min-height: 100vh; }
-.bare-wrap { min-height: 100vh; display: grid; place-items: center; padding: 32px 16px; }
-.auth { width: 100%; max-width: 420px; }
-.auth-card { background: var(--surface); border-radius: 18px; padding: clamp(22px, 5vw, 32px); box-shadow: 0 30px 60px -30px rgba(0, 0, 0, 0.6); }
-.auth-logo { width: 76px; height: 76px; border-radius: 50%; background: #fff; display: grid; place-items: center; margin: 0 auto 14px; box-shadow: 0 0 0 1px var(--line); }
-.auth-logo img { width: 56px; height: auto; }
-.auth h1 { text-align: center; font-size: 1.35rem; margin: 0 0 4px; }
-.auth .lead { text-align: center; color: var(--ink-3); font-size: 0.93rem; margin: 0 0 20px; }
-.auth form { display: grid; gap: 14px; }
-.auth .foot-note { text-align: center; color: var(--on-night-2); font-size: 0.88rem; margin: 18px 0 0; }
-.auth .foot-note a { color: #fff; }
+/* ---------- login / invite (no sidebar): the association on navy at the left, the form at the right ----------
+   Both halves follow one rule: their content is one group, centred in its half. The logo stands to the left
+   of the gold rule and the name, as the form's counterpart, so the page reads as one piece at any width. */
+body.bare { background: var(--paper); min-height: 100vh; }
+.auth-split { min-height: 100vh; display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); }
+.auth-brand { display: grid; place-items: center; padding: clamp(36px, 5vw, 64px); background: var(--night); color: var(--on-night); }
+.auth-brand-in { display: flex; align-items: center; gap: clamp(20px, 2vw, 28px); }
+/* the logo on a white disc, as at the top of the sidebar, large enough to carry the panel */
+.auth-logo {
+  width: clamp(84px, 6.5vw, 108px); aspect-ratio: 1; border-radius: 50%; flex: none;
+  display: grid; place-items: center; background: #fff;
+  box-shadow: 0 0 0 8px rgba(255, 255, 255, 0.06), 0 24px 48px -24px rgba(0, 0, 0, 0.6);
+}
+.auth-logo img { width: 72%; height: auto; }
+.auth-brand-text { border-left: 2px solid var(--gold); padding-left: 20px; }
+.auth-org { margin: 0; font-size: clamp(1.2rem, 0.6rem + 1vw, 1.75rem); font-weight: 650; line-height: 1.2; letter-spacing: -0.015em; color: #fff; }
+.auth-zh { margin: 10px 0 0; font-size: 0.95rem; color: var(--on-night-2); }
+.auth-sub { margin: 16px 0 0; padding-top: 14px; border-top: 1px solid rgba(255, 255, 255, 0.12); font-weight: 550; color: var(--on-night-2); }
+.bare-wrap { min-height: 100vh; display: grid; place-items: center; padding: 40px clamp(16px, 5vw, 56px); }
+.auth { width: 100%; max-width: 400px; }
+.auth h1 { font-size: clamp(1.45rem, 1.2rem + 0.8vw, 1.75rem); margin: 0 0 6px; }
+.auth .lead { color: var(--ink-2); font-size: 0.95rem; margin: 0 0 20px; }
+.auth form { display: grid; gap: 16px; }
+.auth .foot-note { color: var(--ink-3); font-size: 0.88rem; margin: 22px 0 0; padding-top: 16px; border-top: 1px solid var(--line); }
+@media (prefers-reduced-motion: no-preference) {
+  .auth-brand-in, .auth { animation: auth-in 500ms var(--ease) both; }
+  .auth { animation-delay: 100ms; }
+}
+@keyframes auth-in { from { opacity: 0; transform: translateY(6px); } }
+/* phones: the association shrinks to a bar above the form */
+@media (max-width: 860px) {
+  .auth-split { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+  .auth-brand { display: block; padding: 16px; }
+  .auth-brand-in { gap: 16px; }
+  .auth-logo { width: 56px; box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.06); }
+  .auth-brand-text { padding-left: 14px; }
+  .auth-org { font-size: 1rem; }
+  .auth-zh { display: none; }
+  .auth-sub { margin-top: 2px; padding-top: 0; border-top: 0; font-size: 0.86rem; }
+  .bare-wrap { min-height: 0; place-items: start center; padding: 32px 16px 48px; }
+}
 .code-input { font: 650 1.7rem/1 var(--font-sans); letter-spacing: 0.4em; text-align: center; font-variant-numeric: tabular-nums; padding-left: 0.4em !important; }
 .dev-code { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; border-radius: 10px; background: var(--blue-tint); color: var(--blue-deep); font-size: 0.9rem; }
 .dev-code strong { font-size: 1.2rem; letter-spacing: 0.15em; }
-.steps-dots { display: flex; justify-content: center; gap: 6px; margin: 0 0 18px; }
+.steps-dots { display: flex; gap: 6px; margin: 0 0 18px; }
 .steps-dots span { width: 28px; height: 4px; border-radius: 4px; background: var(--line); }
 .steps-dots span.on { background: var(--maroon); }
 
@@ -597,14 +651,14 @@ body.bare { background: var(--night); min-height: 100vh; }
   .staff .btn-ok:hover { --bg: #155a2f; --bd: #155a2f; }
   .staff .btn-danger:hover { --bg: var(--bad-tint); }
   .staff .btn-quiet:hover { --bg: var(--sunk); }
-  .stat:hover { border-color: var(--line-strong); box-shadow: var(--lift); transform: translateY(-1px); }
+  a.stat:hover { background: #fcfaf6; }
   .t tbody tr.clickable:hover { background: #fcfaf6; }
   .tabs a:hover { color: var(--ink); }
   .tabs a:not([aria-current='page']):hover { background: rgba(255, 255, 255, 0.6); }
   .type-card:hover { border-color: var(--maroon); box-shadow: var(--lift); transform: translateY(-2px); }
   .ev:hover { border-color: var(--line-strong); box-shadow: var(--lift); transform: translateY(-1px); }
   .ev:hover h3 a { color: var(--blue); }
-  .dept:hover { border-color: var(--maroon); box-shadow: var(--lift); transform: translateY(-1px); }
+  .dept:hover { border-color: var(--line-strong); box-shadow: inset 0 3px 0 var(--tint, var(--maroon)), var(--lift); transform: translateY(-1px); }
   .choice:hover { border-color: var(--ink-3); }
   .drop:hover { border-color: var(--blue); }
   .linkish:hover { color: var(--blue-deep); }

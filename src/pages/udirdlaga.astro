@@ -12,15 +12,13 @@ import Public from '../layouts/Public.astro';
 import Band from '../components/Band.astro';
 import { departments } from '../lib/db';
 import { mediaUrl } from '../lib/media';
-import { initials, publicTeam, type TeamMember } from '../lib/team';
+import { deptTint, initials, publicTeam, type TeamMember } from '../lib/team';
 import { academicYear } from '../lib/time';
 import type { DeptSlug } from '../lib/types';
 
 const team = await publicTeam();
 const depts = (await departments()).filter((d) => !d.is_leadership);
-const year = academicYear().replace('-', '–');
-// One colour per department, so the placeholders double as a key.
-const TINT: Record<string, string> = { dotood: '#8e0000', gadaad: '#005faf', surgalt: '#1d6b3a', media: '#7a3e9d', 'erh-zui': '#8a5a00' };
+const year = academicYear();
 const card = (m: TeamMember, role: string, tint: string, lead = false) => ({ m, role, tint, lead, photo: mediaUrl(m.photo) });
 const lead = [
   ...(team.president ? [card(team.president, 'Тэргүүн', 'var(--maroon)', true)] : []),
@@ -33,7 +31,6 @@ const board = team.board.map((m) => card(m, 'Удирдах Зөвлөлийн �
   <section class="sec team" aria-labelledby="lead-h">
     <div class="wrap">
       <header class="team-head">
-        <span class="sec-label">Удирдлага</span>
         <h2 id="lead-h">Тэргүүн ба Удирдах Зөвлөл</h2>
       </header>
       {lead.length + board.length === 0 ? (
@@ -53,14 +50,13 @@ const board = team.board.map((m) => card(m, 'Удирдах Зөвлөлийн �
       )}
 
       <header class="team-head depts-head">
-        <span class="sec-label">Таван хэлтэс</span>
         <h2 id="depts-h">Хэлтсүүд</h2>
       </header>
       <div class="depts">
         {depts.map((d) => {
           const people = team.byDept(d.slug as DeptSlug);
           return (
-            <section class="dept" aria-labelledby={`d-${d.slug}`} style={`--tint:${TINT[d.slug] ?? 'var(--blue)'};--n:${Math.max(people.length, 1)}`}>
+            <section class="dept" aria-labelledby={`d-${d.slug}`} style={`--tint:${deptTint(d.slug)};--n:${Math.max(people.length, 1)}`}>
               <h3 id={`d-${d.slug}`}>{d.name_mn}</h3>
               {people.length === 0 ? (
                 <p class="vacant">Бүрдүүлж байна</p>

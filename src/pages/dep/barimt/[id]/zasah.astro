@@ -3,6 +3,7 @@ export const prerender = false;
 import Staff from '../../../../layouts/Staff.astro';
 import RecordForm from '../../../../components/RecordForm.astro';
 import PageHead from '../../../../components/PageHead.astro';
+import { departments } from '../../../../lib/db';
 import { readRecordForm } from '../../../../lib/forms';
 import { clientIp, int, withFlash } from '../../../../lib/http';
 import * as P from '../../../../lib/permissions';
@@ -21,14 +22,17 @@ let title = rec.title;
 let values = fieldsOf(rec);
 let errors: Record<string, string> = {};
 let visibility = rec.visibility;
+let coDept = rec.co_dept_slug;
+const allDepts = await departments();
 
 if (Astro.request.method === 'POST') {
   const form = readRecordForm(await Astro.request.formData(), type)!;
-  ({ title, values, errors, visibility } = form);
-  if (form.ok) {
+  ({ title, values, errors, visibility, coDept } = form);
+  if (coDept && (coDept === rec.dept_slug || !allDepts.some((d) => d.slug === coDept))) errors.co_dept = 'Үндсэн хэлтсээс өөр хэлтэс сонгоно уу.';
+  if (form.ok && !errors.co_dept) {
     const ip = clientIp(Astro.request);
     try {
-      await updateRecord(user, rec, { title, values, visibility }, ip);
+      await updateRecord(user, rec, { title, values, visibility, coDept }, ip);
     } catch (e) {
       if (e instanceof Conflict) return Astro.redirect(withFlash(here, 'conflict', 'err'));
       throw e;
@@ -53,6 +57,9 @@ if (Astro.request.method === 'POST') {
     values={values}
     errors={errors}
     visibility={visibility}
+    allDepts={allDepts}
+    coDept={coDept}
+    mainDept={rec.dept_slug}
     submitLabel="Хадгалах"
     cancelHref={here}
   />

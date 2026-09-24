@@ -323,6 +323,7 @@ export interface ParticipationRow {
   user_id: number;
   name: string;
   role: Role;
+  dept_slug: DeptSlug | null;
   dept_name: string | null;
   status: string;
   events: number;
@@ -347,7 +348,7 @@ export async function participation(year: string, onlyUserId?: number): Promise<
          JOIN events e ON e.id = k.event_id
         WHERE e.academic_year = ?1
      )
-     SELECT u.id AS user_id, u.name_mn AS name, u.role, d.name_mn AS dept_name, u.status,
+     SELECT u.id AS user_id, u.name_mn AS name, u.role, d.slug AS dept_slug, d.name_mn AS dept_name, u.status,
             COUNT(DISTINCT CASE WHEN y.status <> 'dropped' THEN y.event_id END) AS events,
             COALESCE(SUM(CASE WHEN y.volunteered = 1 THEN 1 ELSE 0 END), 0) AS volunteered,
             COALESCE(SUM(CASE WHEN y.volunteered = 0 THEN 1 ELSE 0 END), 0) AS assigned,

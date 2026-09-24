@@ -33,6 +33,14 @@
   --bad: #a3231a;
   --bad-tint: #fbe8e6;
 
+  /* One colour per department, on both sites: avatars, cards, the team page. The colour doubles as a key. */
+  --dept-udirdlaga: #0d2138;
+  --dept-dotood: #8e0000;
+  --dept-gadaad: #005faf;
+  --dept-surgalt: #1d6b3a;
+  --dept-media: #7a3e9d;
+  --dept-erh-zui: #8a5a00;
+
   --font-sans: 'Golos Text Variable', 'Golos Text', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-serif: 'Source Serif 4 Variable', 'Source Serif 4', Georgia, 'Times New Roman', serif;
   --font-zh: 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', 'Source Han Sans SC', sans-serif;

@@ -5,9 +5,14 @@
  * printed page (src/pages/dep/barimt/[id]/hevleh.astro) all follow.
  */
 import type { IconName } from './icons';
+import { fmtOfficialDate } from './time';
 import type { Step } from './types';
 
-export type FieldType = 'text' | 'textarea' | 'date' | 'number' | 'select';
+/**
+ * Every answer gets the box that asks least of the person filling it in: dates and periods are picked on a
+ * calendar, times on a clock, fixed answers from a list, names are offered as you type.
+ */
+export type FieldType = 'text' | 'textarea' | 'date' | 'daterange' | 'timerange' | 'number' | 'select';
 
 export interface FieldDef {
   name: string;
@@ -17,7 +22,45 @@ export interface FieldDef {
   hint?: string;
   /** For `select`. */
   options?: string[];
+  /**
+   * For `text`: answers offered while typing; anything else can still be typed. 'people' = everyone serving
+   * now, as the association writes them (Б. Тэмүүлэн); 'full-names' = the same people's full names.
+   */
+  suggest?: string[] | 'people' | 'full-names';
 }
+
+/** A range is kept as one value, "start/end": 2026-09-01/2026-12-20, 13:00/15:00 (end may be empty for times). */
+export const isRange = (t: FieldType) => t === 'daterange' || t === 'timerange';
+export const joinRange = (a: string, b: string) => (a || b ? `${a}/${b}` : '');
+export function splitRange(v: string): [string, string] {
+  const i = v.indexOf('/');
+  return i < 0 ? [v, ''] : [v.slice(0, i), v.slice(i + 1)];
+}
+const PART = { daterange: /^\d{4}-\d{2}-\d{2}$/, timerange: /^([01]\d|2[0-3]):[0-5]\d$/ };
+/** The two halves of a range for the form, or empty when the stored value was typed before the field had pickers. */
+export function rangeParts(t: FieldType, v: string): [string, string] {
+  const [a, b] = splitRange(v);
+  return isRange(t) && PART[t as keyof typeof PART].test(a) ? [a, b] : ['', ''];
+}
+
+/**
+ * A field's value as people read it. On screen a date is 2026.10.10; on paper (`paper`) it is written out
+ * (2026 оны 10 дугаар сарын 10). Values typed before a field got its picker are shown exactly as typed.
+ */
+export function showField(f: FieldDef, v: string, paper = false): string {
+  const day = (d: string) => (paper ? fmtOfficialDate(d) : d.replaceAll('-', '.'));
+  if (f.type === 'date') return day(v);
+  if (isRange(f.type)) {
+    const [a, b] = rangeParts(f.type, v);
+    if (!a) return v;
+    const fmt = f.type === 'daterange' ? day : (x: string) => x;
+    return b ? `${fmt(a)} – ${fmt(b)}` : fmt(a);
+  }
+  return v;
+}
+
+/** The association's units as they are written on paper (fixed by the Үндсэн дүрэм; the departments table uses the same names). */
+const UNITS = ['Удирдлага', 'Дотоод хэлтэс', 'Гадаад хэлтэс', 'Сургалтын хэлтэс', 'Медиа хэлтэс', 'Эрх зүйн хэлтэс'];
 
 /** Who signs the printed document. The Тэргүүн always stands on the left, as on the association's papers. */
 export type Signer =
@@ -115,13 +158,13 @@ export const RECORD_TYPES: Record<string, RecordType> = {
     fields: [
       { name: 'meeting_type', label: 'Хурлын төрөл', type: 'select', required: true, options: MEETING_KINDS },
       { name: 'meeting_date', label: 'Огноо', type: 'date', required: true },
-      { name: 'time', label: 'Цаг', type: 'text', hint: 'Жишээ нь: 13:00–15:00' },
+      { name: 'time', label: 'Цаг', type: 'timerange' },
       { name: 'location', label: 'Байршил', type: 'text', hint: 'Жишээ нь: 北京大学中关新园5号楼' },
       { name: 'present', label: 'Оролцсон гишүүдийн тоо', type: 'number', hint: 'Их Хуралдаан, Албан хурал нийт гишүүдийн 2/3 нь оролцвол хүчинтэй (34.1).' },
       { name: 'excused', label: 'Чөлөө авсан гишүүдийн тоо', type: 'number' },
       { name: 'attendees', label: 'Хуралд оролцсон гишүүд', type: 'textarea', required: true, hint: 'Удирдах Зөвлөлийн, хэлтсийн дарга нарын болон хэлтсийн хуралд ирц бүрэн байх ёстой (34.2).' },
-      { name: 'chair', label: 'Хурал даргалагч', type: 'text' },
-      { name: 'secretary', label: 'Тэмдэглэл хөтлөгч', type: 'text' },
+      { name: 'chair', label: 'Хурал даргалагч', type: 'text', suggest: 'people' },
+      { name: 'secretary', label: 'Тэмдэглэл хөтлөгч', type: 'text', suggest: 'people' },
       { name: 'agenda', label: 'Хэлэлцэх асуудал', type: 'textarea', required: true, hint: 'Мөр бүрт нэг асуудал.' },
       { name: 'decisions', label: 'Хэлэлцсэн агуулга, гарсан санал, шийдвэр', type: 'textarea', required: true, hint: 'Асуудал бүрээр нь. Санал хураасан бол дүнг бичнэ.' },
       { name: 'next_meeting', label: 'Дараагийн хурал', type: 'text', hint: 'Огноо, байршил, протокол хөтлөгч' },
@@ -162,7 +205,7 @@ export const RECORD_TYPES: Record<string, RecordType> = {
     chain: ['head'],
     fields: [
       { name: 'report_kind', label: 'Тайлангийн төрөл', type: 'select', required: true, options: ['Улирлын эцсийн', 'Жилийн эцсийн'] },
-      { name: 'period', label: 'Хамрах хугацаа', type: 'text', required: true, hint: 'Жишээ нь: «2026 оны 9-р сарын 1-ээс 12-р сарын 20 хүртэл»' },
+      { name: 'period', label: 'Хамрах хугацаа', type: 'daterange', required: true },
       { name: 'members', label: 'Хэлтсийн бүрэлдэхүүн', type: 'textarea', hint: 'Шинэ тайлан дээр хэлтсийн одоогийн бүрэлдэхүүн өөрөө бөглөгдөнө.' },
       { name: 'work', label: 'Гүйцэтгэсэн ажил, үйл ажиллагаа', type: 'textarea', required: true, hint: 'Ажил бүрт: товч тайлбар, огноо, хариуцсан гишүүд.' },
       { name: 'results', label: 'Гарсан үр дүн', type: 'textarea' },
@@ -182,7 +225,7 @@ export const RECORD_TYPES: Record<string, RecordType> = {
     description: 'Хэлтсийн тодорхой хугацаанд хийх ажлын төлөвлөгөө. Хэлтсийн дарга, дараа нь Тэргүүн батална.',
     chain: ['head', 'president'],
     fields: [
-      { name: 'period', label: 'Хамрах хугацаа', type: 'text', required: true, hint: 'Жишээ нь: «2026 оны 10–12-р сар»' },
+      { name: 'period', label: 'Хамрах хугацаа', type: 'daterange', required: true },
       { name: 'goals', label: 'Зорилго', type: 'textarea', required: true },
       { name: 'activities', label: 'Хийх ажлууд', type: 'textarea', required: true, hint: 'Мөр бүрт нэг ажил: юу хийх, хэзээ, хэн хариуцах.' },
       { name: 'budget', label: 'Төсөв (юань)', type: 'number' },
@@ -231,7 +274,7 @@ export const RECORD_TYPES: Record<string, RecordType> = {
     description: 'Сонгуулийн зар, нэр дэвшигчдийн жагсаалт, санал хураалтын дүн зэрэг. Эрх зүйн хэлтэс хянана.',
     chain: ['legal'],
     fields: [
-      { name: 'kind', label: 'Материалын төрөл', type: 'text', required: true, hint: 'Жишээ нь: сонгуулийн зар, нэр дэвшигчдийн жагсаалт, дүнгийн протокол' },
+      { name: 'kind', label: 'Материалын төрөл', type: 'text', required: true, suggest: ['Сонгуулийн зар', 'Нэр дэвшигчдийн жагсаалт', 'Дүнгийн протокол'], hint: 'Жишээ нь: сонгуулийн зар, нэр дэвшигчдийн жагсаалт, дүнгийн протокол' },
       { name: 'election', label: 'Сонгууль', type: 'text', required: true, hint: 'Жишээ нь: «2027–2028 оны удирдлагын сонгууль»' },
       { name: 'body', label: 'Агуулга', type: 'textarea', required: true },
       { name: 'attachments_note', label: 'Хавсралт', type: 'text', hint: 'Жишээ нь: «Нэр дэвшигчдийн өргөдөл, 4 хуудас»' },
@@ -252,9 +295,9 @@ export const RECORD_TYPES: Record<string, RecordType> = {
     description: 'Хэлтсийн дарга эсвэл гишүүн өөрийн хүсэлтээр чөлөөлөгдөхөд үйлдэнэ. Тэргүүн батална.',
     chain: ['president'],
     fields: [
-      { name: 'person', label: 'Овог, нэр', type: 'text', required: true, hint: 'Жишээ нь: Баяржаргалын Номин-Эрдэнэ' },
-      { name: 'position', label: 'Албан тушаал', type: 'text', required: true, hint: 'Жишээ нь: Хэлтсийн дарга' },
-      { name: 'department', label: 'Хэлтэс', type: 'text', required: true, hint: 'Жишээ нь: Дотоод хэлтэс' },
+      { name: 'person', label: 'Овог, нэр', type: 'text', required: true, suggest: 'full-names', hint: 'Жишээ нь: Баяржаргалын Номин-Эрдэнэ' },
+      { name: 'position', label: 'Албан тушаал', type: 'select', required: true, options: ['Удирдах Зөвлөлийн гишүүн', 'Хэлтсийн дарга', 'Хэлтсийн гишүүн'] },
+      { name: 'department', label: 'Албан тушаалтны хэлтэс', type: 'select', required: true, options: UNITS },
       { name: 'term_start', label: 'Албан тушаалд томилогдсон огноо', type: 'date', required: true },
       { name: 'request_date', label: 'Чөлөөлөгдөх хүсэлт гаргасан огноо', type: 'date', required: true },
       { name: 'effective_date', label: 'Чөлөө хүчин төгөлдөр болох огноо', type: 'date', required: true },
@@ -333,6 +376,14 @@ export function validateFields(type: RecordType, input: Record<string, unknown>)
     else if (raw && f.type === 'number' && !/^\d+([.,]\d+)?$/.test(raw)) errors[f.name] = 'Тоо оруулна уу.';
     else if (raw && f.type === 'date' && !/^\d{4}-\d{2}-\d{2}$/.test(raw)) errors[f.name] = 'Огноо буруу байна.';
     else if (raw && f.type === 'select' && !f.options?.includes(raw)) errors[f.name] = 'Жагсаалтаас сонгоно уу.';
+    else if (raw && isRange(f.type)) {
+      const [a, b] = splitRange(raw);
+      const ok = PART[f.type as keyof typeof PART];
+      // a period needs both ends; a meeting time may leave the end open
+      if (!ok.test(a) || (b ? !ok.test(b) : f.type === 'daterange'))
+        errors[f.name] = f.type === 'daterange' ? 'Эхлэх, дуусах огноог хоёуланг нь сонгоно уу.' : 'Цагийг ЦЦ:ММ хэлбэрээр бичнэ үү, жишээ нь 13:00.';
+      else if (b && b < a) errors[f.name] = 'Дуусах нь эхлэхээс өмнө байна.';
+    }
     values[f.name] = raw;
   }
   return { values, errors, ok: Object.keys(errors).length === 0 };

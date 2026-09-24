@@ -1,5 +1,6 @@
 ---
 import Icon from './Icon.astro';
+import TimeInput from './TimeInput.astro';
 import type { EventFormValues } from '../lib/forms';
 import type { DeptRow } from '../lib/db';
 
@@ -38,7 +39,7 @@ const problems = Object.keys(LABEL).filter((k) => errors[k]).map((k) => [k, erro
         <div class="dt">
           <input id="start_date" name="start_date" type="date" required value={v.startDate} aria-label="Эхлэх огноо"
             aria-invalid={errors.start ? 'true' : undefined} aria-describedby={errors.start ? 'start-err' : undefined} />
-          <input name="start_time" type="time" value={v.startTime} aria-label="Эхлэх цаг" />
+          <TimeInput name="start_time" value={v.startTime} label="Эхлэх цаг" />
         </div>
         {errors.start && <span class="error" id="start-err"><Icon name="alert" /> {errors.start}</span>}
       </fieldset>
@@ -47,7 +48,7 @@ const problems = Object.keys(LABEL).filter((k) => errors[k]).map((k) => [k, erro
         <div class="dt">
           <input id="end_date" name="end_date" type="date" value={v.endDate} aria-label="Дуусах огноо"
             aria-invalid={errors.end ? 'true' : undefined} aria-describedby={errors.end ? 'end-err' : undefined} />
-          <input name="end_time" type="time" value={v.endTime} aria-label="Дуусах цаг" />
+          <TimeInput name="end_time" value={v.endTime} label="Дуусах цаг" />
         </div>
         {errors.end && <span class="error" id="end-err"><Icon name="alert" /> {errors.end}</span>}
       </fieldset>
@@ -91,8 +92,13 @@ const problems = Object.keys(LABEL).filter((k) => errors[k]).map((k) => [k, erro
 <script is:inline>
   (function () {
     var s = document.getElementById('errors'); if (s) s.focus();
-    // Picking a start date fills an empty end date with the same day — most events are one evening.
+    // Picking a start date fills an empty end date with the same day — most events are one evening —
+    // and the end's calendar can't go back before the start.
     var a = document.getElementById('start_date'), b = document.getElementById('end_date');
-    if (a && b) a.addEventListener('change', function () { if (!b.value) b.value = a.value; });
+    if (a && b) {
+      var sync = function () { b.min = a.value; };
+      a.addEventListener('change', function () { sync(); if (!b.value) { b.value = a.value; b.dispatchEvent(new Event('change')); } });
+      sync();
+    }
   })();
 </script>

@@ -147,12 +147,17 @@ const ogImage = new URL(image ?? '/brand/logo-512.png', Astro.url).href;
           });
           document.documentElement.classList.add('reveal-on');
         }
-        // A soft shadow under the header once the page has scrolled.
+        // A soft shadow under the header once the page has scrolled: a 4 px marker at the very top of the
+        // page is watched instead of listening to every scroll event.
         var header = document.querySelector('.ph-header');
-        if (header) {
-          var tick = function () { header.classList.toggle('is-scrolled', window.scrollY > 4); };
-          window.addEventListener('scroll', tick, { passive: true });
-          tick();
+        if (header && 'IntersectionObserver' in window) {
+          var mark = document.createElement('div');
+          mark.setAttribute('aria-hidden', 'true');
+          mark.style.cssText = 'position:absolute;top:0;left:0;width:1px;height:4px;pointer-events:none';
+          document.body.prepend(mark);
+          new IntersectionObserver(function (entries) {
+            header.classList.toggle('is-scrolled', !entries[0].isIntersecting);
+          }).observe(mark);
         }
       })();
     </script>

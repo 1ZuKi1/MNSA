@@ -61,7 +61,7 @@ const ENTITY: Record<string, string> = { record: 'Баримт', event: 'Арг�
             const where = r.entity_id ? `${ENTITY[r.entity_type ?? ''] ?? r.entity_type} #${r.entity_id}` : '';
             return (
               <tr>
-                <td class="nowrap num small side-cell">{fmtDateTime(r.created_at)}</td>
+                <td class="nowrap num start small side-cell">{fmtDateTime(r.created_at)}</td>
                 <td class="nowrap main-cell"><b>{r.actor ?? '—'}</b><span class="sub m-only">{LABEL[r.action] ?? r.action}{where && ` · ${where}`}</span></td>
                 <td class="hide-sm">{LABEL[r.action] ?? r.action}</td>
                 <td class="small hide-sm">{h ? <a href={h}>{where}</a> : where}</td>

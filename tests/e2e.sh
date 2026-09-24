@@ -113,7 +113,7 @@ check "maintainer can read" "$(code $J/dev.jar /barimt/$RID)" 200
 check "dept-only draft hidden from other dept" "$(code $J/gadaad.jar /barimt/4)" 404
 check "dept-only draft hidden from board (draft)" "$(code $J/board.jar /barimt/4)" 404
 check "dept-only draft visible to its author" "$(code $J/legal.jar /barimt/4)" 200
-pg=$(curl -s -b $J/dotood2.jar -H "$S" -H "$O" -X POST -d "type=tailan&dept=gadaad&visibility=staff&then=save" --data-urlencode "title=x" --data-urlencode "f_report_kind=Улирлын эцсийн" --data-urlencode "f_period=x" --data-urlencode "f_work=x" $B/barimt/shine)
+pg=$(curl -s -b $J/dotood2.jar -H "$S" -H "$O" -X POST -d "type=tailan&dept=gadaad&visibility=staff&then=save" --data-urlencode "title=x" --data-urlencode "f_report_kind=Улирлын эцсийн" -d "f_period=2026-09-01&f_period_to=2026-12-20" --data-urlencode "f_work=x" $B/barimt/shine)
 has "posting into another dept is refused, with the reason" "$pg" "Энэ хэлтэст бичих эрх танд байхгүй"
 check "…and nothing was created" "$(get $J/president.jar '/barimt?dept=gadaad' | grep -c 'class="row-link"')" 0
 has "maintainer cannot create records" "$(curl -s -o /dev/null -w '%{redirect_url}' -b $J/dev.jar -H "$S" $B/barimt/shine)" "err=denied"
@@ -193,11 +193,13 @@ hasnt "member doesn't see others" "$pg" "Д. Номин"
 hasnt "member can't peek via ?user=" "$(get $J/dotood2.jar '/oroltsoo?user=2')" "Д. Номин"
 
 echo "── members, invites, renewal"
-pg=$(curl -s -b $J/president.jar -H "$S" -H "$O" -X POST -d "action=invite&student_id=2501110099&role=member&dept=surgalt" --data-urlencode "name=Н. Туршилт" $B/gishuud)
+# creating an invite redirects (a reload can't make a second one); the link shows once on the next page
+check "creating an invite redirects, so a reload can't repeat it" "$(curl -s -o /dev/null -w '%{http_code}' -b $J/president.jar -H "$S" -H "$O" -d "action=invite&role=member&dept=surgalt" --data-urlencode "name=Н. Давхар" $B/gishuud)" 302
+pg=$(curl -s -L -b $J/president.jar -c $J/president.jar -H "$S" -H "$O" -d "action=invite&student_id=2501110099&role=member&dept=surgalt" --data-urlencode "name=Н. Туршилт" $B/gishuud)
 LINK=$(echo "$pg" | grep -o 'value="http://dep.localhost:4321/urilga/[^"]*"' | cut -d'"' -f2); TOK=${LINK##*/}
 has "President gets a one-time invite link" "$LINK" "/urilga/"
 has "a plain дарга cannot invite" "$(post $J/dotood.jar /gishuud -d action=invite -d student_id=1234567 -d role=member -d dept=dotood -d name=x)" "err=denied"
-has "deputy (Legal) can invite a member" "$(curl -s -b $J/legal.jar -H "$S" -H "$O" -X POST -d "action=invite&student_id=2501110098&role=member&dept=dotood&name=Deputy+Test" $B/gishuud)" "Урилга үүслээ"
+has "deputy (Legal) can invite a member" "$(curl -s -L -b $J/legal.jar -c $J/legal.jar -H "$S" -H "$O" -d "action=invite&student_id=2501110098&role=member&dept=dotood&name=Deputy+Test" $B/gishuud)" "Урилга үүслээ"
 has "deputy cannot invite board" "$(curl -s -b $J/legal.jar -H "$S" -H "$O" -X POST -d "action=invite&student_id=2501110097&role=board&dept=udirdlaga&name=x" $B/gishuud)" "Энэ эрхийг олгох боломжгүй"
 check "invite page opens without login" "$(curl -s -o /dev/null -w '%{http_code}' -H "$S" $B/urilga/$TOK)" 200
 has "a school address is accepted" "$(curl -s -o /dev/null -w '%{redirect_url}' -H "$S" -H "$O" -X POST -d "action=email&email=2600000001@stu.pku.edu.cn" $B/urilga/$TOK)" "step=code"

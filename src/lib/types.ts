@@ -16,7 +16,8 @@ export interface SessionUser {
 
 export type RecordStatus = 'draft' | 'in_review' | 'approved' | 'rejected' | 'void';
 export type Visibility = 'staff' | 'dept';
-export type Step = 'head' | 'legal' | 'president';
+/** 'cohead' = the дарга of the document's second department («хамтран хариуцах хэлтэс»), when it has one. */
+export type Step = 'head' | 'cohead' | 'legal' | 'president';
 
 export const ROLE_LABEL: Record<Role, string> = {
   president: 'Тэргүүн',
@@ -36,6 +37,7 @@ export const STATUS_LABEL: Record<RecordStatus, string> = {
 
 export const STEP_LABEL: Record<Step, string> = {
   head: 'Хэлтсийн дарга',
+  cohead: 'Хамтран хариуцах хэлтсийн дарга',
   legal: 'Эрх зүйн хэлтэс',
   president: 'Тэргүүн',
 };
@@ -43,6 +45,7 @@ export const STEP_LABEL: Record<Step, string> = {
 /** Genitive forms — Mongolian doesn't let you just append «-ийн» to a label. */
 export const STEP_GEN: Record<Step, string> = {
   head: 'Хэлтсийн даргын',
+  cohead: 'Хамтран хариуцах хэлтсийн даргын',
   legal: 'Эрх зүйн хэлтсийн',
   president: 'Тэргүүний',
 };

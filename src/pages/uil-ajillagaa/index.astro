@@ -6,7 +6,7 @@ import Band from '../../components/Band.astro';
 import EventRows from '../../components/EventRows.astro';
 import { publicEvents } from '../../lib/events';
 import { mediaUrl } from '../../lib/media';
-import { fmtLong } from '../../lib/time';
+import { dateKey, fmtLong } from '../../lib/time';
 
 const { upcoming, past } = await publicEvents();
 ---
@@ -33,7 +33,12 @@ const { upcoming, past } = await publicEvents();
             {past.map((e) => (
               <a class="card-p" href={`/uil-ajillagaa/${e.id}`}>
                 <div class="img">
-                  {e.cover_media_id ? <img src={mediaUrl(e.cover_media_id)} alt="" loading="lazy" /> : <img class="ph" src="/brand/logo.svg" alt="" />}
+                  {e.cover_media_id ? (
+                    <img src={mediaUrl(e.cover_media_id)} alt="" loading="lazy" />
+                  ) : (
+                    // no photo yet: the day it happened, large, instead of a stand-in picture
+                    <span class="ph-date" aria-hidden="true"><b>{dateKey(e.starts_at).day}</b><small>{fmtLong(e.starts_at).slice(0, 4)}</small></span>
+                  )}
                 </div>
                 <div class="body">
                   <p class="when">{fmtLong(e.starts_at)}</p>

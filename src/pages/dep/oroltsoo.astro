@@ -3,7 +3,7 @@ export const prerender = false;
 import Staff from '../../layouts/Staff.astro';
 import PageHead from '../../components/PageHead.astro';
 import Icon from '../../components/Icon.astro';
-import { initials } from '../../lib/team';
+import { deptTint, initials } from '../../lib/team';
 import { participation, participationDetail, yearsWithEvents } from '../../lib/events';
 import { int } from '../../lib/http';
 import { getMember } from '../../lib/members';
@@ -48,10 +48,10 @@ const link = (p: Record<string, string | number>) => `/oroltsoo?${new URLSearchP
     seeAll && (
       <>
         <div class="stats">
-          <div class="stat"><span class="ic"><Icon name="users" /></span><span><b>{rows.length}</b><span>гишүүн</span></span></div>
-          <div class="stat blue"><span class="ic"><Icon name="check" /></span><span><b>{totalJobs}</b><span>нийт ажил авсан</span></span></div>
-          <div class="stat ok"><span class="ic"><Icon name="hand" /></span><span><b>{totalVol}</b><span>сайн дураар</span></span></div>
-          <div class:list={['stat', { hot: zeros > 0 }]}><span class="ic"><Icon name="alert" /></span><span><b>{zeros}</b><span>ажил аваагүй</span></span></div>
+          <div class="stat"><span><b>{rows.length}</b><span>гишүүн</span></span></div>
+          <div class="stat"><span><b>{totalJobs}</b><span>нийт ажил авсан</span></span></div>
+          <div class="stat"><span><b>{totalVol}</b><span>сайн дураар</span></span></div>
+          <div class:list={['stat', { hot: zeros > 0 }]}><span><b>{zeros}</b><span>ажил аваагүй</span></span></div>
         </div>
         <div class="table-wrap cards-sm">
           <table class="t">
@@ -72,7 +72,7 @@ const link = (p: Record<string, string | number>) => `/oroltsoo?${new URLSearchP
                 <tr class:list={['clickable', { zero: r.volunteered + r.assigned === 0 }]}>
                   <td class="main-cell">
                     <span class="who">
-                      <span class="avatar sm" aria-hidden="true">{initials(r.name)}</span>
+                      <span class="avatar sm" style={`--tint:${deptTint(r.dept_slug)}`} aria-hidden="true">{initials(r.name)}</span>
                       <span class="who-text">
                         <a class="row-link" href={link({ user: r.user_id }) + '#detail'}>{r.name}</a>
                         <small>{r.dept_name ?? ROLE_LABEL[r.role]}{r.status !== 'active' && ' · идэвхгүй'}</small>

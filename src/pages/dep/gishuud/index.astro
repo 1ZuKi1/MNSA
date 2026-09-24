@@ -3,7 +3,7 @@ export const prerender = false;
 import Staff from '../../../layouts/Staff.astro';
 import PageHead from '../../../components/PageHead.astro';
 import Icon from '../../../components/Icon.astro';
-import { initials } from '../../../lib/team';
+import { deptTint, initials } from '../../../lib/team';
 import { departments, one } from '../../../lib/db';
 import { looksLikeEmail, normalizeEmail } from '../../../lib/auth';
 import { clientIp, int, safeNext, str, withFlash } from '../../../lib/http';
@@ -24,6 +24,23 @@ const depts = await departments();
 let inviteLink: string | null = null;
 let inviteName = '';
 let inviteError = '';
+// A new invite link is shown once, on the page after it is made. It gets there in a short-lived cookie
+// (never in a URL we log), and the POST itself redirects, so reloading or going back never creates a
+// second invite (Post/Redirect/Get, like every other form here).
+const MADE = 'mnsa_invite_made';
+const made = Astro.request.method === 'GET' ? Astro.cookies.get(MADE)?.value : undefined;
+if (made) {
+  Astro.cookies.delete(MADE, { path: '/' });
+  try {
+    const m = JSON.parse(made) as { token?: unknown; name?: unknown };
+    if (typeof m.token === 'string' && /^[A-Za-z0-9_-]{32}$/.test(m.token) && typeof m.name === 'string') {
+      inviteLink = `${Astro.url.protocol}//${Astro.url.host}/urilga/${m.token}`;
+      inviteName = m.name.slice(0, 100);
+    }
+  } catch {
+    /* a damaged cookie just means nothing to show */
+  }
+}
 
 if (Astro.request.method === 'POST') {
   const fd = await Astro.request.formData();
@@ -68,9 +85,11 @@ if (Astro.request.method === 'POST') {
       else if (role !== 'maintainer' && !depts.some((d) => d.slug === dept)) inviteError = 'Хэлтэс сонгоно уу.';
       else {
         const token = await createInvite(user, { name, studentId, dept: role === 'maintainer' ? null : dept, role }, ip);
-        // Shown once, on this response only — the raw token is never stored and never put in a URL we log.
-        inviteLink = `${Astro.url.protocol}//${Astro.url.host}/urilga/${token}`;
-        inviteName = name;
+        // The raw token is never stored; it rides to the next page in a 5-minute, this-browser-only cookie.
+        Astro.cookies.set(MADE, JSON.stringify({ token, name }), {
+          path: '/', maxAge: 300, httpOnly: true, sameSite: 'strict', secure: Astro.url.protocol === 'https:',
+        });
+        return Astro.redirect('/gishuud#made-h');
       }
     } else {
       const target = await getMember(int(str(fd, 'user')) ?? 0);
@@ -160,7 +179,7 @@ const canOpen = (m: (typeof members)[number]) => m.id === user.id || manager || 
                   <span class="who">
                     {m.photo_id
                       ? <span class="avatar photo" aria-hidden="true"><img src={mediaUrl(m.photo_id)} alt="" width="36" height="36" loading="lazy" /></span>
-                      : <span class="avatar" aria-hidden="true">{initials(m.name_mn)}</span>}
+                      : <span class="avatar" style={`--tint:${deptTint(m.dept_slug)}`} aria-hidden="true">{initials(m.name_mn)}</span>}
                     <span class="who-text">
                       {canOpen(m) ? <a class="row-link" href={`/gishuud/${m.id}`}>{m.name_mn}</a> : <b>{m.name_mn}</b>}
                       {m.id === user.id && <span class="muted small"> (та)</span>}
@@ -227,7 +246,7 @@ const canOpen = (m: (typeof members)[number]) => m.id === user.id || manager || 
               <p class="form-note" style="margin-bottom:10px">Тэргүүн байхгүй үед гишүүн нэмж, хасах эрхтэй нэг хүн.</p>
               {deputy ? (
                 <form method="post" class="assignee-row">
-                  <span class="avatar sm" aria-hidden="true">{initials(deputy.name_mn)}</span>
+                  <span class="avatar sm" style={`--tint:${deptTint(deputy.dept_slug)}`} aria-hidden="true">{initials(deputy.name_mn)}</span>
                   <strong class="grow">{deputy.name_mn}</strong>
                   {P.canSetDeputy(user) && <button class="btn btn-sm" name="action" value="no_deputy" data-confirm="Орлогчийг цуцлах уу?">Цуцлах</button>}
                 </form>

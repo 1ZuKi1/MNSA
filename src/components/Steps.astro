@@ -1,0 +1,20 @@
+---
+/**
+ * Steps in order, as one numbered line (home page and the newcomer guide use the same one). A legal
+ * deadline (`when`) is shown as a tag beside the step's name, never written into it.
+ */
+import Icon from './Icon.astro';
+
+interface Props {
+  steps: { title: string; when?: string | null; text: string }[];
+}
+const { steps } = Astro.props;
+---
+<ol class="timeline-steps">
+  {steps.map((s) => (
+    <li>
+      <b>{s.title}{s.when && <span class="due"><Icon name="clock" />{s.when}</span>}</b>
+      <span>{s.text}</span>
+    </li>
+  ))}
+</ol>

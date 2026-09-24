@@ -14,7 +14,7 @@ import { int } from '../../../lib/http';
 import { asMemberLike, canSetPhoto, canSetPublic, getMember } from '../../../lib/members';
 import { mediaUrl } from '../../../lib/media';
 import * as P from '../../../lib/permissions';
-import { initials } from '../../../lib/team';
+import { deptTint, initials } from '../../../lib/team';
 import { fmtDate, fmtDateTime, now, relDay } from '../../../lib/time';
 import { ROLE_LABEL } from '../../../lib/types';
 
@@ -51,7 +51,7 @@ const expiring = m.term_ends_at !== null && m.term_ends_at - now() < 30 * 86400;
           <div class="profile" style="margin-bottom:16px">
             {photo
               ? <span class="avatar lg photo" aria-hidden="true"><img src={photo} alt="" width="64" height="64" /></span>
-              : <span class="avatar lg" aria-hidden="true">{initials(m.name_mn)}</span>}
+              : <span class="avatar lg" style={`--tint:${deptTint(m.dept_slug)}`} aria-hidden="true">{initials(m.name_mn)}</span>}
             <dl class="kv">
               {m.full_name && <><dt>Бүтэн нэр</dt><dd>{m.full_name}</dd></>}
               <dt>И-мэйл</dt><dd>{m.email}</dd>
@@ -127,7 +127,7 @@ const expiring = m.term_ends_at !== null && m.term_ends_at - now() < 30 * 86400;
             <div class="portrait-row">
               {photo
                 ? <span class="avatar xl photo"><img src={photo} alt={`${m.name_mn}-ийн одоогийн зураг`} width="112" height="112" /></span>
-                : <span class="avatar xl" aria-hidden="true">{initials(m.name_mn)}</span>}
+                : <span class="avatar xl" style={`--tint:${deptTint(m.dept_slug)}`} aria-hidden="true">{initials(m.name_mn)}</span>}
               <img class="preview" alt="Сонгосон шинэ зураг" data-preview />
             </div>
             <label class="drop">

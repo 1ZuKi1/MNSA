@@ -5,6 +5,7 @@ import Staff from '../../../layouts/Staff.astro';
 import PageHead from '../../../components/PageHead.astro';
 import { departments, many } from '../../../lib/db';
 import { academicYear } from '../../../lib/time';
+import { deptTint } from '../../../lib/team';
 
 const user = Astro.locals.user!;
 const year = academicYear();
@@ -13,8 +14,8 @@ const counts = await many<{ department_id: number; members: number; head: string
   `SELECT d.id AS department_id,
           (SELECT COUNT(*) FROM users u WHERE u.department_id = d.id AND u.status = 'active') AS members,
           (SELECT GROUP_CONCAT(u.name_mn, ', ') FROM users u WHERE u.department_id = d.id AND u.status = 'active' AND u.role = 'head') AS head,
-          (SELECT COUNT(*) FROM records r WHERE r.department_id = d.id AND r.academic_year = ? AND r.status <> 'draft') AS records,
-          (SELECT COUNT(*) FROM records r WHERE r.department_id = d.id AND r.status = 'in_review') AS waiting
+          (SELECT COUNT(*) FROM records r WHERE (r.department_id = d.id OR r.co_department_id = d.id) AND r.academic_year = ? AND r.status <> 'draft') AS records,
+          (SELECT COUNT(*) FROM records r WHERE (r.department_id = d.id OR r.co_department_id = d.id) AND r.status = 'in_review') AS waiting
      FROM departments d`,
   year,
 );
@@ -27,7 +28,7 @@ const by = new Map(counts.map((c) => [c.department_id, c]));
       const c = by.get(d.id);
       const mine = user.dept === d.slug;
       return (
-        <li class:list={['dept', { mine }]}>
+        <li class:list={['dept', { mine }]} style={`--tint:${deptTint(d.slug)}`}>
           <span class="code">{d.code}</span>
           <h2><a href={`/heltes/${d.slug}`}>{d.name_mn}</a></h2>
           {mine && <span class="badge plain b-blue mine-tag">Таны хэлтэс</span>}

@@ -5,7 +5,7 @@ import * as P from './permissions';
 import { getRecordType, type RecordType } from './record-types';
 import { academicYear, now } from './time';
 import type { DeptSlug, RecordStatus, Role, SessionUser, Step, Visibility } from './types';
-import { advance, numberPrefix } from './workflow';
+import { advance, chainFor, numberPrefix } from './workflow';
 import { staffOrigin } from './site';
 
 export interface RecordRow {
@@ -15,6 +15,10 @@ export interface RecordRow {
   dept_slug: DeptSlug;
   dept_name: string;
   dept_code: string;
+  /** The optional second department («хамтран хариуцах хэлтэс»). */
+  co_department_id: number | null;
+  co_dept_slug: DeptSlug | null;
+  co_dept_name: string | null;
   author_id: number;
   author_name: string;
   academic_year: string;
@@ -33,18 +37,24 @@ export interface RecordRow {
 }
 
 const SELECT = `
-  SELECT r.*, d.slug AS dept_slug, d.name_mn AS dept_name, d.code AS dept_code, u.name_mn AS author_name
+  SELECT r.*, d.slug AS dept_slug, d.name_mn AS dept_name, d.code AS dept_code, u.name_mn AS author_name,
+         cd.slug AS co_dept_slug, cd.name_mn AS co_dept_name
     FROM records r
     JOIN departments d ON d.id = r.department_id
+    LEFT JOIN departments cd ON cd.id = r.co_department_id
     JOIN users u ON u.id = r.author_id`;
 
 export const asRecordLike = (r: RecordRow): P.RecordLike => ({
   authorId: r.author_id,
   dept: r.dept_slug,
+  coDept: r.co_dept_slug,
   status: r.status,
   visibility: r.visibility,
   step: r.awaiting,
 });
+
+/** This document's approval chain: its type's, with the second department's дарга when it has one. */
+export const recordChain = (r: RecordRow): Step[] => chainFor(getRecordType(r.type)!.chain, r.co_dept_slug);
 
 export const fieldsOf = (r: RecordRow): Record<string, string> => {
   try {
@@ -73,6 +83,7 @@ function readableWhere(a: SessionUser): { sql: string; params: unknown[] } {
        OR (r.status <> 'draft' AND (
              r.visibility = 'staff'
           OR r.department_id = ?3
+          OR r.co_department_id = ?3
           OR ?4 = 1
           OR (?5 = 1 AND r.awaiting = 'legal'))))`,
     params: [a.id, isHead, a.deptId ?? -1, isBoard, isLegalHead],
@@ -96,9 +107,9 @@ export async function listRecords(a: SessionUser, f: RecordFilter = {}): Promise
   const params = [...w.params];
   const add = (clause: string, v: unknown) => {
     params.push(v);
-    where.push(clause.replace('?', `?${params.length}`));
+    where.push(clause.replaceAll('?', `?${params.length}`)); // every ? in the clause is this one value
   };
-  if (f.dept) add('d.slug = ?', f.dept);
+  if (f.dept) add('(d.slug = ? OR cd.slug = ?)', f.dept);
   if (f.type) add('r.type = ?', f.type);
   if (f.status) add('r.status = ?', f.status);
   if (f.year) add('r.academic_year = ?', f.year);
@@ -124,6 +135,7 @@ export function awaitingWhere(a: SessionUser): { sql: string; params: unknown[] 
   if (a.role === 'head') {
     params.push(a.deptId);
     conds.push(`(r.awaiting = 'head' AND r.department_id = ?${params.length})`);
+    conds.push(`(r.awaiting = 'cohead' AND r.co_department_id = ?${params.length})`);
   }
   if (P.isLegalHead(a)) conds.push(`r.awaiting = 'legal'`);
   if (a.role === 'president') conds.push(`r.awaiting = 'president'`);
@@ -170,19 +182,21 @@ export class Conflict extends Error {}
 
 export async function createRecord(
   a: SessionUser,
-  input: { type: RecordType; dept: DeptSlug; title: string; values: Record<string, string>; visibility: Visibility },
+  input: { type: RecordType; dept: DeptSlug; coDept: DeptSlug | null; title: string; values: Record<string, string>; visibility: Visibility },
   ip: string | null,
 ): Promise<number> {
   if (!P.canCreateRecordIn(a, input.dept)) throw new Denied();
   const dept = await deptBySlug(input.dept);
   if (!dept) throw new Denied();
+  const co = await coDeptId(input.coDept, dept.id);
   const t = now();
   const fields = JSON.stringify(input.values);
   const res = await stmt(
-    `INSERT INTO records (type, department_id, author_id, academic_year, title, fields_json, visibility, created_at, updated_at)
-     VALUES (?,?,?,?,?,?,?,?,?) RETURNING id`,
+    `INSERT INTO records (type, department_id, co_department_id, author_id, academic_year, title, fields_json, visibility, created_at, updated_at)
+     VALUES (?,?,?,?,?,?,?,?,?,?) RETURNING id`,
     input.type.slug,
     dept.id,
+    co,
     a.id,
     academicYear(t),
     input.title,
@@ -203,18 +217,21 @@ export async function createRecord(
 export async function updateRecord(
   a: SessionUser,
   r: RecordRow,
-  input: { title: string; values: Record<string, string>; visibility: Visibility },
+  input: { title: string; values: Record<string, string>; visibility: Visibility; coDept: DeptSlug | null },
   ip: string | null,
 ) {
   if (!P.canEditRecord(a, asRecordLike(r))) throw new Denied();
+  // Only while a draft or sent back (canEditRecord), so a chain in progress never changes under anyone.
+  const co = await coDeptId(input.coDept, r.department_id);
   const t = now();
   const fields = JSON.stringify(input.values);
   const v = r.version + 1;
   const upd = await stmt(
-    `UPDATE records SET title = ?, fields_json = ?, visibility = ?, version = ?, updated_at = ? WHERE id = ? AND version = ?`,
+    `UPDATE records SET title = ?, fields_json = ?, visibility = ?, co_department_id = ?, version = ?, updated_at = ? WHERE id = ? AND version = ?`,
     input.title,
     fields,
     input.visibility,
+    co,
     v,
     t,
     r.id,
@@ -228,6 +245,13 @@ export async function updateRecord(
   ]);
 }
 
+/** The second department's id; none when not chosen or the same as the main one. */
+async function coDeptId(slug: DeptSlug | null, mainId: number): Promise<number | null> {
+  if (!slug) return null;
+  const d = await deptBySlug(slug);
+  return d && d.id !== mainId ? d.id : null;
+}
+
 async function authorOf(r: RecordRow) {
   const u = await one<{ id: number; role: Role; dept: DeptSlug | null; is_deputy: number }>(
     `SELECT u.id, u.role, d.slug AS dept, u.is_deputy FROM users u LEFT JOIN departments d ON d.id = u.department_id WHERE u.id = ?`,
@@ -238,11 +262,11 @@ async function authorOf(r: RecordRow) {
 
 /** Moves the record to the next step that needs someone, recording automatic passes. */
 async function applyAdvance(r: RecordRow, from: number, extra: D1PreparedStatement[], expectStatus: RecordStatus, expectStep: number) {
-  const type = getRecordType(r.type)!;
-  const next = advance(type.chain, from, await authorOf(r), r.dept_slug);
+  const chain = recordChain(r);
+  const next = advance(chain, from, await authorOf(r), r.dept_slug, r.co_dept_slug);
   const t = now();
   const status: RecordStatus = next.done ? 'approved' : 'in_review';
-  const awaiting = next.done ? null : type.chain[next.index];
+  const awaiting = next.done ? null : chain[next.index];
 
   const upd = await stmt(
     `UPDATE records SET status = ?1, step = ?2, awaiting = ?3, updated_at = ?4,
@@ -318,7 +342,7 @@ export async function decideRecord(a: SessionUser, r: RecordRow, decision: 'appr
     r.step + 1,
     [
       stmt(`INSERT INTO record_actions (record_id, actor_id, action, step, comment, created_at) VALUES (?,?,'approve',?,?,?)`, r.id, a.id, step, comment.trim() || null, t),
-      auditStmt(a.id, 'record.approve', 'record', r.id, { step, standIn: !P.isStepOwner(a, step, r.dept_slug) }, ip),
+      auditStmt(a.id, 'record.approve', 'record', r.id, { step, standIn: !P.isStepOwner(a, step, r.dept_slug, r.co_dept_slug) }, ip),
     ],
     'in_review',
     r.step,
@@ -351,8 +375,9 @@ export async function voidRecord(a: SessionUser, r: RecordRow, comment: string, 
 /** One email to whoever owns the next step — never a broadcast (Resend free: 100/day). */
 async function notifyStepOwners(r: RecordRow, step: Step) {
   let rows: { email: string }[] = [];
-  if (step === 'head') {
-    rows = await many(`SELECT email FROM users WHERE role = 'head' AND department_id = ? AND status = 'active'`, r.department_id);
+  if (step === 'head' || step === 'cohead') {
+    const dept = step === 'head' ? r.department_id : r.co_department_id;
+    rows = await many(`SELECT email FROM users WHERE role = 'head' AND department_id = ? AND status = 'active'`, dept ?? -1);
   } else if (step === 'legal') {
     const legal = await deptBySlug(P.LEGAL);
     rows = await many(`SELECT email FROM users WHERE role = 'head' AND department_id = ? AND status = 'active'`, legal?.id ?? -1);

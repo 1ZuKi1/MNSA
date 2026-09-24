@@ -13,19 +13,29 @@ export interface Advance {
 }
 
 /**
+ * A document's own chain: its type's chain, plus the second department's дарга right after the main
+ * дарга (or first, for a type without a дарга step) when it has a second department.
+ */
+export function chainFor(chain: Step[], coDept: DeptSlug | null): Step[] {
+  if (!coDept) return chain;
+  const at = chain.indexOf('head') + 1; // 0 when the type has no дарга step
+  return [...chain.slice(0, at), 'cohead', ...chain.slice(at)];
+}
+
+/**
  * Starting at `from`, skip steps that don't apply to this department and steps the author owns
  * (a дарга doesn't approve their own letter), and stop at the first step that needs someone else.
  */
-export function advance(chain: Step[], from: number, author: Author, dept: DeptSlug): Advance {
+export function advance(chain: Step[], from: number, author: Author, dept: DeptSlug, coDept: DeptSlug | null = null): Advance {
   const auto: Step[] = [];
   let i = from;
   while (i < chain.length) {
     const s = chain[i];
-    if (!stepApplies(s, dept)) {
+    if (!stepApplies(s, dept, coDept)) {
       i++;
       continue;
     }
-    if (isStepOwner(author, s, dept)) {
+    if (isStepOwner(author, s, dept, coDept)) {
       auto.push(s);
       i++;
       continue;

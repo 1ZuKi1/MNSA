@@ -59,6 +59,9 @@ export function deptLine(team: StaffPerson[], dept: DeptSlug): string {
 
 /** "М. Эмүжин (Хэлтсийн дарга), Л. Бүрэнзаяа" → "М. Эмүжин" */
 
+/** A department's colour token from base.css (avatars, cards). Without a department: the brand maroon. */
+export const deptTint = (slug: string | null | undefined) => (slug ? `var(--dept-${slug}, var(--maroon))` : 'var(--maroon)');
+
 export const initials = (name: string) =>
   name
     .replace(/\./g, ' ')

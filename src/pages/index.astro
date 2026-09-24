@@ -5,6 +5,7 @@ import Public from '../layouts/Public.astro';
 import Band from '../components/Band.astro';
 import EventRows from '../components/EventRows.astro';
 import Icon from '../components/Icon.astro';
+import Steps from '../components/Steps.astro';
 import { publicEvents } from '../lib/events';
 
 const { upcoming } = await publicEvents();
@@ -17,6 +18,14 @@ const tiles = [
   { href: '/uil-ajillagaa', icon: 'calendar', title: 'Үйл ажиллагаа', text: 'Удахгүй болох ба өнгөрсөн арга хэмжээ' },
   { href: '/holboo-barih', icon: 'mail', title: 'Холбоо барих', text: 'И-мэйл, Instagram, хамтын ажиллагаа' },
 ] as const;
+
+// The first weeks in Beijing, in order. `when` is the legal deadline, shown as a tag next to the step.
+const steps = [
+  { title: 'Цагдаагийн бүртгэл', when: '24 цагт', text: 'Хилээр орсноос хойш 24 цагийн дотор. Дотуур байр, зочид буудал автоматаар бүртгэдэг.' },
+  { title: 'Сургуулийн бүртгэл', when: null, text: 'Бичиг баримтаа аваад New Sun Student Center-т бүртгүүлнэ. Оюутны үнэмлэхийг энэ өдөр олгоно.' },
+  { title: 'Утас, банк', when: null, text: 'Эхлээд хятад утасны дугаар: дугааргүй бол данс нээж чадахгүй. Дараа нь картаа WeChat, Alipay-д холбоно.' },
+  { title: 'Оршин суух зөвшөөрөл', when: '30 хоногт', text: 'X1/X2 визээр ирсэн бол 30 хоногийн дотор авна. Үүнд эмчийн үзлэг, эрүүл мэндийн даатгал хэрэгтэй.' },
+];
 ---
 <Public>
   <Band
@@ -46,7 +55,6 @@ const tiles = [
 
   <section class="sec" aria-labelledby="soon-h">
     <div class="wrap">
-      <span class="sec-label">Хуанли</span>
       <h2 id="soon-h">Удахгүй болох арга хэмжээ</h2>
       <EventRows events={soon} />
       <a class="more" href="/uil-ajillagaa">Бүх арга хэмжээ, зургууд</a>
@@ -54,29 +62,27 @@ const tiles = [
   </section>
 
   <section class="sec alt" id="shine" aria-labelledby="new-h">
-    <div class="wrap">
-      <span class="sec-label">Шинэ оюутанд</span>
-      <h2 id="new-h">Бээжинд шинээр ирсэн бол</h2>
-      <p class="intro">Та аль хэдийн Холбооны гишүүн — бүртгүүлэх шаардлагагүй. Эхний долоо хоногуудад хамгийн чухал нь эдгээр. Гацвал бидэнд бичээрэй.</p>
-      <ol class="steps">
-        <li><b>Цагдаагийн бүртгэл — 24 цагт</b><span>Хилээр орсноос хойш 24 цагийн дотор. Дотуур байр, зочид буудал автоматаар бүртгэдэг.</span></li>
-        <li><b>Сургуулийн бүртгэл</b><span>Бичиг баримтаа аваад New Sun Student Center-т бүртгүүлнэ. Оюутны үнэмлэхийг энэ өдөр олгоно.</span></li>
-        <li><b>Утас, банк</b><span>Эхлээд хятад утасны дугаар — дугааргүй бол данс нээж чадахгүй. Дараа нь картаа WeChat, Alipay-д холбоно.</span></li>
-        <li><b>Оршин суух зөвшөөрөл — 30 хоногт</b><span>X1/X2 визээр ирсэн бол 30 хоногийн дотор авна. Үүнд эмчийн үзлэг, эрүүл мэндийн даатгал хэрэгтэй.</span></li>
-      </ol>
-      <p class="note">Журам өөрчлөгдөж болох тул Гадаад оюутны албаны зааврыг баримтална уу.</p>
-      <div class="more-row">
-        <a class="more" href="/shine-oyutan">Шинэ оюутны бүрэн гарын авлага</a>
-        <a class="more" href="/holboo-barih">Асуух зүйл байвал бидэнд бичээрэй</a>
+    <div class="wrap newcomer">
+      <div class="newcomer-head">
+        <span class="sec-label">Шинэ оюутанд</span>
+        <h2 id="new-h">Бээжинд шинээр ирсэн бол</h2>
+        <p class="intro">Та аль хэдийн Холбооны гишүүн. Бүртгүүлэх шаардлагагүй. Эхний долоо хоногуудад хамгийн чухал нь эдгээр. Гацвал бидэнд бичээрэй.</p>
+        <div class="more-col">
+          <a class="more" href="/shine-oyutan">Шинэ оюутны бүрэн гарын авлага</a>
+          <a class="more" href="/holboo-barih">Асуух зүйл байвал бидэнд бичээрэй</a>
+        </div>
+      </div>
+      <div class="newcomer-body">
+        <Steps steps={steps} />
+        <p class="note">Журам өөрчлөгдөж болох тул Гадаад оюутны албаны зааврыг баримтална уу.</p>
       </div>
     </div>
   </section>
 
   <section class="sec" aria-labelledby="what-h">
     <div class="wrap">
-      <span class="sec-label">Бидний тухай</span>
       <h2 id="what-h">Бид юу хийдэг вэ</h2>
-      <ul class="pillars">
+      <ul class="triad">
         <li>
           <span class="ic"><Icon name="unity" /></span>
           <b>Нэгдэл</b>

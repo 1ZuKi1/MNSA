@@ -7,6 +7,7 @@
  *   Reading is open across departments; writing is walled by department.
  *   The President sees and does everything except remove themselves.
  *   Legal (Эрх зүйн хэлтэс) reviews every department's official letters but cannot edit them.
+ *   A document may have a second department: it reads there as at home, and that дарга approves it too.
  *   Events belong to the President and the Media department.
  *   The maintainer can read, but governs nothing.
  *   The official stamp is the President's alone.
@@ -22,6 +23,8 @@ type Actor = Pick<SessionUser, 'id' | 'role' | 'dept' | 'isDeputy'>;
 export interface RecordLike {
   authorId: number;
   dept: DeptSlug;
+  /** The optional second department («хамтран хариуцах хэлтэс»). */
+  coDept?: DeptSlug | null;
   status: RecordStatus;
   visibility: Visibility;
   /** Current approval step, when in review. */
@@ -48,7 +51,7 @@ export function canReadRecord(a: Actor, r: RecordLike): boolean {
   if (r.status === 'draft') return a.role === 'head' && a.dept === r.dept;
 
   if (r.visibility === 'dept') {
-    if (a.dept === r.dept || isBoard(a)) return true;
+    if (a.dept === r.dept || (!!r.coDept && a.dept === r.coDept) || isBoard(a)) return true;
     // Legal must see what it is asked to review.
     return r.step === 'legal' && isLegalHead(a);
   }
@@ -83,10 +86,12 @@ export function isLegalHead(a: Actor): boolean {
 }
 
 /** Strict: is this person the one the step is addressed to? (Used for auto-skipping on submit.) */
-export function isStepOwner(a: Actor, step: Step, recordDept: DeptSlug): boolean {
+export function isStepOwner(a: Actor, step: Step, recordDept: DeptSlug, coDept: DeptSlug | null = null): boolean {
   switch (step) {
     case 'head':
       return a.role === 'head' && a.dept === recordDept;
+    case 'cohead':
+      return a.role === 'head' && !!coDept && a.dept === coDept;
     case 'legal':
       return isLegalHead(a);
     case 'president':
@@ -94,15 +99,17 @@ export function isStepOwner(a: Actor, step: Step, recordDept: DeptSlug): boolean
   }
 }
 
-/** A step with no one to address it is skipped: the leadership "department" has no дарга. */
-export function stepApplies(step: Step, recordDept: DeptSlug): boolean {
-  return !(step === 'head' && recordDept === LEADERSHIP);
+/** A step with no one to address it is skipped: the leadership "department" has no дарга, and a document without a second department has no second дарга. */
+export function stepApplies(step: Step, recordDept: DeptSlug, coDept: DeptSlug | null = null): boolean {
+  if (step === 'head') return recordDept !== LEADERSHIP;
+  if (step === 'cohead') return !!coDept && coDept !== LEADERSHIP && coDept !== recordDept;
+  return true;
 }
 
 /** May act (approve / send back) on the current step. The President can stand in for any step. */
 export function canDecideStep(a: Actor, r: RecordLike): boolean {
   if (r.status !== 'in_review' || !r.step) return false;
-  return isStepOwner(a, r.step, r.dept) || isPresident(a);
+  return isStepOwner(a, r.step, r.dept, r.coDept ?? null) || isPresident(a);
 }
 
 // ------------------------------------------------------------------ events

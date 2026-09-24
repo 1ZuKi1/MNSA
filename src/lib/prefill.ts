@@ -5,6 +5,7 @@
 import { departments } from './db';
 import type { RecordType } from './record-types';
 import { deptLine, staffTeam } from './team';
+import { now, toDateInput } from './time';
 import type { DeptSlug, SessionUser } from './types';
 
 export async function prefill(type: RecordType, dept: DeptSlug, user: SessionUser): Promise<Record<string, string>> {
@@ -19,7 +20,9 @@ export async function prefill(type: RecordType, dept: DeptSlug, user: SessionUse
       const head = team.find((p) => p.dept === d.slug && p.role === 'head');
       lines.push(`${d.name_mn}: ${head?.name ?? ''}`);
     }
-    return { attendees: lines.join('\n'), secretary: user.name };
+    return { attendees: lines.join('\n'), secretary: user.name, meeting_date: toDateInput(now()) };
   }
+  // the request is usually written the day it is made
+  if (type.slug === 'choloolol') return { request_date: toDateInput(now()) };
   return {};
 }
