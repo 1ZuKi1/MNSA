@@ -321,10 +321,8 @@ table.t { width: 100%; border-collapse: collapse; font-size: 0.93rem; }
 .t .group-row th { background: var(--paper); font-size: 0.8rem; letter-spacing: 0.04em; color: var(--ink-2); text-transform: none; font-weight: 700; padding: 9px 14px; }
 a.row-link { color: var(--ink); font-weight: 600; text-decoration: none; }
 a.row-link:hover { color: var(--blue); text-decoration: underline; text-underline-offset: 0.18em; }
-/* the whole row is clickable through its main link, without nesting links */
-.t tr.clickable { position: relative; }
-.t tr.clickable a.row-link::after { content: ''; position: absolute; inset: 0; }
-.t tr.clickable td.actions, .t tr.clickable td.actions * { position: relative; z-index: 1; }
+/* the whole row opens its main link — by a click handler in layouts/Staff.astro, not a stretched link */
+.t tr.clickable { cursor: pointer; }
 .t .sub { display: block; font-size: 0.84rem; color: var(--ink-3); margin-top: 2px; }
 .m-only { display: none !important; }
 .thumb { display: block; width: 56px; height: 42px; object-fit: cover; border-radius: 6px; background: var(--sunk); }

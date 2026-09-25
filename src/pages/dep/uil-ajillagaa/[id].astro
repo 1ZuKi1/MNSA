@@ -97,7 +97,7 @@ const when = `${fmtDateTime(ev.starts_at)} – ${fmtDate(ev.ends_at) === fmtDate
     <Fragment slot="actions">
       {editor && <a class="btn" href={`${here}/zasah`}><Icon name="edit" /> Засах</a>}
       {editor && ev.status !== 'published' && ev.status !== 'cancelled' && (
-        <form method="post" data-confirm="Нийтийн сайтад гаргах уу? 5 минутын дотор бүх хүнд харагдана.">
+        <form method="post" data-confirm="Нийтийн сайтад гаргах уу? Тэр даруй бүх хүнд харагдана.">
           <button class="btn btn-ok" name="action" value="publish"><Icon name="globe" /> Нийтлэх</button>
         </form>
       )}

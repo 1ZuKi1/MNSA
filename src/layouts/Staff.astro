@@ -227,6 +227,44 @@ const roleText = user ? `${ROLE_LABEL[user.role]}${user.isDeputy ? ' · орло
           form.setAttribute('aria-busy', 'true');
           if (by) by.classList.add('is-busy');
           form.dataset.submitted = '1';
+
+          // POST forms go in the background, and the page that comes back REPLACES this one in the history.
+          // A normal submit adds a second copy of the same page (member page → save → member page again),
+          // so Back seemed to do nothing. getAttribute: many forms have an <input name="action">, which
+          // hides form.action.
+          var method = (form.getAttribute('method') || 'get').toLowerCase();
+          if (method !== 'post' || form.getAttribute('target') || !window.fetch || form.hasAttribute('data-native')) return;
+          e.preventDefault();
+          var body = new FormData(form);
+          if (by && by.name) body.append(by.name, by.value);
+          var url = new URL(form.getAttribute('action') || location.href, location.href).href;
+          fetch(url, { method: 'POST', body: body, credentials: 'same-origin' })
+            .then(function (res) {
+              if (res.redirected) { location.replace(res.url); return; }
+              // the same page again, e.g. with a form error: show it in place of this one
+              return res.text().then(function (html) {
+                history.replaceState(null, '', res.url);
+                document.open(); document.write(html); document.close();
+              });
+            })
+            .catch(function () {
+              delete form.dataset.busy; delete form.dataset.submitted; form.removeAttribute('aria-busy');
+              if (by) by.classList.remove('is-busy');
+              window.alert('Сүлжээний алдаа гарлаа. Интернэтээ шалгаад дахин оролдоно уу.');
+            });
+        });
+
+        // ---- table rows: a tap anywhere on a row opens it (not only on its title). Done here rather than
+        //      with a link stretched over the row, which some browsers (Safari) place over the wrong row.
+        document.addEventListener('click', function (e) {
+          var tr = e.target.closest && e.target.closest('tr.clickable');
+          if (!tr || e.defaultPrevented || e.button !== 0) return;
+          if (e.target.closest('a, button, input, select, textarea, label, summary, form')) return;
+          if (String(window.getSelection && window.getSelection())) return; // selecting text, not opening
+          var link = tr.querySelector('a.row-link');
+          if (!link) return;
+          if (e.ctrlKey || e.metaKey || e.shiftKey) window.open(link.href, '_blank', 'noopener');
+          else location.href = link.href;
         });
         // coming "back" to a page restores it from cache — make its forms usable again
         window.addEventListener('pageshow', function () {
