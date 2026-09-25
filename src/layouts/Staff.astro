@@ -134,6 +134,9 @@ const roleText = user ? `${ROLE_LABEL[user.role]}${user.isDeputy ? ' · орло
             </nav>
             {user && (
               <div class="side-foot">
+                <a class="side-link" href="/tuslamj" aria-current={active('/tuslamj') ? 'page' : undefined}>
+                  <Icon name="help" /> Тусламж
+                </a>
                 <a class="side-link" href={`${publicOrigin(Astro.url)}/`} target="_blank" rel="noopener">
                   <Icon name="globe" /> Нийтийн сайт <span class="sr-only">(шинэ цонхонд)</span>
                 </a>

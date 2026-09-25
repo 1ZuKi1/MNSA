@@ -342,4 +342,13 @@ has "…and it needs someone again" "$(get $J/gadaad.jar /ajil)" "Хүн хэр�
 has "only the хариуцагч steps down" "$(post $J/dotood.jar /ajil/1 -d action=release)" "err=denied"
 check "jobs never reach the public site" "$(curl -s -o /dev/null -w '%{http_code}' -H "$P" $B/ajil)" 404
 
+echo "── help (Тусламж)"
+hp=$(get $J/dotood2.jar /tuslamj)
+has "every page links to the help" "$(get $J/dotood2.jar /)" 'href="/tuslamj"'
+has "help explains how to write a document" "$hp" "Хадгалаад хянуулахаар илгээх"
+has "…lists every document type with who approves it" "$hp" "Хэлтсийн дарга → Эрх зүйн хэлтэс → Тэргүүн"
+has "…and what the reader may do, by role" "$hp" "Таны эрх — Гишүүн"
+has "…a дарга's list says they approve first" "$(get $J/dotood.jar /tuslamj)" "эхэлж хянаж батална"
+has "…and names who to contact" "$hp" "техникийн хариуцагч"
+
 echo; echo "RESULT: $pass passed, $fail failed"

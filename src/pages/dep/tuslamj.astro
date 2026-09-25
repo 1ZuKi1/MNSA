@@ -1,0 +1,238 @@
+---
+/**
+ * «Тусламж» — how the workspace works, for the team. Written for someone opening it for the first time on
+ * a phone. The document list and who approves each is read from record-types.ts, so it can't go stale;
+ * the part about «Таны эрх» follows the reader's own role.
+ */
+export const prerender = false;
+import Staff from '../../layouts/Staff.astro';
+import PageHead from '../../components/PageHead.astro';
+import Icon from '../../components/Icon.astro';
+import { many } from '../../lib/db';
+import * as P from '../../lib/permissions';
+import { RECORD_TYPE_LIST, TYPE_GROUPS } from '../../lib/record-types';
+import { isTestMode } from '../../lib/site';
+import { STEP_LABEL, ROLE_LABEL } from '../../lib/types';
+
+const user = Astro.locals.user!;
+const test = isTestMode(Astro.url);
+const onWorkersDev = Astro.url.hostname.endsWith('.workers.dev');
+const contacts = await many<{ name_mn: string; role: string; email: string }>(
+  `SELECT name_mn, role, email FROM users WHERE status = 'active' AND role IN ('president','maintainer') ORDER BY role DESC`,
+);
+const president = contacts.find((c) => c.role === 'president');
+const maintainer = contacts.find((c) => c.role === 'maintainer');
+
+// What this reader can do, in one short list.
+const can: string[] = [];
+if (user.role === 'maintainer') {
+  can.push('Бүх ажилтанд нээлттэй баримт, арга хэмжээ, «Бүх гишүүд» гэсэн ажлыг уншина.', 'Гишүүдийн зургийг оруулна.', 'Үйлдлийн бүртгэлийг харна.', 'Баримт үүсгэх, батлах, ажил авах эрхгүй.');
+} else {
+  if (user.role === 'president') can.push('Бүх хэлтэст баримт үүсгэж, аль ч шатанд шийдвэр гаргана. Батлагдсан баримтыг хүчингүй болгох эрх зөвхөн танд бий.');
+  else if (user.role === 'board') can.push('Бүх хэлтэст баримт үүсгэнэ. Бүх баримт, ажлыг уншина.');
+  else can.push(`${user.role === 'head' ? 'Хэлтсийнхээ' : 'Өөрийн хэлтэст'} баримт үүсгэж, батлуулахаар илгээнэ.`);
+  if (user.role === 'head') can.push('Хэлтсийнхээ гишүүдийн илгээсэн баримтыг эхэлж хянаж батална.');
+  if (P.isLegalHead({ id: user.id, role: user.role, dept: user.dept, isDeputy: user.isDeputy })) can.push('Эрх зүйн хэлтсийн шатанд бүх хэлтсийн албан бичиг, мэдэгдэл, журмыг хянана.');
+  if (P.canEditEvents(user)) can.push('Арга хэмжээ үүсгэж, нийтийн сайтад нийтэлнэ, зураг оруулна.');
+  if (user.role === 'head' || user.role === 'president') can.push(user.role === 'president' ? 'Аль ч хэлтэст ажил нэмж, хариуцагч томилно.' : 'Хэлтсийнхээ ажлыг нэмж, хариуцагч томилно.');
+  can.push('Хүн хэрэгтэй ажил, арга хэмжээний ажлыг «Би хийнэ» дарж авна.');
+  if (P.canManageMembers(user)) can.push('Гишүүн урьж, эрх, хэлтсийг нь өөрчилнө.');
+  if (P.canSeeParticipation(user)) can.push('Бүх гишүүний оролцооны тайланг харна.');
+}
+
+const chainText = (chain: string[]) => ['Хэлтсийн дарга', ...chain.filter((s) => s !== 'head').map((s) => STEP_LABEL[s as keyof typeof STEP_LABEL])].join(' → ');
+const TOC = [
+  ['nevtreh', 'Нэвтрэх, гарах', 'user'],
+  ['tses', 'Цэс ба нүүр хуудас', 'home'],
+  ['barimt', 'Баримт бичиг үүсгэх', 'doc'],
+  ['batlah', 'Батлах, буцаах, хэвлэх', 'check'],
+  ['arga', 'Арга хэмжээ', 'calendar'],
+  ['ajil', 'Ажлууд', 'list'],
+  ['gishuun', 'Өөрийн мэдээлэл', 'users'],
+  ['anhaar', 'Анхаарах зүйлс', 'alert'],
+  ['holboo', 'Асуудал гарвал', 'mail'],
+] as const;
+---
+<Staff title="Тусламж">
+  <PageHead title="Тусламж" sub="Ажлын орчныг хэрхэн ашиглах тухай товч заавар. Эхний удаа ороход нэг удаа уншаад, дараа нь хэрэгтэй хэсгээ сөхөж хараарай." />
+
+  <nav class="help-toc" aria-label="Агуулга">
+    {TOC.map(([id, label, icon]) => <a href={`#${id}`}><Icon name={icon} /> {label}</a>)}
+  </nav>
+
+  <section class="panel help-me" aria-labelledby="me-h">
+    <div class="panel-head"><h2 id="me-h"><Icon name="shield" /> Таны эрх — {ROLE_LABEL[user.role]}{user.isDeputy ? ', орлогч' : ''}</h2></div>
+    <div class="panel-body">
+      <ul class="help-list">{can.map((c) => <li>{c}</li>)}</ul>
+    </div>
+  </section>
+
+  <div class="help">
+    <section class="panel help-sec" id="nevtreh" aria-labelledby="nevtreh-h">
+      <div class="panel-head"><h2 id="nevtreh-h"><Icon name="user" /> Нэвтрэх, гарах</h2></div>
+      <div class="panel-body">
+        <ol class="help-steps">
+          <li>Ажлын орчны хаяг: <b>{Astro.url.host}</b>. Утасныхаа нүүр дэлгэцэд нэмчихвэл дараа нь хайх шаардлагагүй.</li>
+          <li>Бүртгэлтэй и-мэйл хаягаа оруулна — ихэнх нь <b>оюутны дугаар@stu.pku.edu.cn</b>, цөөн хэдэн хүн хувийн и-мэйлтэй.</li>
+          <li>Тэр хаяг руу <b>6 оронтой код</b> очно. Код 10 минут хүчинтэй, нэг л удаа ашиглагдана. Нууц үг гэж байхгүй.</li>
+          {test && <li>Туршилтын хугацаанд код и-мэйлээр биш, дэлгэц дээр шууд гарна. Тиймээс <b>багийн нууц үгийг</b> бас асууна — үүнийг удирдлагаас биечлэн авна.</li>}
+          <li>Нэг удаа нэвтэрсэн төхөөрөмж дээр <b>30 хоног</b> нэвтэрсэн хэвээр байна.</li>
+          <li>Гарахдаа зүүн доод буланд нэрийнхээ хажууд байгаа <Icon name="logout" class="inline-ic" /> товчийг дарна. Утсан дээр «Цэс» дотор байгаа.</li>
+        </ol>
+        <p class="help-note"><Icon name="alert" /> Бусдын утас, компьютер, номын сангийн компьютер дээр нэвтэрсэн бол ажлаа дуусгаад заавал гараарай.</p>
+        {onWorkersDev && <p class="help-note"><Icon name="globe" /> Одоогоор сайт түр хаяг дээр ажиллаж байгаа тул Хятадаас VPN асаалттай орох хэрэгтэй. Холбооны өөрийн домэйн бэлэн болмогц энэ шаардлага арилна.</p>}
+      </div>
+    </section>
+
+    <section class="panel help-sec" id="tses" aria-labelledby="tses-h">
+      <div class="panel-head"><h2 id="tses-h"><Icon name="home" /> Цэс ба нүүр хуудас</h2></div>
+      <div class="panel-body">
+        <p><b>Нүүр</b> хуудас «надад одоо юу хийх вэ?» гэдэгт хариулна: таны шийдвэрийг хүлээж буй баримт, буцаагдсан баримт, таны хариуцсан ажил дээрээ, доор нь хүн хэрэгтэй ажил, удахгүй болох арга хэмжээ.</p>
+        <dl class="help-dl">
+          <div><dt><Icon name="doc" /> Баримт бичиг</dt><dd>Холбооны бүх албан бичиг, протокол, тайлан — нэг архив. Цэсний дугаар нь таны шийдвэрийг хүлээж буй баримтын тоо.</dd></div>
+          <div><dt><Icon name="calendar" /> Арга хэмжээ</dt><dd>Удахгүй болох, өнгөрсөн арга хэмжээ, тэдгээрийн ажил, зураг.</dd></div>
+          <div><dt><Icon name="list" /> Ажлууд</dt><dd>Арга хэмжээнээс гадуурх ажил: хэн хариуцаж, хаана явж буй нь.</dd></div>
+          <div><dt><Icon name="folder" /> Хэлтсүүд</dt><dd>Хэлтэс бүрийн бүрэлдэхүүн, баримт, нээлттэй ажил.</dd></div>
+          <div><dt><Icon name="users" /> Гишүүд</dt><dd>Ажлын орчны бүх хүн, хэлтсээр нь.</dd></div>
+          <div><dt><Icon name="chart" /> Оролцоо</dt><dd>Хэн ямар ажил хийснийг жилээр харуулна.</dd></div>
+        </dl>
+        <p class="help-tip">Жагсаалтын аль ч мөр дээр дарахад тэр зүйл нээгдэнэ. Буцахдаа утасныхаа эсвэл хөтчийнхөө «Буцах» товчийг дарна.</p>
+      </div>
+    </section>
+
+    <section class="panel help-sec" id="barimt" aria-labelledby="barimt-h">
+      <div class="panel-head"><h2 id="barimt-h"><Icon name="doc" /> Баримт бичиг үүсгэх</h2></div>
+      <div class="panel-body">
+        <ol class="help-steps">
+          <li><b>Баримт бичиг</b> → <b>«Шинэ баримт бичиг»</b> дарна (нүүр хуудсан дээр ч бий).</li>
+          <li>Баримтынхаа <b>төрлийг</b> сонгоно. Төрөл бүр өөрийн маягт, батлах дараалалтай (доорх хүснэгт).</li>
+          <li><b>Хэлтсээ</b> сонгоно. Хоёр хэлтэс хамтарч хийсэн бол <b>«Хамтран хариуцах хэлтэс»</b>-ийг сонгоно — тэр хэлтсийн дарга бас батална.</li>
+          <li>Гарчиг, талбаруудыг бөглөнө. «(заавал биш)» гэж бичээгүй талбар бүрийг бөглөнө; талбарын доорх саарал тайлбар юу бичихийг зааж өгнө.</li>
+          <li><b>«Хэн харах вэ?»</b> — ихэнх баримтад «Бүх ажилтан». Сахилгын асуудал, дуусаагүй төсөв гэх мэт эмзэг зүйлд «Зөвхөн манай хэлтэс ба удирдлага».</li>
+          <li>
+            Эцэст нь хоёр товчны нэгийг дарна:
+            <ul>
+              <li><b>«Хадгалах»</b> — ноорог болж хадгалагдана. Үүнийг зөвхөн та, хэлтсийн тань дарга, Тэргүүн харна. Дараа нь үргэлжлүүлэн бичиж болно.</li>
+              <li><b>«Хадгалаад хянуулахаар илгээх»</b> — батлах дараалалд орно. Энэ үед баримтын <b>дугаар</b> автоматаар олгогдоно.</li>
+            </ul>
+          </li>
+        </ol>
+        <p class="help-tip">
+          Дугаар ингэж уншигдана: <b class="num">МОХ-ДХ/2627/А/001</b> = Дотоод хэлтэс / 2026–2027 хичээлийн жил / Албан бичиг / тухайн жилийн 1 дэх нь.
+          Дугаарыг гараар бичих, солих шаардлагагүй.
+        </p>
+
+        <h3 class="help-h3">Төрөл бүрийг хэн батлах вэ</h3>
+        <div class="table-wrap cards-sm">
+          <table class="t">
+            <caption class="sr-only">Баримтын төрөл, батлах дараалал</caption>
+            <thead><tr><th scope="col">Төрөл</th><th scope="col">Үсэг</th><th scope="col">Батлах дараалал</th></tr></thead>
+            {TYPE_GROUPS.map((g) => (
+              <tbody>
+                <tr class="group-row"><th colspan="3" scope="rowgroup">{g.label}</th></tr>
+                {RECORD_TYPE_LIST.filter((t) => t.group === g.key).map((t) => (
+                  <tr>
+                    <td class="main-cell"><b>{t.label}</b><span class="sub m-only">{chainText(t.chain)}</span></td>
+                    <td class="side-cell"><span class="badge plain">{t.code}</span></td>
+                    <td class="hide-sm small">{chainText(t.chain)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            ))}
+          </table>
+        </div>
+        <p class="form-note" style="margin-top:10px">Баримтыг Хэлтсийн дарга эсвэл Тэргүүн өөрөө бичсэн бол тэдний шат автоматаар алгасагдана. Удирдлагын баримтад хэлтсийн даргын шат байхгүй.</p>
+      </div>
+    </section>
+
+    <section class="panel help-sec" id="batlah" aria-labelledby="batlah-h">
+      <div class="panel-head"><h2 id="batlah-h"><Icon name="check" /> Батлах, буцаах, хэвлэх</h2></div>
+      <div class="panel-body">
+        <h3 class="help-h3">Таны шийдвэр хүлээж байвал</h3>
+        <ol class="help-steps">
+          <li>Нүүр хуудсан дээрх <b>«Таны шийдвэр»</b> хэсэгт харагдана, цэсэнд шар тоо гарна.</li>
+          <li><b>«Шийдвэрлэх»</b> дарж баримтыг бүтнээр нь уншина.</li>
+          <li><b>«Батлах»</b> — дараагийн шат руу шилжинэ. <b>«Буцаах»</b> — юуг засахыг тайлбартаа заавал бичнэ.</li>
+        </ol>
+        <h3 class="help-h3">Таны баримт буцаагдвал</h3>
+        <p>Нүүр хуудсан дээр «Буцаагдсан» хэсэгт гарна. Тайлбарыг уншаад <b>«Засах»</b> дарж засна, дараа нь дахин <b>илгээнэ</b>. Дугаар нь хэвээр үлдэнэ.</p>
+        <h3 class="help-h3">Бусад</h3>
+        <ul class="help-list">
+          <li><b>Эргүүлэн татах</b> — хянагдаж байх үед ямар нэг зүйл нэмэх хэрэгтэй болбол баримтаа буцааж авч засна.</li>
+          <li><b>Батлагдсан баримтыг засах боломжгүй.</b> Алдаа гарсан бол Тэргүүн хүчингүй болгоод, шинээр бичнэ.</li>
+          <li><b>Хэвлэх / PDF</b> — баримтын хуудасны дээд буланд. Шинэ цонхонд холбооны албан маягтаар нээгдэнэ. Хэвлэх цонхонд <b>«PDF-ээр хадгалах» (Save as PDF)</b>-ыг сонговол файл болно.</li>
+          <li>Тэргүүний баталсан баримтад холбооны <b>тамга</b> гарын үсгийн мөрөн дээр автоматаар гарна.</li>
+          <li>Баримт бүрийн <b>«Түүх»</b>-д хэн хэзээ юу хийсэн нь хадгалагдана.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="panel help-sec" id="arga" aria-labelledby="arga-h">
+      <div class="panel-head"><h2 id="arga-h"><Icon name="calendar" /> Арга хэмжээ</h2></div>
+      <div class="panel-body">
+        <ul class="help-list">
+          <li>Арга хэмжээг <b>Тэргүүн</b> болон <b>Медиа хэлтэс</b> үүсгэнэ. Бусад хэлтэс эхлээд «Арга хэмжээний хүсэлт» баримт илгээнэ; хүсэлт батлагдсаны дараа Медиа хэлтэс тэр хүсэлтийн мэдээллээр арга хэмжээг шууд үүсгэнэ.</li>
+          <li>Шинэ арга хэмжээ <b>ноорог</b> байна. <b>«Нийтлэх»</b> дармагц нийтийн сайтад тэр даруй гарна.</li>
+          <li>Арга хэмжээ бүр <b>ажлуудтай</b>: танхим захиалах, зурагчин, бүртгэл хөтлөх гэх мэт. Хүн хэрэгтэй ажлыг <b>«Би хийнэ»</b> дарж авна; хийж дуусаад <b>«Дууссан»</b> дарна.</li>
+          <li>Ажил нэмэх, хүн хуваарилахыг Тэргүүн, Медиа хэлтэс, зохион байгуулж буй хэлтсийн дарга хийнэ.</li>
+          <li>Арга хэмжээ болж өнгөрсний дараа Медиа хэлтэс <b>зураг</b> оруулна — утасны зураг ч болно, автоматаар жижигрүүлнэ.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="panel help-sec" id="ajil" aria-labelledby="ajil-h">
+      <div class="panel-head"><h2 id="ajil-h"><Icon name="list" /> Ажлууд</h2></div>
+      <div class="panel-body">
+        <p>Арга хэмжээнд хамааралгүй ажил: төсөв гаргах, танхим захиалах, жагсаалт шинэчлэх гэх мэт. Нийтийн сайтад хэзээ ч гарахгүй.</p>
+        <ul class="help-list">
+          <li>Ажлыг <b>хэлтсийн дарга</b> (өөрийн хэлтэст) болон <b>Тэргүүн</b> нэмнэ, өөрчилнө, цуцална.</li>
+          <li>Ажил гурван шаттай: <span class="badge b-job-todo">Эхлээгүй</span> → <span class="badge b-job-doing">Хийгдэж байна</span> → <span class="badge b-job-done">Дууссан</span>.</li>
+          <li><b>Хариуцагч</b> — даргын томилсон хүн, эсвэл «Хүн хэрэгтэй» ажил дээр <b>«Би хийнэ»</b> дарж өөрөө авсан хүн. Шатыг хариуцагч өөрөө шилжүүлнэ.</li>
+          <li>Явцын тухай богино <b>тэмдэглэл</b> үлдээж болно («Танхимын эзэнтэй ярьсан, даваа гарагт хариу өгнө»). Бусад нь ажлын хуудаснаас хаана явааг харна.</li>
+          <li>Хийх боломжгүй болбол ажлын хуудсан дээр <b>«ажлаас гарах»</b>-ыг дарна — ажил дахин хүн хэрэгтэй болно.</li>
+          <li><b>«Зөвхөн манай хэлтэс»</b> гэсэн ажлыг тухайн хэлтэс, хариуцагч, удирдлага харна; <b>«Бүх гишүүд»</b> гэснийг бүгд харна.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="panel help-sec" id="gishuun" aria-labelledby="gishuun-h">
+      <div class="panel-head"><h2 id="gishuun-h"><Icon name="users" /> Өөрийн мэдээлэл</h2></div>
+      <div class="panel-body">
+        <p><b>Гишүүд</b> → өөрийн нэр дээр дарахад таны хуудас нээгдэнэ. Тэндээс:</p>
+        <ul class="help-list">
+          <li><b>Зураг</b> оруулна — нийтийн сайтын «Удирдлагын баг» хуудсанд нэрийн тань дээр гарна. Нүүр нь тод, мөрнөөс дээш авсан зураг хамгийн тохиромжтой.</li>
+          <li>Нийтийн сайтад харагдахыг хүсэхгүй бол <b>«Нийтийн хуудаснаас нуух»</b> дарна.</li>
+          <li><b>Үүргийн бичгээ</b> хэвлэнэ, <b>оролцоогоо</b> харна.</li>
+          <li>И-мэйл хаягаа солих шаардлагатай бол Тэргүүнд хэлнэ.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="panel help-sec help-warn" id="anhaar" aria-labelledby="anhaar-h">
+      <div class="panel-head"><h2 id="anhaar-h"><Icon name="alert" /> Анхаарах зүйлс</h2></div>
+      <div class="panel-body">
+        <ul class="help-list">
+          <li><b>Нэвтрэх кодоо, багийн нууц үгээ хэнд ч бүү өгөөрэй</b> — «туслаад өгье» гэсэн хүнд ч. Код авсан хүн таны нэрээр баримт батлах боломжтой болно.</li>
+          <li><b>Бүх үйлдэл бүртгэлд үлдэнэ.</b> Хэн хэзээ юу хийснийг хэн ч, Тэргүүн ч устгаж чадахгүй.</li>
+          <li><b>Ажлын орчны мэдээлэл дотоод мэдээлэл.</b> Үүргийн бичигт заасны дагуу баримт, хурлын тэмдэглэл, гишүүдийн мэдээллийг зөвшөөрөлгүйгээр гадагш дамжуулахгүй — дэлгэцийн зураг ч гэсэн.</li>
+          <li><b>Нийтийн сайтад гарах зүйл:</b> зөвхөн «Нийтлэх» дарсан арга хэмжээ, нийтэд харуулахыг зөвшөөрсөн гишүүдийн нэр, зураг. Баримт, ажил нийтийн сайтад хэзээ ч гарахгүй.</li>
+          <li>Эмзэг баримтад <b>«Зөвхөн манай хэлтэс ба удирдлага»</b>-г сонгоорой.</li>
+          <li><b>Батлагдсан баримтыг засах боломжгүй</b> — илгээхээсээ өмнө нэг дахин уншаарай.</li>
+          <li>Эрх жил бүрийн <b>9-р сарын 30-нд</b> дуусна. Дараагийн жил үргэлжлүүлэх хүний эрхийг Тэргүүн сунгана.</li>
+          <li>Хуудас гацах, товч ажиллахгүй бол хуудсаа дахин ачаалаад (refresh) оролдоорой. Маягт илгээх товчийг хоёр дарах шаардлагагүй — нэг удаа л илгээгдэнэ.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="panel help-sec" id="holboo" aria-labelledby="holboo-h">
+      <div class="panel-head"><h2 id="holboo-h"><Icon name="mail" /> Асуудал гарвал</h2></div>
+      <div class="panel-body">
+        <ul class="help-list">
+          {maintainer && <li>Сайт ажиллахгүй, алдаа гарсан, санал байвал: <b>{maintainer.name_mn}</b> (техникийн хариуцагч) — <a href={`mailto:${maintainer.email}`}>{maintainer.email}</a></li>}
+          {president && <li>Эрх, хэлтэс, и-мэйл солих, шинэ гишүүн нэмэх: <b>{president.name_mn}</b> (Тэргүүн)</li>}
+          <li>Алдаа мэдэгдэхдээ: аль хуудсан дээр, юу хийх гэж байхад, ямар мэдэгдэл гарсныг бичээд, боломжтой бол дэлгэцийн зураг хавсаргаарай.</li>
+        </ul>
+      </div>
+    </section>
+  </div>
+</Staff>
