@@ -303,16 +303,19 @@ has "member removes their photo" "$(post $J/dotood2.jar /gishuud -d action=photo
 check "…its bytes are gone" "$(curl -s -o /dev/null -w '%{http_code}' -H "$P" $B$PHOTO)" 404
 
 echo "── jobs (Ажлууд)"
-loc=$(post $J/dotood2.jar /ajil/shine -d dept=dotood -d owner=4 -d visibility=dept -d due=2026-10-20 --data-urlencode "title=Танхимын түрээсийн гэрээ" --data-urlencode "notes=Оюутны төвтэй ярих")
+has "a member can't add jobs" "$(post $J/dotood2.jar /ajil/shine -d dept=dotood -d visibility=dept --data-urlencode "title=x")" "err=denied"
+has "…nor can the board" "$(post $J/board.jar /ajil/shine -d dept=media -d visibility=dept --data-urlencode "title=x")" "err=denied"
+loc=$(post $J/dotood.jar /ajil/shine -d dept=dotood -d owner=4 -d visibility=dept -d due=2026-10-20 --data-urlencode "title=Танхимын түрээсийн гэрээ" --data-urlencode "notes=Оюутны төвтэй ярих")
 JID=$(echo "$loc" | grep -o 'ajil/[0-9]*' | grep -o '[0-9]*'); echo "  job #$JID ($loc)"
-has "a member adds a job to their department" "$loc" "ok=created"
+has "the дарга adds a job and appoints a member" "$loc" "ok=created"
+has "…the appointment is in its history" "$(get $J/dotood2.jar /ajil/$JID)" "хариуцагч томилсон"
 has "…it's on the board" "$(get $J/dotood2.jar /ajil)" "Танхимын түрээсийн гэрээ"
 has "…the department sees it" "$(get $J/dotood.jar /ajil)" "Танхимын түрээсийн гэрээ"
 has "…the board sees it" "$(get $J/board.jar /ajil)" "Танхимын түрээсийн гэрээ"
 hasnt "…another department doesn't" "$(get $J/gadaad.jar /ajil)" "Танхимын түрээсийн гэрээ"
 check "…not even by its address" "$(code $J/gadaad.jar /ajil/$JID)" 404
 has "…and it's on the хариуцагч's dashboard" "$(get $J/dotood2.jar /)" "Танхимын түрээсийн гэрээ"
-has "a member can't add jobs to another department" "$(curl -s -b $J/dotood2.jar -H "$S" -H "$O" -X POST -d "dept=media&visibility=dept" --data-urlencode "title=x" $B/ajil/shine)" "Хэлтэс сонгоно уу"
+has "a дарга can't add jobs to another department" "$(curl -s -b $J/dotood.jar -H "$S" -H "$O" -X POST -d "dept=media&visibility=dept" --data-urlencode "title=x" $B/ajil/shine)" "Хэлтэс сонгоно уу"
 has "the хариуцагч starts it, with a note" "$(post $J/dotood2.jar /ajil/$JID -d action=status -d status=doing --data-urlencode "note=Гэрээний төслийг авсан")" "ok=saved"
 pg=$(get $J/dotood.jar /ajil/$JID)
 has "…the дарга sees it in progress" "$pg" 'b-job-doing'
@@ -330,6 +333,13 @@ has "…it's in the done column" "$(get $J/dotood2.jar /ajil)" "b-job-done\|col-
 hasnt "…and off the dashboard" "$(get $J/dotood2.jar /)" "Танхимын түрээсийн гэрээ"
 has "the department page lists open jobs" "$(get $J/dotood.jar /heltes/dotood)" "Гишүүдийн жагсаалтыг шинэчлэх"
 has "the audit log records it" "$(get $J/president.jar '/burtgel?cat=job')" "Ажлыг дуусгасан"
+has "a job nobody is on is offered on the dashboard" "$(get $J/media2.jar /)" "Шинэ гишүүдэд танилцуулга бэлтгэх"
+has "…a member from another department takes it" "$(post $J/media2.jar /ajil/5 -d action=take)" "ok=taken"
+has "…then nobody else can" "$(post $J/gadaad.jar /ajil/5 -d action=take)" "err=denied"
+has "…it's in the history" "$(get $J/board.jar /ajil/5)" "ажлыг өөрөө авсан"
+has "…the хариуцагч can step down" "$(post $J/media2.jar /ajil/5 -d action=release)" "ok=dropped"
+has "…and it needs someone again" "$(get $J/gadaad.jar /ajil)" "Хүн хэрэгтэй"
+has "only the хариуцагч steps down" "$(post $J/dotood.jar /ajil/1 -d action=release)" "err=denied"
 check "jobs never reach the public site" "$(curl -s -o /dev/null -w '%{http_code}' -H "$P" $B/ajil)" 404
 
 echo; echo "RESULT: $pass passed, $fail failed"

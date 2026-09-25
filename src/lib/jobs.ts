@@ -84,16 +84,25 @@ export const myOpenJobs = (a: SessionUser) =>
 export interface JobUpdateRow {
   id: number;
   user_name: string;
+  kind: 'status' | 'note' | 'take' | 'release' | 'assign';
   status: JobStatus | null;
+  target_name: string | null;
   note: string | null;
   created_at: number;
 }
 export const jobUpdates = (jobId: number) =>
   many<JobUpdateRow>(
-    `SELECT u.id, us.name_mn AS user_name, u.status, u.note, u.created_at FROM job_updates u JOIN users us ON us.id = u.user_id
+    `SELECT u.id, us.name_mn AS user_name, u.kind, u.status, t.name_mn AS target_name, u.note, u.created_at
+       FROM job_updates u JOIN users us ON us.id = u.user_id LEFT JOIN users t ON t.id = u.target_id
       WHERE u.job_id = ? ORDER BY u.id`,
     jobId,
   );
+
+/** Open jobs with nobody on them that this person could take: the dashboard's «Хүн хэрэгтэй» list. */
+export async function takeableJobs(a: SessionUser) {
+  const rows = await many<JobRow>(`${SELECT} WHERE j.owner_id IS NULL AND j.status IN ('todo','doing') ORDER BY j.due_at IS NULL, j.due_at, j.id LIMIT 30`);
+  return rows.filter((j) => P.canTakeJob(a, asJobLike(j)));
+}
 
 /** People a job can be put on: everyone active in the workspace except the maintainer, department first. */
 export const assignablePeople = () =>
@@ -150,7 +159,12 @@ export async function createJob(a: SessionUser, input: JobInput, ip: string | nu
     t,
     t,
   ).first<{ id: number }>();
-  await auditStmt(a.id, 'job.create', 'job', row!.id, { title: input.title, dept: input.dept }, ip).run();
+  await db().batch([
+    auditStmt(a.id, 'job.create', 'job', row!.id, { title: input.title, dept: input.dept }, ip),
+    ...(input.ownerId !== null
+      ? [stmt(`INSERT INTO job_updates (job_id, user_id, kind, target_id, created_at) VALUES (?,?,'assign',?,?)`, row!.id, a.id, input.ownerId, t)]
+      : []),
+  ]);
   await notifyOwner(a, input.ownerId, row!.id, input.title);
   return row!.id;
 }
@@ -175,6 +189,9 @@ export async function editJob(a: SessionUser, j: JobRow, input: JobInput, ip: st
       j.id,
     ),
     auditStmt(a.id, 'job.edit', 'job', j.id, input.ownerId !== j.owner_id ? { owner: { from: j.owner_id, to: input.ownerId } } : null, ip),
+    ...(input.ownerId !== j.owner_id
+      ? [stmt(`INSERT INTO job_updates (job_id, user_id, kind, target_id, created_at) VALUES (?,?,'assign',?,?)`, j.id, a.id, input.ownerId, now())]
+      : []),
   ]);
   if (input.ownerId !== j.owner_id) await notifyOwner(a, input.ownerId, j.id, input.title);
 }
@@ -197,7 +214,30 @@ export async function updateJob(a: SessionUser, j: JobRow, status: JobStatus | n
       change,
       j.id,
     ),
-    stmt(`INSERT INTO job_updates (job_id, user_id, status, note, created_at) VALUES (?,?,?,?,?)`, j.id, a.id, change, note || null, t),
+    stmt(`INSERT INTO job_updates (job_id, user_id, kind, status, note, created_at) VALUES (?,?,?,?,?,?)`, j.id, a.id, change ? 'status' : 'note', change, note || null, t),
     auditStmt(a.id, change ? `job.${change}` : 'job.note', 'job', j.id, null, ip),
+  ]);
+}
+
+/** «Би хийнэ»: take a job nobody is on yet. Refused if someone got there first. */
+export async function takeJob(a: SessionUser, j: JobRow, ip: string | null) {
+  if (!P.canTakeJob(a, asJobLike(j)) || (j.status !== 'todo' && j.status !== 'doing')) throw new Denied();
+  const t = now();
+  const res = await stmt(`UPDATE jobs SET owner_id = ?, updated_at = ? WHERE id = ? AND owner_id IS NULL`, a.id, t, j.id).run();
+  if (!res.meta.changes) throw new Denied();
+  await db().batch([
+    stmt(`INSERT INTO job_updates (job_id, user_id, kind, target_id, created_at) VALUES (?,?,'take',?,?)`, j.id, a.id, a.id, t),
+    auditStmt(a.id, 'job.take', 'job', j.id, null, ip),
+  ]);
+}
+
+/** The хариуцагч steps down; the job is open for someone else to take or be appointed. */
+export async function releaseJob(a: SessionUser, j: JobRow, ip: string | null) {
+  if (j.owner_id !== a.id || j.status === 'done' || j.status === 'cancelled') throw new Denied();
+  const t = now();
+  await db().batch([
+    stmt(`UPDATE jobs SET owner_id = NULL, updated_at = ? WHERE id = ? AND owner_id = ?`, t, j.id, a.id),
+    stmt(`INSERT INTO job_updates (job_id, user_id, kind, created_at) VALUES (?,?,'release',?)`, j.id, a.id, t),
+    auditStmt(a.id, 'job.release', 'job', j.id, null, ip),
   ]);
 }

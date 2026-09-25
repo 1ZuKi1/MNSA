@@ -12,7 +12,7 @@ import { departments } from '../../../lib/db';
 import { readJobForm, type JobFormValues } from '../../../lib/forms';
 import { clientIp, int, safeNext, str, withFlash } from '../../../lib/http';
 import {
-  BadJob, JOB_STAGES, JOB_STATUS_LABEL, asJobLike, assignablePeople, editJob, getJob, jobUpdates, updateJob, type JobStatus,
+  BadJob, JOB_STAGES, JOB_STATUS_LABEL, asJobLike, assignablePeople, editJob, getJob, jobUpdates, releaseJob, takeJob, updateJob, type JobStatus,
 } from '../../../lib/jobs';
 import * as P from '../../../lib/permissions';
 import { Denied } from '../../../lib/records';
@@ -27,6 +27,8 @@ const here = `/ajil/${job.id}`;
 const like = asJobLike(job);
 const canEdit = P.canEditJob(user, like);
 const canUpdate = P.canUpdateJob(user, like);
+const canTake = P.canTakeJob(user, like) && (job.status === 'todo' || job.status === 'doing');
+const isOwner = job.owner_id === user.id;
 const allDepts = await departments();
 const editDepts = allDepts.filter((d) => d.slug === job.dept_slug || P.canCreateJobIn(user, d.slug as DeptSlug));
 
@@ -52,6 +54,14 @@ if (Astro.request.method === 'POST') {
       if (![...JOB_STAGES, 'cancelled'].includes(status)) return Astro.redirect(withFlash(back, 'invalid', 'err'));
       await updateJob(user, job, status, str(fd, 'note', 2000), ip);
       return Astro.redirect(withFlash(back, status === 'done' ? 'done' : 'saved'));
+    }
+    if (action === 'take') {
+      await takeJob(user, job, ip);
+      return Astro.redirect(withFlash(back, 'taken'));
+    }
+    if (action === 'release') {
+      await releaseJob(user, job, ip);
+      return Astro.redirect(withFlash(here, 'dropped'));
     }
     if (action === 'note') {
       const note = str(fd, 'note', 2000);
@@ -138,8 +148,23 @@ const editOpen = Object.keys(errors).length > 0;
                 <button class="btn btn-quiet" type="submit" name="action" value="note" data-require="note">Тэмдэглэл нэмэх</button>
               </div>
             </form>
-          ) : (
-            <p class="form-note" style="margin:0">Явцыг хариуцагч, ажлыг үүсгэсэн хүн, хэлтсийн дарга шинэчилнэ.</p>
+          ) : canTake ? null : (
+            <p class="form-note" style="margin:0">Явцыг хариуцагч, хэлтсийн дарга, Тэргүүн шинэчилнэ.</p>
+          )}
+          {canTake && (
+            <div class="take-box">
+              <p style="margin:0"><b>Энэ ажилд хариуцагч алга.</b> Хийх боломжтой бол өөрөө аваарай — хэлтсийн дарга бас томилж болно.</p>
+              <form method="post">
+                <input type="hidden" name="action" value="take" />
+                <button class="btn btn-blue" type="submit"><Icon name="hand" /> Би хийнэ</button>
+              </form>
+            </div>
+          )}
+          {isOwner && job.status !== 'done' && job.status !== 'cancelled' && (
+            <form method="post" class="release" data-confirm="Энэ ажлаас гарах уу? Ажил хариуцагчгүй болж, өөр хүн авах эсвэл дарга томилно.">
+              <input type="hidden" name="action" value="release" />
+              <button class="linkish" type="submit">Энэ ажлыг хийх боломжгүй болсон — ажлаас гарах</button>
+            </form>
           )}
         </div>
       </section>
@@ -149,8 +174,15 @@ const editOpen = Object.keys(errors).length > 0;
         <div class="panel-body">
           <ol class="timeline">
             {[...updates].reverse().map((u) => (
-              <li class={u.status ? `t-job-${u.status}` : 't-note'}>
-                <div><strong>{u.user_name}</strong>{u.status ? <> — «{JOB_STATUS_LABEL[u.status]}» болгосон</> : ' — тэмдэглэл'}</div>
+              <li class={u.kind === 'status' && u.status ? `t-job-${u.status}` : `t-${u.kind}`}>
+                <div>
+                  <strong>{u.user_name}</strong>
+                  {u.kind === 'status' && u.status && <> — «{JOB_STATUS_LABEL[u.status]}» болгосон</>}
+                  {u.kind === 'note' && ' — явцын тэмдэглэл'}
+                  {u.kind === 'take' && ' — ажлыг өөрөө авсан'}
+                  {u.kind === 'release' && ' — ажлаас гарсан'}
+                  {u.kind === 'assign' && (u.target_name ? <> — хариуцагч томилсон: <strong>{u.target_name}</strong></> : ' — хариуцагчгүй болгосон')}
+                </div>
                 <div class="when">{fmtDateTime(u.created_at)}</div>
                 {u.note && <blockquote>{u.note}</blockquote>}
               </li>
@@ -169,7 +201,7 @@ const editOpen = Object.keys(errors).length > 0;
         <div class="panel-head"><h2 id="facts-h">Мэдээлэл</h2></div>
         <div class="panel-body">
           <dl class="facts" style="grid-template-columns:1fr">
-            <div><Icon name="user" /><dt>Хариуцагч</dt><dd>{job.owner_name ?? 'Одоохондоо хэн ч биш'}{job.owner_id === user.id && <span class="muted"> (та)</span>}</dd></div>
+            <div><Icon name="user" /><dt>Хариуцагч</dt><dd>{job.owner_name ?? 'Хэн ч аваагүй'}{job.owner_id === user.id && <span class="muted"> (та)</span>}</dd></div>
             <div><Icon name="folder" /><dt>Хэлтэс</dt><dd><a href={`/heltes/${job.dept_slug}`}>{job.dept_name}</a></dd></div>
             <div>
               <Icon name="calendar" /><dt>Хугацаа</dt>

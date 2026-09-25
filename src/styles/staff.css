@@ -750,3 +750,7 @@ body.bare { background: var(--paper); min-height: 100vh; }
 .edit-panel[open] > summary { border-bottom: 1px solid var(--line); }
 .edit-panel .form { max-width: none; }
 @media (hover: hover) { .job-card:hover { border-color: var(--line-strong); box-shadow: var(--lift); } .job-card:hover .job-title { color: var(--blue); } }
+
+.take-box { display: flex; align-items: center; justify-content: space-between; gap: 12px 16px; flex-wrap: wrap; padding: 14px 16px; border-radius: 12px; background: var(--blue-tint); }
+.take-box form { margin: 0; }
+form.release { margin: 0; font-size: 0.86rem; }

@@ -195,11 +195,12 @@ describe('settings', () => {
 describe('jobs («Ажлууд»)', () => {
   const job = (over: Partial<P.JobLike> = {}): P.JobLike => ({ dept: 'dotood', ownerId: dotoodMember.id, createdBy: dotoodHead.id, visibility: 'dept', ...over });
 
-  it('anyone in a department adds its jobs; the leadership anywhere; the maintainer nowhere', () => {
-    expect(P.canCreateJobIn(dotoodMember, 'dotood')).toBe(true);
-    expect(P.canCreateJobIn(dotoodMember, 'media')).toBe(false);
-    expect(P.canCreateJobIn(board, 'media')).toBe(true);
+  it('only the department\'s дарга and the President add jobs', () => {
+    expect(P.canCreateJobIn(dotoodHead, 'dotood')).toBe(true);
+    expect(P.canCreateJobIn(dotoodHead, 'media')).toBe(false);
     expect(P.canCreateJobIn(president, 'gadaad')).toBe(true);
+    expect(P.canCreateJobIn(dotoodMember, 'dotood')).toBe(false);
+    expect(P.canCreateJobIn(board, 'media')).toBe(false);
     expect(P.canCreateJobIn(maintainer, 'dotood')).toBe(false);
   });
 
@@ -219,17 +220,26 @@ describe('jobs («Ажлууд»)', () => {
     expect(P.canReadJob(maintainer, job({ visibility: 'staff' }))).toBe(true);
   });
 
-  it('the хариуцагч moves the job along but does not change what it is', () => {
-    expect(P.canUpdateJob(dotoodMember, job())).toBe(true);
+  it('only the дарга and the President change a job; not the board, not another дарга', () => {
+    expect(P.canEditJob(dotoodHead, job())).toBe(true);
+    expect(P.canEditJob(president, job())).toBe(true);
+    expect(P.canEditJob(board, job())).toBe(false);
+    expect(P.canEditJob(gadaadHead, job({ visibility: 'staff' }))).toBe(false);
     expect(P.canEditJob(dotoodMember, job())).toBe(false);
   });
 
-  it("the creator, the department's дарга and the leadership change it; another дарга does not", () => {
-    expect(P.canEditJob(dotoodHead, job({ createdBy: dotoodMember2.id }))).toBe(true);
-    expect(P.canEditJob(dotoodMember2, job({ createdBy: dotoodMember2.id }))).toBe(true);
-    expect(P.canEditJob(president, job())).toBe(true);
-    expect(P.canEditJob(gadaadHead, job({ visibility: 'staff' }))).toBe(false);
+  it('the хариуцагч moves the job along; others do not', () => {
+    expect(P.canUpdateJob(dotoodMember, job())).toBe(true);
+    expect(P.canUpdateJob(dotoodMember2, job())).toBe(false);
     expect(P.canUpdateJob(gadaadHead, job({ visibility: 'staff' }))).toBe(false);
-    expect(P.canUpdateJob(maintainer, job({ visibility: 'staff' }))).toBe(false);
+    expect(P.canUpdateJob(maintainer, job({ visibility: 'staff', ownerId: maintainer.id }))).toBe(false);
+  });
+
+  it('a job with nobody on it can be taken by anyone who sees it', () => {
+    expect(P.canTakeJob(dotoodMember2, job({ ownerId: null }))).toBe(true);
+    expect(P.canTakeJob(mediaMember, job({ ownerId: null }))).toBe(false);
+    expect(P.canTakeJob(mediaMember, job({ ownerId: null, visibility: 'staff' }))).toBe(true);
+    expect(P.canTakeJob(dotoodMember2, job())).toBe(false);
+    expect(P.canTakeJob(maintainer, job({ ownerId: null, visibility: 'staff' }))).toBe(false);
   });
 });

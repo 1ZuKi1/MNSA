@@ -72,6 +72,7 @@ const dueText = (j: JobRow) => {
                 const due = dueText(j);
                 const next = NEXT[j.status];
                 const canMove = next && P.canUpdateJob(user, asJobLike(j));
+                const canTake = (j.status === 'todo' || j.status === 'doing') && P.canTakeJob(user, asJobLike(j));
                 return (
                   <li class="job-card">
                     <a class="job-title" href={`/ajil/${j.id}`}>{j.title}</a>
@@ -85,9 +86,16 @@ const dueText = (j: JobRow) => {
                       {j.owner_name ? (
                         <span class="who"><span class="avatar sm" aria-hidden="true">{initials(j.owner_name)}</span>{j.owner_name}{j.owner_id === user.id && <span class="muted"> (та)</span>}</span>
                       ) : (
-                        <span class="muted">Хариуцагчгүй</span>
+                        <span class="tag warnc">Хүн хэрэгтэй</span>
                       )}
-                      {canMove && (
+                      {canTake && (
+                        <form method="post" action={`/ajil/${j.id}`}>
+                          <input type="hidden" name="action" value="take" />
+                          <input type="hidden" name="back" value={here} />
+                          <button class="btn btn-sm btn-blue" type="submit">Би хийнэ</button>
+                        </form>
+                      )}
+                      {canMove && !canTake && (
                         <form method="post" action={`/ajil/${j.id}`}>
                           <input type="hidden" name="action" value="status" />
                           <input type="hidden" name="status" value={next!.to} />

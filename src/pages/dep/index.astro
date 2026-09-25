@@ -9,7 +9,7 @@ import Staff from '../../layouts/Staff.astro';
 import PageHead from '../../components/PageHead.astro';
 import Icon from '../../components/Icon.astro';
 import { taskBoardFor, staffEvents } from '../../lib/events';
-import { JOB_STATUS_LABEL, myOpenJobs } from '../../lib/jobs';
+import { JOB_STATUS_LABEL, myOpenJobs, takeableJobs } from '../../lib/jobs';
 import { openInvites, renewalCandidates } from '../../lib/members';
 import { canCreateRecordIn, canEditEvents, canManageMembers, canTakeTask } from '../../lib/permissions';
 import { getRecordType } from '../../lib/record-types';
@@ -20,7 +20,7 @@ import { departments } from '../../lib/db';
 
 const user = Astro.locals.user!;
 const manager = canManageMembers(user);
-const [waiting, drafts, board, events, renewals, invites, depts, jobs] = await Promise.all([
+const [waiting, drafts, board, events, renewals, invites, depts, jobs, freeJobs] = await Promise.all([
   awaitingMe(user),
   myDrafts(user),
   taskBoardFor(user),
@@ -29,6 +29,7 @@ const [waiting, drafts, board, events, renewals, invites, depts, jobs] = await P
   manager ? openInvites() : Promise.resolve([]),
   departments(),
   myOpenJobs(user),
+  canTakeTask(user) ? takeableJobs(user) : Promise.resolve([]),
 ]);
 const returned = drafts.filter((r) => r.status === 'rejected');
 const plainDrafts = drafts.filter((r) => r.status === 'draft');
@@ -73,7 +74,7 @@ const due = (ts: number | null) => (ts === null ? null : dayDiff(ts, t));
     </a>
     {canTakeTask(user) && (
       <a class="stat" href="#open-tasks">
-        <span><b>{board.open.length}</b><span>хүн хэрэгтэй ажил</span></span>
+        <span><b>{board.open.length + freeJobs.length}</b><span>хүн хэрэгтэй ажил</span></span>
       </a>
     )}
   </div>
@@ -210,13 +211,30 @@ const due = (ts: number | null) => (ts === null ? null : dayDiff(ts, t));
         <section class="panel" id="open-tasks" aria-labelledby="open-h">
           <div class="panel-head">
             <h2 id="open-h"><Icon name="hand" /> Хүн хэрэгтэй ажлууд</h2>
-            <a class="more" href="/uil-ajillagaa">Бүх арга хэмжээ →</a>
+            <a class="more" href="/ajil">Бүх ажил →</a>
           </div>
           <div class="panel-body">
-            {board.open.length === 0 ? (
+            {board.open.length + freeJobs.length === 0 ? (
               <div class="empty good"><Icon name="check" /><p>Бүх ажилд хариуцагч бий.</p></div>
             ) : (
               <ul class="items">
+                {freeJobs.map((j) => (
+                  <li class="item">
+                    <span class="ic"><Icon name="list" /></span>
+                    <a class="item-title" href={`/ajil/${j.id}`}>{j.title}</a>
+                    <span class="item-meta">
+                      <span>{j.dept_name}</span>
+                      {j.due_at && <span>хугацаа {relDay(j.due_at)}</span>}
+                    </span>
+                    <span class="item-act">
+                      <form method="post" action={`/ajil/${j.id}`}>
+                        <input type="hidden" name="action" value="take" />
+                        <input type="hidden" name="back" value="/" />
+                        <button class="btn btn-sm btn-blue">Би хийнэ</button>
+                      </form>
+                    </span>
+                  </li>
+                ))}
                 {board.open.map((k) => (
                   <li class="item">
                     <span class="ic"><Icon name="hand" /></span>

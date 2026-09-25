@@ -57,14 +57,14 @@ const groups = [...new Set(people.map((p) => p.dept_name ?? 'Хэлтэсгүй'
       <div class="field">
         <label for="owner">Хариуцагч</label>
         <select id="owner" name="owner" aria-describedby="owner-hint" aria-invalid={errors.owner ? 'true' : undefined}>
-          <option value="">— Одоохондоо хэн ч биш —</option>
+          <option value="">— Томилохгүй, хүссэн хүн нь авна —</option>
           {groups.map(({ g, rows }) => (
             <optgroup label={g}>
               {rows.map((p) => <option value={String(p.id)} selected={String(p.id) === v.owner}>{p.name_mn}</option>)}
             </optgroup>
           ))}
         </select>
-        <span class="hint" id="owner-hint">Ажлын явцыг тэр хүн шинэчилнэ. Томилогдсон хүнд и-мэйл очно.</span>
+        <span class="hint" id="owner-hint">Томилсон хүнд и-мэйл очно. Томилохгүй бол харж буй гишүүд «Би хийнэ» дарж өөрсдөө авна.</span>
         {errors.owner && <span class="error" id="owner-err"><Icon name="alert" /> {errors.owner}</span>}
       </div>
     </div>
