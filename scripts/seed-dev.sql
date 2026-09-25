@@ -48,3 +48,14 @@ INSERT INTO task_assignments (task_id,user_id,volunteered,assigned_by,status,ass
   (6,8,1,8,'done',1789012800,1789300800),
   (7,1,1,1,'done',1789012800,1789214400),
   (6,7,0,7,'dropped',1789007400,1789012800);
+
+-- «Ажлууд»: work outside events
+INSERT INTO jobs (id,title,notes,department_id,owner_id,status,visibility,due_at,created_by,created_at,updated_at,done_at) VALUES
+  (1,'Гишүүдийн жагсаалтыг шинэчлэх','Хэлтэс бүрээс шинэ гишүүдийн нэр, оюутны дугаарыг цуглуулна.',2,4,'doing','dept',1790899200,3,1789900000,1790150000,NULL),
+  (2,'10-р сарын төсвийн төлөвлөгөө','',1,2,'todo','staff',1791331200,1,1790000000,1790000000,NULL),
+  (3,'Instagram-ийн 10-р сарын нийтлэлийн хуваарь','',5,8,'done','staff',NULL,7,1789800000,1790222400,1790222400),
+  (4,'Хурлын дэгийн журмын төслийг хянах','',6,9,'todo','dept',NULL,9,1790100000,1790100000,NULL);
+INSERT INTO job_updates (job_id,user_id,status,note,created_at) VALUES
+  (1,4,'doing','Дотоод хэлтсийн жагсаалт бэлэн, бусад хэлтсийнхийг хүлээж байна.',1790150000),
+  (3,8,'doing',NULL,1790000000),
+  (3,8,'done','Хуваарийг Медиа хэлтсийн группэд илгээсэн.',1790222400);

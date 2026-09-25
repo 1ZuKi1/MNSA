@@ -11,7 +11,7 @@ import { fmtDateTime } from '../../lib/time';
 const user = Astro.locals.user!;
 if (!canSeeAudit(user)) return new Response(null, { status: 404 });
 
-const CATS = { '': 'Бүгд', record: 'Баримт', event: 'Арга хэмжээ', task: 'Ажил', member: 'Гишүүд', invite: 'Урилга', login: 'Нэвтрэлт' } as const;
+const CATS = { '': 'Бүгд', record: 'Баримт', event: 'Арга хэмжээ', task: 'Арга хэмжээний ажил', job: 'Ажлууд', member: 'Гишүүд', invite: 'Урилга', login: 'Нэвтрэлт' } as const;
 const askedCat = Astro.url.searchParams.get('cat') ?? '';
 const cat = (askedCat in CATS ? askedCat : '') as keyof typeof CATS;
 const rows = await many<{ id: number; action: string; entity_type: string | null; entity_id: string | null; detail: string | null; ip: string | null; created_at: number; actor: string | null }>(
@@ -33,11 +33,12 @@ const LABEL: Record<string, string> = {
   'invite.create': 'Урилга үүсгэсэн', 'invite.claim': 'Урилгаар бүртгүүлсэн', 'invite.revoke': 'Урилга цуцалсан',
   'member.change': 'Эрх өөрчилсөн', 'member.remove': 'Гишүүн хассан', 'member.deputy': 'Орлогч томилсон',
   'member.email': 'И-мэйл сольсон', 'member.public.show': 'Нийтийн хуудсанд харуулсан', 'member.public.hide': 'Нийтийн хуудаснаас нуусан', 'member.renew': 'Эрх сунгасан', 'member.archive-lapsed': 'Хугацаа дууссаныг идэвхгүй болгосон',
+  'job.create': 'Ажил нэмсэн', 'job.edit': 'Ажил зассан', 'job.todo': 'Ажлыг «Эхлээгүй» болгосон', 'job.doing': 'Ажлыг эхлүүлсэн', 'job.done': 'Ажлыг дуусгасан', 'job.cancelled': 'Ажил цуцалсан', 'job.note': 'Ажлын явц бичсэн',
   'member.import': 'Жагсаалтаас оруулсан', 'member.photo': 'Зураг сольсон', 'member.photo.remove': 'Зураг устгасан', 'settings.stamp': 'Тамга сольсон', 'settings.stamp.remove': 'Тамга устгасан',
 };
 const href = (t: string | null, id: string | null) =>
-  !id ? null : t === 'record' ? `/barimt/${id}` : t === 'event' ? `/uil-ajillagaa/${id}` : t === 'user' && P.canManageMembers(user) ? `/gishuud/${id}` : null;
-const ENTITY: Record<string, string> = { record: 'Баримт', event: 'Арга хэмжээ', task: 'Ажил', user: 'Гишүүн', invite: 'Урилга', media: 'Зураг' };
+  !id ? null : t === 'record' ? `/barimt/${id}` : t === 'event' ? `/uil-ajillagaa/${id}` : t === 'job' ? `/ajil/${id}` : t === 'user' && P.canManageMembers(user) ? `/gishuud/${id}` : null;
+const ENTITY: Record<string, string> = { record: 'Баримт', event: 'Арга хэмжээ', task: 'Ажил', job: 'Ажил', user: 'Гишүүн', invite: 'Урилга', media: 'Зураг' };
 ---
 <Staff title="Үйлдлийн бүртгэл">
   <PageHead title="Үйлдлийн бүртгэл" sub="Сүүлийн 300 үйлдэл. Энэ бүртгэлийг ажлын орчноос хэн ч, тэр дундаа Тэргүүн ч засах, устгах боломжгүй." />

@@ -137,6 +137,42 @@ export function canSeeParticipation(a: Actor, ofUserId?: number): boolean {
   return isPresident(a) || isBoard(a);
 }
 
+// ------------------------------------------------------------------ jobs («Ажлууд», not tied to an event)
+
+export type JobVisibility = 'dept' | 'staff';
+export interface JobLike {
+  dept: DeptSlug;
+  ownerId: number | null;
+  createdBy: number;
+  visibility: JobVisibility;
+}
+
+/** Anyone who works in a department may add its jobs; the President and the board add them anywhere. */
+export function canCreateJobIn(a: Actor, dept: DeptSlug): boolean {
+  if (!governs(a)) return false;
+  return isPresident(a) || isBoard(a) || a.dept === dept;
+}
+
+/** 'staff' jobs are open to everyone; a department's own jobs to that department, the leadership, and the people on it. */
+export function canReadJob(a: Actor, j: JobLike): boolean {
+  if (j.visibility === 'staff') return true;
+  if (isPresident(a) || isBoard(a)) return true;
+  return a.dept === j.dept || a.id === j.ownerId || a.id === j.createdBy;
+}
+
+/** Title, notes, who, when, who sees it, cancelling: whoever set it up, that department's дарга, the leadership. */
+export function canEditJob(a: Actor, j: JobLike): boolean {
+  if (!governs(a)) return false;
+  if (isPresident(a) || isBoard(a)) return true;
+  if (a.id === j.createdBy) return true;
+  return a.role === 'head' && a.dept === j.dept;
+}
+
+/** Moving a job between stages and writing progress notes: the accountable person too. */
+export function canUpdateJob(a: Actor, j: JobLike): boolean {
+  return (governs(a) && a.id === j.ownerId) || canEditJob(a, j);
+}
+
 // ------------------------------------------------------------------ members
 
 export function canManageMembers(a: Actor): boolean {

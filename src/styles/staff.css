@@ -707,3 +707,46 @@ body.bare { background: var(--paper); min-height: 100vh; }
   .side, .topbar, .skip, .foot, .page-actions, .form-actions, .flash { display: none !important; }
   .app { display: block; }
 }
+
+/* ---------- jobs («Ажлууд»): a three-column board, one card per job ---------- */
+.b-job-todo { background: var(--sunk); color: var(--ink-2); }
+.b-job-doing { background: var(--blue-tint); color: var(--blue-deep); }
+.b-job-done { background: var(--ok-tint); color: var(--ok); }
+.b-job-cancelled { background: var(--bad-tint); color: var(--bad); }
+.timeline li.t-job-doing::before { background: var(--blue); }
+.timeline li.t-job-done::before { background: var(--ok); }
+.timeline li.t-job-cancelled::before { background: var(--bad); }
+.jobs-board { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); align-items: start; }
+@media (min-width: 900px) { .jobs-board { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.job-col { background: var(--sunk); border-radius: var(--radius-lg); padding: 12px; }
+.job-col h2 { margin: 2px 4px 12px; font-size: 0.95rem; display: flex; align-items: center; gap: 8px; }
+.job-col h2::before { content: ''; width: 10px; height: 10px; border-radius: 50%; background: var(--line-strong); flex: none; }
+.job-col.col-doing h2::before { background: var(--blue); }
+.job-col.col-done h2::before { background: var(--ok); }
+.job-col h2 small { font-weight: 500; color: var(--ink-3); font-size: 0.8rem; }
+.job-col h2 .n { margin-left: auto; font-size: 0.8rem; font-weight: 700; color: var(--ink-3); }
+.job-empty { margin: 0 4px 6px; font-size: 0.88rem; color: var(--ink-3); }
+.job-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.job-card {
+  position: relative; display: grid; gap: 7px; padding: 13px 14px; background: var(--surface);
+  border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow);
+}
+.col-done .job-card { background: #fbfdfb; }
+.job-title { font-weight: 650; color: var(--ink); text-decoration: none; overflow-wrap: anywhere; }
+/* the whole card opens the job; a card is a plain block, so a stretched link lands where it should */
+.job-title::after { content: ''; position: absolute; inset: 0; border-radius: 12px; }
+.job-card form, .job-card button { position: relative; z-index: 1; margin: 0; }
+.job-meta { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 0.82rem; color: var(--ink-3); }
+.job-meta .tag .icon { width: 13px; height: 13px; }
+.job-note {
+  margin: 0; font-size: 0.86rem; color: var(--ink-2); background: var(--sunk); border-radius: 8px; padding: 6px 9px;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.job-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: 0.86rem; }
+.job-foot .who { display: inline-flex; align-items: center; gap: 7px; font-weight: 600; }
+.edit-panel > summary { cursor: pointer; list-style: none; padding-bottom: 16px; }
+.edit-panel > summary::-webkit-details-marker { display: none; }
+.edit-panel > summary h2::after { content: '▾'; font-size: 0.9rem; color: var(--ink-3); margin-left: 4px; }
+.edit-panel[open] > summary { border-bottom: 1px solid var(--line); }
+.edit-panel .form { max-width: none; }
+@media (hover: hover) { .job-card:hover { border-color: var(--line-strong); box-shadow: var(--lift); } .job-card:hover .job-title { color: var(--blue); } }

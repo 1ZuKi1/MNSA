@@ -1,0 +1,47 @@
+---
+export const prerender = false;
+import Staff from '../../../layouts/Staff.astro';
+import PageHead from '../../../components/PageHead.astro';
+import JobForm from '../../../components/JobForm.astro';
+import { departments } from '../../../lib/db';
+import { readJobForm, type JobFormValues } from '../../../lib/forms';
+import { clientIp, withFlash } from '../../../lib/http';
+import { BadJob, assignablePeople, createJob } from '../../../lib/jobs';
+import * as P from '../../../lib/permissions';
+import type { DeptSlug } from '../../../lib/types';
+
+const user = Astro.locals.user!;
+const depts = (await departments()).filter((d) => P.canCreateJobIn(user, d.slug as DeptSlug));
+if (depts.length === 0) return Astro.redirect(withFlash('/ajil', 'denied', 'err'));
+const people = await assignablePeople();
+
+// Start in the person's own department, with themselves as хариуцагч unless they lead (then they usually assign).
+const asked = Astro.url.searchParams.get('dept');
+let values: JobFormValues = {
+  title: '',
+  notes: '',
+  dept: depts.find((d) => d.slug === asked)?.slug ?? depts.find((d) => d.slug === user.dept)?.slug ?? depts[0].slug,
+  owner: user.role === 'member' ? String(user.id) : '',
+  due: '',
+  visibility: 'dept',
+};
+let errors: Record<string, string> = {};
+
+if (Astro.request.method === 'POST') {
+  const form = readJobForm(await Astro.request.formData(), depts.map((d) => d.slug));
+  ({ values, errors } = form);
+  if (form.ok) {
+    try {
+      const id = await createJob(user, form.input!, clientIp(Astro.request));
+      return Astro.redirect(withFlash(`/ajil/${id}`, 'created'));
+    } catch (e) {
+      if (!(e instanceof BadJob)) throw e;
+      errors = { owner: 'Жагсаалтаас сонгоно уу.' };
+    }
+  }
+}
+---
+<Staff title="Шинэ ажил">
+  <PageHead title="Шинэ ажил" sub="Арга хэмжээнд хамааралгүй ажил: төсөв гаргах, танхим захиалах, бүртгэл шинэчлэх гэх мэт." crumbs={[{ href: '/ajil', label: 'Ажлууд' }]} />
+  <JobForm values={values} errors={errors} depts={depts} people={people} submitLabel="Ажил нэмэх" cancelHref="/ajil" />
+</Staff>

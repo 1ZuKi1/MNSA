@@ -107,3 +107,47 @@ export function readEventForm(fd: FormData, validDepts: string[]) {
     },
   };
 }
+
+// ------------------------------------------------------------------ jobs («Ажлууд»)
+
+export interface JobFormValues {
+  title: string;
+  notes: string;
+  dept: string;
+  owner: string;
+  due: string;
+  visibility: 'dept' | 'staff';
+}
+
+/** Reads the job form. The due date is optional and counts to the end of that day. */
+export function readJobForm(fd: FormData, allowedDepts: string[]) {
+  const values: JobFormValues = {
+    title: str(fd, 'title', 200),
+    notes: str(fd, 'notes', 4000),
+    dept: str(fd, 'dept', 40),
+    owner: str(fd, 'owner', 12),
+    due: str(fd, 'due', 10),
+    visibility: str(fd, 'visibility', 10) === 'staff' ? 'staff' : 'dept',
+  };
+  const errors: Record<string, string> = {};
+  if (!values.title) errors.title = 'Заавал бөглөнө.';
+  if (!allowedDepts.includes(values.dept)) errors.dept = 'Хэлтэс сонгоно уу.';
+  if (values.owner && !/^\d+$/.test(values.owner)) errors.owner = 'Жагсаалтаас сонгоно уу.';
+  if (values.due && !/^\d{4}-\d{2}-\d{2}$/.test(values.due)) errors.due = 'Огноог зөв оруулна уу.';
+  const ok = Object.keys(errors).length === 0;
+  return {
+    ok,
+    values,
+    errors,
+    input: ok
+      ? {
+          title: values.title,
+          notes: values.notes,
+          dept: values.dept as DeptSlug,
+          ownerId: values.owner ? Number(values.owner) : null,
+          dueAt: values.due ? fromLocal(values.due, '23:59') : null,
+          visibility: values.visibility,
+        }
+      : null,
+  };
+}

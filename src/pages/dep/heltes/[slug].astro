@@ -6,7 +6,8 @@ import Icon from '../../../components/Icon.astro';
 import { deptTint, initials } from '../../../lib/team';
 import { deptBySlug, many } from '../../../lib/db';
 import { membersOfDept } from '../../../lib/members';
-import { canCreateRecordIn } from '../../../lib/permissions';
+import { canCreateJobIn, canCreateRecordIn } from '../../../lib/permissions';
+import { JOB_STATUS_LABEL, visibleJobs } from '../../../lib/jobs';
 import { getRecordType } from '../../../lib/record-types';
 import { listRecords } from '../../../lib/records';
 import { academicYear, dateKey, fmtDate, now, relDay } from '../../../lib/time';
@@ -19,7 +20,7 @@ const cur = academicYear();
 const years = [cur, `${Number(cur.slice(0, 4)) - 1}-${cur.slice(0, 4)}`];
 const asked = Astro.url.searchParams.get('year') ?? '';
 const year = years.includes(asked) ? asked : cur;
-const [members, records, events] = await Promise.all([
+const [members, records, events, allJobs] = await Promise.all([
   membersOfDept(dept.id),
   listRecords(user, { dept: dept.slug, year, limit: 200 }),
   many<{ id: number; title: string; starts_at: number; status: string }>(
@@ -27,7 +28,10 @@ const [members, records, events] = await Promise.all([
     dept.id,
     now(),
   ),
+  visibleJobs(user, { dept: dept.slug as DeptSlug }),
 ]);
+const jobs = allJobs.filter((j) => j.status === 'todo' || j.status === 'doing');
+const canAddJob = canCreateJobIn(user, dept.slug as DeptSlug);
 const mine = user.dept === dept.slug;
 const canWrite = canCreateRecordIn(user, dept.slug as DeptSlug);
 ---
@@ -92,6 +96,27 @@ const canWrite = canCreateRecordIn(user, dept.slug as DeptSlug);
           )}
         </div>
       </section>
+      {(jobs.length > 0 || canAddJob) && (
+        <section class="panel" aria-labelledby="jobs-h">
+          <div class="panel-head">
+            <h2 id="jobs-h"><Icon name="list" /> Хийгдэж буй ажил</h2>
+            <a class="more" href={canAddJob ? `/ajil/shine?dept=${dept.slug}` : '/ajil'}>{canAddJob ? '+ Ажил нэмэх' : 'Бүх ажил →'}</a>
+          </div>
+          <div class="panel-body">
+            {jobs.length === 0 ? <p class="form-note" style="margin:0">Одоогоор нээлттэй ажил алга.</p> : (
+              <ul class="items">
+                {jobs.map((j) => (
+                  <li class="item" style="grid-template-columns:auto minmax(0,1fr)">
+                    <span class:list={['ic', { blue: j.status === 'doing' }]}><Icon name="list" /></span>
+                    <a class="item-title" href={`/ajil/${j.id}`}>{j.title}</a>
+                    <span class="item-meta"><span>{JOB_STATUS_LABEL[j.status]}</span><span>{j.owner_name ?? 'хариуцагчгүй'}</span>{j.due_at && <span>{relDay(j.due_at)}</span>}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </section>
+      )}
       {events.length > 0 && (
         <section class="panel" aria-labelledby="ev-h">
           <div class="panel-head"><h2 id="ev-h"><Icon name="calendar" /> Зохион байгуулах арга хэмжээ</h2></div>

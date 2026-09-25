@@ -22,7 +22,7 @@ const user = Astro.locals.user;
 const here = cleanStaffPath(Astro.url.pathname);
 const flash = flashFrom(Astro.url);
 const test = isTestMode(Astro.url);
-const counts = user && !bare ? await navCounts(user) : { awaiting: 0, tasks: 0 };
+const counts = user && !bare ? await navCounts(user) : { awaiting: 0, tasks: 0, jobs: 0 };
 
 interface NavItem { href: string; label: string; icon: IconName; count?: number; hot?: boolean }
 const groups: { label: string; items: NavItem[] }[] = user
@@ -33,6 +33,7 @@ const groups: { label: string; items: NavItem[] }[] = user
           { href: '/', label: 'Нүүр', icon: 'home' },
           { href: '/barimt', label: 'Баримт бичиг', icon: 'doc', count: counts.awaiting, hot: true },
           { href: '/uil-ajillagaa', label: 'Арга хэмжээ', icon: 'calendar', count: counts.tasks },
+          { href: '/ajil', label: 'Ажлууд', icon: 'list', count: counts.jobs },
         ],
       },
       {

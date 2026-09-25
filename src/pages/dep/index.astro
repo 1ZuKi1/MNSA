@@ -9,6 +9,7 @@ import Staff from '../../layouts/Staff.astro';
 import PageHead from '../../components/PageHead.astro';
 import Icon from '../../components/Icon.astro';
 import { taskBoardFor, staffEvents } from '../../lib/events';
+import { JOB_STATUS_LABEL, myOpenJobs } from '../../lib/jobs';
 import { openInvites, renewalCandidates } from '../../lib/members';
 import { canCreateRecordIn, canEditEvents, canManageMembers, canTakeTask } from '../../lib/permissions';
 import { getRecordType } from '../../lib/record-types';
@@ -19,7 +20,7 @@ import { departments } from '../../lib/db';
 
 const user = Astro.locals.user!;
 const manager = canManageMembers(user);
-const [waiting, drafts, board, events, renewals, invites, depts] = await Promise.all([
+const [waiting, drafts, board, events, renewals, invites, depts, jobs] = await Promise.all([
   awaitingMe(user),
   myDrafts(user),
   taskBoardFor(user),
@@ -27,13 +28,14 @@ const [waiting, drafts, board, events, renewals, invites, depts] = await Promise
   manager ? renewalCandidates() : Promise.resolve([]),
   manager ? openInvites() : Promise.resolve([]),
   departments(),
+  myOpenJobs(user),
 ]);
 const returned = drafts.filter((r) => r.status === 'rejected');
 const plainDrafts = drafts.filter((r) => r.status === 'draft');
 const soon = events.upcoming.slice(0, 5);
 const t = now();
 const daysLeft = user.termEndsAt ? Math.ceil((user.termEndsAt - t) / 86400) : null;
-const todo = waiting.length + returned.length + board.mine.length;
+const todo = waiting.length + returned.length + board.mine.length + jobs.length;
 const canWrite = depts.some((d) => canCreateRecordIn(user, d.slug as DeptSlug));
 const firstName = user.name.split('. ').at(-1);
 const due = (ts: number | null) => (ts === null ? null : dayDiff(ts, t));
@@ -67,7 +69,7 @@ const due = (ts: number | null) => (ts === null ? null : dayDiff(ts, t));
       <span><b>{returned.length}</b><span>буцаагдсан баримт</span></span>
     </a>
     <a class="stat" href="#todo">
-      <span><b>{board.mine.length}</b><span>миний идэвхтэй ажил</span></span>
+      <span><b>{board.mine.length + jobs.length}</b><span>миний идэвхтэй ажил</span></span>
     </a>
     {canTakeTask(user) && (
       <a class="stat" href="#open-tasks">
@@ -134,9 +136,41 @@ const due = (ts: number | null) => (ts === null ? null : dayDiff(ts, t));
                   </ul>
                 </>
               )}
+              {jobs.length > 0 && (
+                <>
+                  <h3 class="group-label">Миний хариуцсан ажил <span class="n">{jobs.length}</span></h3>
+                  <ul class="items">
+                    {jobs.map((j) => {
+                      const d = due(j.due_at);
+                      const late = d !== null && d < 0;
+                      return (
+                        <li class="item">
+                          <span class:list={['ic', late ? 'bad' : j.status === 'doing' ? 'blue' : '']}><Icon name="list" /></span>
+                          <a class="item-title" href={`/ajil/${j.id}`}>{j.title}</a>
+                          <span class="item-meta">
+                            <span>{JOB_STATUS_LABEL[j.status]}</span>
+                            <span>{j.dept_name}</span>
+                            {j.due_at && <span class:list={{ overdue: late }}>{late ? `хугацаа ${-d!} хоног хэтэрсэн` : `хугацаа ${relDay(j.due_at)}`}</span>}
+                          </span>
+                          <span class="item-act">
+                            <form method="post" action={`/ajil/${j.id}`}>
+                              <input type="hidden" name="action" value="status" />
+                              <input type="hidden" name="status" value={j.status === 'todo' ? 'doing' : 'done'} />
+                              <input type="hidden" name="back" value="/" />
+                              {j.status === 'todo'
+                                ? <button class="btn btn-sm"><Icon name="arrow" /> Эхлүүлэх</button>
+                                : <button class="btn btn-sm btn-ok"><Icon name="check" /> Дууссан</button>}
+                            </form>
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </>
+              )}
               {board.mine.length > 0 && (
                 <>
-                  <h3 class="group-label">Миний ажлууд <span class="n">{board.mine.length}</span></h3>
+                  <h3 class="group-label">Арга хэмжээний ажил <span class="n">{board.mine.length}</span></h3>
                   <ul class="items">
                     {board.mine.map((k) => {
                       const d = due(k.due_at);

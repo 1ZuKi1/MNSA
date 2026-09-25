@@ -1,0 +1,206 @@
+---
+/**
+ * One job: where it stands, who is on it, what was said along the way. The хариуцагч moves it between
+ * stages and writes progress notes; whoever set it up (or the дарга, or the leadership) can also change it.
+ */
+export const prerender = false;
+import Staff from '../../../layouts/Staff.astro';
+import PageHead from '../../../components/PageHead.astro';
+import Icon from '../../../components/Icon.astro';
+import JobForm from '../../../components/JobForm.astro';
+import { departments } from '../../../lib/db';
+import { readJobForm, type JobFormValues } from '../../../lib/forms';
+import { clientIp, int, safeNext, str, withFlash } from '../../../lib/http';
+import {
+  BadJob, JOB_STAGES, JOB_STATUS_LABEL, asJobLike, assignablePeople, editJob, getJob, jobUpdates, updateJob, type JobStatus,
+} from '../../../lib/jobs';
+import * as P from '../../../lib/permissions';
+import { Denied } from '../../../lib/records';
+import { dayDiff, fmtDate, fmtDateTime, now, relDay, toDateInput } from '../../../lib/time';
+import type { DeptSlug } from '../../../lib/types';
+
+const user = Astro.locals.user!;
+const id = int(Astro.params.id);
+const job = id ? await getJob(id) : null;
+if (!job || !P.canReadJob(user, asJobLike(job))) return new Response(null, { status: 404 });
+const here = `/ajil/${job.id}`;
+const like = asJobLike(job);
+const canEdit = P.canEditJob(user, like);
+const canUpdate = P.canUpdateJob(user, like);
+const allDepts = await departments();
+const editDepts = allDepts.filter((d) => d.slug === job.dept_slug || P.canCreateJobIn(user, d.slug as DeptSlug));
+
+let values: JobFormValues = {
+  title: job.title,
+  notes: job.notes ?? '',
+  dept: job.dept_slug,
+  owner: job.owner_id ? String(job.owner_id) : '',
+  due: toDateInput(job.due_at),
+  visibility: job.visibility,
+};
+let errors: Record<string, string> = {};
+
+if (Astro.request.method === 'POST') {
+  const fd = await Astro.request.formData();
+  // The status form carries action=status, and its «Тэмдэглэл нэмэх» button sends action=note after it: the last one wins.
+  const action = String(fd.getAll('action').at(-1) ?? '').slice(0, 20);
+  const back = safeNext(str(fd, 'back', 200), here);
+  const ip = clientIp(Astro.request);
+  try {
+    if (action === 'status') {
+      const status = str(fd, 'status', 12) as JobStatus;
+      if (![...JOB_STAGES, 'cancelled'].includes(status)) return Astro.redirect(withFlash(back, 'invalid', 'err'));
+      await updateJob(user, job, status, str(fd, 'note', 2000), ip);
+      return Astro.redirect(withFlash(back, status === 'done' ? 'done' : 'saved'));
+    }
+    if (action === 'note') {
+      const note = str(fd, 'note', 2000);
+      if (!note) return Astro.redirect(withFlash(here, 'invalid', 'err'));
+      await updateJob(user, job, null, note, ip);
+      return Astro.redirect(withFlash(here, 'saved'));
+    }
+    if (action === 'save') {
+      const form = readJobForm(fd, editDepts.map((d) => d.slug));
+      ({ values, errors } = form);
+      if (form.ok) {
+        try {
+          await editJob(user, job, form.input!, ip);
+          return Astro.redirect(withFlash(here, 'saved'));
+        } catch (e) {
+          if (!(e instanceof BadJob)) throw e;
+          errors = { owner: 'Жагсаалтаас сонгоно уу.' };
+        }
+      }
+    }
+  } catch (e) {
+    if (e instanceof Denied) return Astro.redirect(withFlash(here, 'denied', 'err'));
+    throw e;
+  }
+}
+
+const [updates, people] = await Promise.all([jobUpdates(job.id), canEdit ? assignablePeople() : Promise.resolve([])]);
+const t = now();
+const late = job.due_at && (job.status === 'todo' || job.status === 'doing') ? dayDiff(job.due_at, t) < 0 : false;
+const stageIndex = job.status === 'cancelled' ? -1 : JOB_STAGES.indexOf(job.status);
+// What the buttons offer from here. Going back is allowed: a job thought done can turn out not to be.
+const MOVES: Record<JobStatus, { to: JobStatus; label: string; primary?: boolean }[]> = {
+  todo: [{ to: 'doing', label: 'Эхлүүлэх', primary: true }, { to: 'done', label: 'Дууссан' }],
+  doing: [{ to: 'done', label: 'Дууссан', primary: true }, { to: 'todo', label: 'Эхлээгүй рүү буцаах' }],
+  done: [{ to: 'doing', label: 'Дахин нээх' }],
+  cancelled: [{ to: 'todo', label: 'Сэргээх' }],
+};
+const moves = MOVES[job.status].filter((m) => job.status !== 'cancelled' || canEdit);
+const editOpen = Object.keys(errors).length > 0;
+---
+<Staff title={job.title}>
+  <PageHead title={job.title} crumbs={[{ href: '/ajil', label: 'Ажлууд' }]}>
+    <span class={`badge b-job-${job.status}`}>{JOB_STATUS_LABEL[job.status]}</span>
+    <span>{job.dept_name}</span>
+    <span>{job.visibility === 'dept' ? <><Icon name="lock" class="inline-ic" /> Зөвхөн хэлтэс</> : 'Бүх гишүүд харна'}</span>
+  </PageHead>
+
+  <div class="cols">
+    <div>
+      <section class="panel" aria-labelledby="stage-h">
+        <div class="panel-head"><h2 id="stage-h"><Icon name="list" /> Явц</h2></div>
+        <div class="panel-body stack" style="--stack:16px">
+          {job.status === 'cancelled' ? (
+            <p style="margin:0"><span class="badge b-cancelled">Цуцалсан</span> Энэ ажлыг цуцалсан.</p>
+          ) : (
+            <ol class="stepper" aria-label="Ажлын явц">
+              {JOB_STAGES.map((s, n) => {
+                const state = n < stageIndex || job.status === 'done' ? 'done' : n === stageIndex ? 'now' : '';
+                return (
+                  <li class={state} aria-current={n === stageIndex ? 'step' : undefined}>
+                    <span class="dot">{state === 'done' ? <Icon name="check" /> : n + 1}</span>
+                    {JOB_STATUS_LABEL[s]}
+                  </li>
+                );
+              })}
+            </ol>
+          )}
+
+          {canUpdate ? (
+            <form method="post" class="stack" style="--stack:12px">
+              <div class="field">
+                <label for="note">Явцын тэмдэглэл <span class="opt">(заавал биш)</span></label>
+                <textarea id="note" name="note" rows="2" maxlength="2000" placeholder="Жишээ нь: Танхимын эзэнтэй ярьсан, даваа гарагт хариу өгнө." aria-describedby="note-hint"></textarea>
+                <span class="hint" id="note-hint">Шат солиход хамт хадгалагдана, эсвэл «Тэмдэглэл нэмэх»-ээр дангаар нь.</span>
+                <span class="error" id="note-msg" hidden><Icon name="alert" /> Тэмдэглэлээ бичнэ үү.</span>
+              </div>
+              <input type="hidden" name="action" value="status" />
+              <div class="btn-row">
+                {moves.map((m) => (
+                  <button class:list={['btn', { 'btn-primary': m.primary && m.to !== 'done', 'btn-ok': m.to === 'done' }]} type="submit" name="status" value={m.to}>
+                    {m.to === 'done' && <Icon name="check" />} {m.label}
+                  </button>
+                ))}
+                <button class="btn btn-quiet" type="submit" name="action" value="note" data-require="note">Тэмдэглэл нэмэх</button>
+              </div>
+            </form>
+          ) : (
+            <p class="form-note" style="margin:0">Явцыг хариуцагч, ажлыг үүсгэсэн хүн, хэлтсийн дарга шинэчилнэ.</p>
+          )}
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="hist-h">
+        <div class="panel-head"><h2 id="hist-h"><Icon name="clock" /> Түүх</h2></div>
+        <div class="panel-body">
+          <ol class="timeline">
+            {[...updates].reverse().map((u) => (
+              <li class={u.status ? `t-job-${u.status}` : 't-note'}>
+                <div><strong>{u.user_name}</strong>{u.status ? <> — «{JOB_STATUS_LABEL[u.status]}» болгосон</> : ' — тэмдэглэл'}</div>
+                <div class="when">{fmtDateTime(u.created_at)}</div>
+                {u.note && <blockquote>{u.note}</blockquote>}
+              </li>
+            ))}
+            <li>
+              <div><strong>{job.creator_name}</strong> — ажлыг нэмсэн</div>
+              <div class="when">{fmtDateTime(job.created_at)}</div>
+            </li>
+          </ol>
+        </div>
+      </section>
+    </div>
+
+    <div>
+      <section class="panel" aria-labelledby="facts-h">
+        <div class="panel-head"><h2 id="facts-h">Мэдээлэл</h2></div>
+        <div class="panel-body">
+          <dl class="facts" style="grid-template-columns:1fr">
+            <div><Icon name="user" /><dt>Хариуцагч</dt><dd>{job.owner_name ?? 'Одоохондоо хэн ч биш'}{job.owner_id === user.id && <span class="muted"> (та)</span>}</dd></div>
+            <div><Icon name="folder" /><dt>Хэлтэс</dt><dd><a href={`/heltes/${job.dept_slug}`}>{job.dept_name}</a></dd></div>
+            <div>
+              <Icon name="calendar" /><dt>Хугацаа</dt>
+              <dd class:list={{ overdue: late }}>{job.due_at ? `${fmtDate(job.due_at)} · ${late ? `${-dayDiff(job.due_at, t)} хоног хэтэрсэн` : relDay(job.due_at)}` : 'Тогтоогоогүй'}</dd>
+            </div>
+            {job.done_at && job.status === 'done' && <div><Icon name="check" /><dt>Дууссан</dt><dd>{fmtDate(job.done_at)}</dd></div>}
+            <div><Icon name="edit" /><dt>Нэмсэн</dt><dd>{job.creator_name} · {fmtDate(job.created_at)}</dd></div>
+          </dl>
+          {job.notes && <p class="pre" style="margin:16px 0 0;color:var(--ink-2)">{job.notes}</p>}
+        </div>
+      </section>
+
+      {canEdit && (
+        <details class="panel edit-panel" open={editOpen}>
+          <summary class="panel-head"><h2><Icon name="edit" /> Засах</h2></summary>
+          <JobForm values={values} errors={errors} depts={editDepts} people={people} submitLabel="Хадгалах" cancelHref={here} compact />
+        </details>
+      )}
+
+      {canEdit && job.status !== 'cancelled' && job.status !== 'done' && (
+        <section class="panel danger-zone" aria-labelledby="cancel-h">
+          <div class="panel-head"><h2 id="cancel-h">Цуцлах</h2></div>
+          <div class="panel-body stack" style="--stack:12px">
+            <p class="form-note">Хийх шаардлагагүй болсон бол. Түүх нь хадгалагдана, дараа нь сэргээж болно.</p>
+            <form method="post" data-confirm="Энэ ажлыг цуцлах уу?">
+              <input type="hidden" name="action" value="status" />
+              <button class="btn btn-danger btn-sm" type="submit" name="status" value="cancelled">Ажлыг цуцлах</button>
+            </form>
+          </div>
+        </section>
+      )}
+    </div>
+  </div>
+</Staff>

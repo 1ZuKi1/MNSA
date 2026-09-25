@@ -191,3 +191,45 @@ describe('settings', () => {
     for (const a of [board, legalHead, dotoodHead, mediaMember, maintainer]) expect(P.canManageSettings(a)).toBe(false);
   });
 });
+
+describe('jobs («Ажлууд»)', () => {
+  const job = (over: Partial<P.JobLike> = {}): P.JobLike => ({ dept: 'dotood', ownerId: dotoodMember.id, createdBy: dotoodHead.id, visibility: 'dept', ...over });
+
+  it('anyone in a department adds its jobs; the leadership anywhere; the maintainer nowhere', () => {
+    expect(P.canCreateJobIn(dotoodMember, 'dotood')).toBe(true);
+    expect(P.canCreateJobIn(dotoodMember, 'media')).toBe(false);
+    expect(P.canCreateJobIn(board, 'media')).toBe(true);
+    expect(P.canCreateJobIn(president, 'gadaad')).toBe(true);
+    expect(P.canCreateJobIn(maintainer, 'dotood')).toBe(false);
+  });
+
+  it("a department's own job stays in the department and the leadership", () => {
+    expect(P.canReadJob(dotoodMember2, job())).toBe(true);
+    expect(P.canReadJob(board, job())).toBe(true);
+    expect(P.canReadJob(mediaHead, job())).toBe(false);
+    expect(P.canReadJob(maintainer, job())).toBe(false);
+  });
+
+  it('a job put on someone from another department is visible to them', () => {
+    expect(P.canReadJob(mediaMember, job({ ownerId: mediaMember.id }))).toBe(true);
+  });
+
+  it('«Бүх гишүүд» jobs are open to everyone', () => {
+    expect(P.canReadJob(mediaMember, job({ visibility: 'staff' }))).toBe(true);
+    expect(P.canReadJob(maintainer, job({ visibility: 'staff' }))).toBe(true);
+  });
+
+  it('the хариуцагч moves the job along but does not change what it is', () => {
+    expect(P.canUpdateJob(dotoodMember, job())).toBe(true);
+    expect(P.canEditJob(dotoodMember, job())).toBe(false);
+  });
+
+  it("the creator, the department's дарга and the leadership change it; another дарга does not", () => {
+    expect(P.canEditJob(dotoodHead, job({ createdBy: dotoodMember2.id }))).toBe(true);
+    expect(P.canEditJob(dotoodMember2, job({ createdBy: dotoodMember2.id }))).toBe(true);
+    expect(P.canEditJob(president, job())).toBe(true);
+    expect(P.canEditJob(gadaadHead, job({ visibility: 'staff' }))).toBe(false);
+    expect(P.canUpdateJob(gadaadHead, job({ visibility: 'staff' }))).toBe(false);
+    expect(P.canUpdateJob(maintainer, job({ visibility: 'staff' }))).toBe(false);
+  });
+});

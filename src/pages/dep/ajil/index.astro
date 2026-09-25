@@ -1,0 +1,128 @@
+---
+/**
+ * «Ажлууд» — work outside events, as a board: not started · in progress · done (last 30 days).
+ * Each person sees their department's jobs and every job marked «Бүх гишүүд»; the leadership sees all.
+ */
+export const prerender = false;
+import Staff from '../../../layouts/Staff.astro';
+import PageHead from '../../../components/PageHead.astro';
+import Icon from '../../../components/Icon.astro';
+import { departments } from '../../../lib/db';
+import { JOB_STATUS_LABEL, asJobLike, visibleJobs, type JobRow, type JobStatus } from '../../../lib/jobs';
+import * as P from '../../../lib/permissions';
+import { initials } from '../../../lib/team';
+import { dayDiff, now, relDay } from '../../../lib/time';
+import type { DeptSlug } from '../../../lib/types';
+
+const user = Astro.locals.user!;
+const SCOPES = { all: 'Бүгд', mine: 'Миний ажил', dept: 'Манай хэлтэс' } as const;
+const askedScope = Astro.url.searchParams.get('scope') ?? 'all';
+const hasDept = !!user.dept && user.dept !== P.LEADERSHIP;
+const scope = (askedScope in SCOPES && (askedScope !== 'dept' || hasDept) ? askedScope : 'all') as keyof typeof SCOPES;
+const showCancelled = Astro.url.searchParams.get('cancelled') === '1';
+
+const [jobs, depts] = await Promise.all([
+  visibleJobs(user, { mine: scope === 'mine', dept: scope === 'dept' ? user.dept : null, cancelled: showCancelled }),
+  departments(),
+]);
+const canCreate = depts.some((d) => P.canCreateJobIn(user, d.slug as DeptSlug));
+const t = now();
+const here = `/ajil${scope !== 'all' ? `?scope=${scope}` : ''}`;
+const COLS: { key: JobStatus; hint: string }[] = [
+  { key: 'todo', hint: 'Эхлээгүй ажил алга.' },
+  { key: 'doing', hint: 'Одоогоор хийгдэж буй ажил алга.' },
+  { key: 'done', hint: 'Сүүлийн 30 хоногт дууссан ажил алга.' },
+];
+const cancelled = jobs.filter((j) => j.status === 'cancelled');
+// The one next step offered right on the card, to the people who may take it.
+const NEXT: Partial<Record<JobStatus, { to: JobStatus; label: string; icon: 'arrow' | 'check' }>> = {
+  todo: { to: 'doing', label: 'Эхлүүлэх', icon: 'arrow' },
+  doing: { to: 'done', label: 'Дууссан', icon: 'check' },
+};
+const dueText = (j: JobRow) => {
+  if (!j.due_at || j.status === 'done' || j.status === 'cancelled') return null;
+  const d = dayDiff(j.due_at, t);
+  return { late: d < 0, text: d < 0 ? `${-d} хоног хэтэрсэн` : `хугацаа ${relDay(j.due_at)}` };
+};
+---
+<Staff title="Ажлууд">
+  <PageHead title="Ажлууд" sub="Арга хэмжээнээс гадуурх ажил, хэн хариуцаж, хаана явж буй нь. Нийтийн сайтад гарахгүй.">
+    <Fragment slot="actions">
+      {canCreate && <a class="btn btn-primary" href="/ajil/shine"><Icon name="plus" /> Шинэ ажил</a>}
+    </Fragment>
+  </PageHead>
+
+  <nav class="tabs" aria-label="Ямар ажил харах">
+    {Object.entries(SCOPES).filter(([k]) => k !== 'dept' || hasDept).map(([k, label]) => (
+      <a href={k === 'all' ? '/ajil' : `/ajil?scope=${k}`} aria-current={scope === k ? 'page' : undefined}>{label}</a>
+    ))}
+  </nav>
+
+  <div class="jobs-board">
+    {COLS.map((c) => {
+      const list = jobs.filter((j) => j.status === c.key);
+      return (
+        <section class={`job-col col-${c.key}`} aria-labelledby={`col-${c.key}`}>
+          <h2 id={`col-${c.key}`}>{JOB_STATUS_LABEL[c.key]}{c.key === 'done' && <small> · 30 хоног</small>} <span class="n">{list.length}</span></h2>
+          {list.length === 0 ? (
+            <p class="job-empty">{c.hint}</p>
+          ) : (
+            <ul class="job-list">
+              {list.map((j) => {
+                const due = dueText(j);
+                const next = NEXT[j.status];
+                const canMove = next && P.canUpdateJob(user, asJobLike(j));
+                return (
+                  <li class="job-card">
+                    <a class="job-title" href={`/ajil/${j.id}`}>{j.title}</a>
+                    <span class="job-meta">
+                      <span>{j.dept_name}</span>
+                      {j.visibility === 'dept' && <span class="tag"><Icon name="lock" /> хэлтэс</span>}
+                      {due && <span class:list={{ overdue: due.late }}>{due.text}</span>}
+                    </span>
+                    {j.last_note && <p class="job-note">{j.last_note}</p>}
+                    <span class="job-foot">
+                      {j.owner_name ? (
+                        <span class="who"><span class="avatar sm" aria-hidden="true">{initials(j.owner_name)}</span>{j.owner_name}{j.owner_id === user.id && <span class="muted"> (та)</span>}</span>
+                      ) : (
+                        <span class="muted">Хариуцагчгүй</span>
+                      )}
+                      {canMove && (
+                        <form method="post" action={`/ajil/${j.id}`}>
+                          <input type="hidden" name="action" value="status" />
+                          <input type="hidden" name="status" value={next!.to} />
+                          <input type="hidden" name="back" value={here} />
+                          <button class:list={['btn btn-sm', { 'btn-ok': next!.to === 'done' }]} type="submit"><Icon name={next!.icon} /> {next!.label}</button>
+                        </form>
+                      )}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
+      );
+    })}
+  </div>
+
+  {showCancelled ? (
+    cancelled.length > 0 && (
+      <section class="panel" style="margin-top:18px" aria-labelledby="cx-h">
+        <div class="panel-head"><h2 id="cx-h">Цуцалсан</h2></div>
+        <div class="panel-body">
+          <ul class="items">
+            {cancelled.map((j) => (
+              <li class="item" style="grid-template-columns:minmax(0,1fr)">
+                <a class="item-title" href={`/ajil/${j.id}`}>{j.title}</a>
+                <span class="item-meta" style="grid-column:1"><span>{j.dept_name}</span>{j.owner_name && <span>{j.owner_name}</span>}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+    )
+  ) : (
+    <p class="small" style="margin-top:16px"><a href={`${here}${here.includes('?') ? '&' : '?'}cancelled=1`}>Цуцалсан ажлуудыг харах</a></p>
+  )}
+</Staff>

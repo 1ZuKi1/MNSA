@@ -1,0 +1,99 @@
+---
+/** Create and edit a job («Ажил»). Posts to the page it's on. */
+import Icon from './Icon.astro';
+import type { DeptRow } from '../lib/db';
+import type { JobFormValues } from '../lib/forms';
+
+interface Props {
+  values: JobFormValues;
+  errors: Record<string, string>;
+  depts: DeptRow[];
+  people: { id: number; name_mn: string; dept_slug: string | null; dept_name: string | null }[];
+  submitLabel: string;
+  cancelHref: string;
+  /** On the job's own page the form sits in a panel that is already labelled. */
+  compact?: boolean;
+}
+const { values: v, errors, depts, people, submitLabel, cancelHref, compact = false } = Astro.props;
+
+const LABEL: Record<string, [string, string]> = { title: ['Ажил', 'title'], dept: ['Хэлтэс', 'dept'], owner: ['Хариуцагч', 'owner'], due: ['Хугацаа', 'due'] };
+const problems = Object.keys(LABEL).filter((k) => errors[k]).map((k) => [k, errors[k]] as const);
+// The people list, grouped by department, so a дарга finds their own people first.
+const groups = [...new Set(people.map((p) => p.dept_name ?? 'Хэлтэсгүй'))].map((g) => ({ g, rows: people.filter((p) => (p.dept_name ?? 'Хэлтэсгүй') === g) }));
+---
+<form method="post" class:list={['form', { panel: !compact }]} data-guard>
+  <input type="hidden" name="action" value="save" />
+  <div class="panel-body">
+    {
+      problems.length > 0 && (
+        <div class="error-summary" role="alert" tabindex="-1" id="errors">
+          <h2><Icon name="alert" /> Дараах зүйлсийг засна уу</h2>
+          <ul>{problems.map(([k, msg]) => <li><a href={`#${LABEL[k][1]}`}>{LABEL[k][0]}: {msg}</a></li>)}</ul>
+        </div>
+      )
+    }
+
+    <div class="field">
+      <label for="title">Ажил</label>
+      <input id="title" name="title" type="text" required maxlength="200" value={v.title} placeholder="Жишээ нь: 10-р сарын төсвийн төлөвлөгөө гаргах"
+        aria-invalid={errors.title ? 'true' : undefined} aria-describedby={errors.title ? 'title-err' : undefined} />
+      {errors.title && <span class="error" id="title-err"><Icon name="alert" /> {errors.title}</span>}
+    </div>
+
+    <div class="field">
+      <label for="notes">Дэлгэрэнгүй <span class="opt">(заавал биш)</span></label>
+      <textarea id="notes" name="notes" rows="3" maxlength="4000" aria-describedby="notes-hint">{v.notes}</textarea>
+      <span class="hint" id="notes-hint">Юу хийх, хэнтэй холбогдох, юу бэлэн болсон байх ёстой.</span>
+    </div>
+
+    <div class="two">
+      <div class="field">
+        <label for="dept">Хэлтэс</label>
+        <select id="dept" name="dept" aria-invalid={errors.dept ? 'true' : undefined}>
+          {depts.map((d) => <option value={d.slug} selected={d.slug === v.dept}>{d.name_mn}</option>)}
+        </select>
+        {errors.dept && <span class="error" id="dept-err"><Icon name="alert" /> {errors.dept}</span>}
+      </div>
+      <div class="field">
+        <label for="owner">Хариуцагч</label>
+        <select id="owner" name="owner" aria-describedby="owner-hint" aria-invalid={errors.owner ? 'true' : undefined}>
+          <option value="">— Одоохондоо хэн ч биш —</option>
+          {groups.map(({ g, rows }) => (
+            <optgroup label={g}>
+              {rows.map((p) => <option value={String(p.id)} selected={String(p.id) === v.owner}>{p.name_mn}</option>)}
+            </optgroup>
+          ))}
+        </select>
+        <span class="hint" id="owner-hint">Ажлын явцыг тэр хүн шинэчилнэ. Томилогдсон хүнд и-мэйл очно.</span>
+        {errors.owner && <span class="error" id="owner-err"><Icon name="alert" /> {errors.owner}</span>}
+      </div>
+    </div>
+
+    <div class="field" style="max-width:280px">
+      <label for="due">Хугацаа <span class="opt">(заавал биш)</span></label>
+      <input id="due" name="due" type="date" value={v.due} aria-invalid={errors.due ? 'true' : undefined} />
+      {errors.due && <span class="error" id="due-err"><Icon name="alert" /> {errors.due}</span>}
+    </div>
+
+    <fieldset class="field">
+      <legend class="label">Хэн харах вэ?</legend>
+      <div class="choice-cards">
+        <label class="choice">
+          <input type="radio" name="visibility" value="dept" checked={v.visibility === 'dept'} />
+          <span><b>Зөвхөн манай хэлтэс</b><span>Хэлтсийн гишүүд, хариуцагч, Тэргүүн ба Удирдах зөвлөл харна.</span></span>
+        </label>
+        <label class="choice">
+          <input type="radio" name="visibility" value="staff" checked={v.visibility === 'staff'} />
+          <span><b>Бүх гишүүд</b><span>Ажлын орчны хүн бүр хэн юу хийж, хаана явааг харна.</span></span>
+        </label>
+      </div>
+    </fieldset>
+    <p class="form-note">Нийтийн сайтад хэзээ ч гарахгүй.</p>
+  </div>
+
+  <div class="form-actions">
+    <button class="btn btn-primary" type="submit">{submitLabel}</button>
+    <span class="grow"></span>
+    <a class="btn btn-quiet" href={cancelHref}>Болих</a>
+  </div>
+</form>
