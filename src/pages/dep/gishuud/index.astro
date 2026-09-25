@@ -3,12 +3,13 @@ export const prerender = false;
 import Staff from '../../../layouts/Staff.astro';
 import PageHead from '../../../components/PageHead.astro';
 import Icon from '../../../components/Icon.astro';
+import RoleDept from '../../../components/RoleDept.astro';
 import { deptTint, initials } from '../../../lib/team';
 import { departments, one } from '../../../lib/db';
 import { looksLikeEmail, normalizeEmail } from '../../../lib/auth';
 import { clientIp, int, safeNext, str, withFlash } from '../../../lib/http';
 import {
-  canSetPhoto, canSetPublic, changeEmail, changeMember, createInvite, getMember, listMembers, openInvites, recentlyClaimed, removeMember, revokeInvite, setDeputy,
+  WRONG_DEPT, canSetPhoto, canSetPublic, placeRole, changeEmail, changeMember, createInvite, getMember, listMembers, openInvites, recentlyClaimed, removeMember, revokeInvite, setDeputy,
   setPhoto, setShowPublic,
 } from '../../../lib/members';
 import { BadImage, mediaUrl, storeImage } from '../../../lib/media';
@@ -82,9 +83,9 @@ if (Astro.request.method === 'POST') {
       if (!name) inviteError = 'Нэрийг оруулна уу.';
       else if (studentId && !/^\d{6,12}$/.test(studentId)) inviteError = 'Оюутны дугаар зөвхөн тооноос бүрдэнэ (6–12 орон).';
       else if (!grantable.includes(role)) inviteError = 'Энэ эрхийг олгох боломжгүй.';
-      else if (role !== 'maintainer' && !depts.some((d) => d.slug === dept)) inviteError = 'Хэлтэс сонгоно уу.';
+      else if (!placeRole(role, dept, depts)) inviteError = WRONG_DEPT;
       else {
-        const token = await createInvite(user, { name, studentId, dept: role === 'maintainer' ? null : dept, role }, ip);
+        const token = await createInvite(user, { name, studentId, dept: placeRole(role, dept, depts)!.dept, role }, ip);
         // The raw token is never stored; it rides to the next page in a 5-minute, this-browser-only cookie.
         Astro.cookies.set(MADE, JSON.stringify({ token, name }), {
           path: '/', maxAge: 300, httpOnly: true, sameSite: 'strict', secure: Astro.url.protocol === 'https:',
@@ -97,7 +98,12 @@ if (Astro.request.method === 'POST') {
       else if (action === 'deputy') await setDeputy(user, target, ip);
       else if (action === 'no_deputy') await setDeputy(user, null, ip);
       else if (!target) throw new Denied();
-      else if (action === 'change') await changeMember(user, target, { role: str(fd, 'role', 20) as Role, dept: (str(fd, 'dept', 40) || null) as DeptSlug | null }, ip);
+      else if (action === 'change') {
+        const role = str(fd, 'role', 20) as Role;
+        const place = placeRole(role, str(fd, 'dept', 40) || null, depts);
+        if (!place) return Astro.redirect(withFlash(back, 'wrong_dept', 'err'));
+        await changeMember(user, target, { role, dept: place.dept }, ip);
+      }
       else if (action === 'remove') await removeMember(user, target, ip);
       else if (action === 'email') {
         const email = normalizeEmail(str(fd, 'email', 254));
@@ -230,7 +236,7 @@ const canOpen = (m: (typeof members)[number]) => m.id === user.id || manager || 
               <div class="field">
                 <label for="i_dept">Хэлтэс</label>
                 <select id="i_dept" name="dept" aria-describedby="i_dept-hint">
-                  {depts.map((d) => <option value={d.slug}>{d.name_mn}</option>)}
+                  {depts.map((d) => <option value={d.slug} data-leadership={d.is_leadership === 1 ? '' : undefined} selected={d.slug === depts.find((x) => x.is_leadership !== 1)?.slug}>{d.name_mn}</option>)}
                 </select>
                 <span class="hint" id="i_dept-hint" hidden>Техникийн хариуцагч хэлтэсгүй.</span>
               </div>
@@ -307,12 +313,13 @@ const canOpen = (m: (typeof members)[number]) => m.id === user.id || manager || 
   }
 </Staff>
 
+<RoleDept />
 <script is:inline>
   // The maintainer has no department: hide the department choice when that role is picked.
   (function () {
     var role = document.getElementById('i_role'), dept = document.getElementById('i_dept'), hint = document.getElementById('i_dept-hint');
     if (!role || !dept) return;
-    function sync() { var m = role.value === 'maintainer'; dept.disabled = m; if (hint) hint.hidden = !m; }
+    function sync() { var m = role.value === 'maintainer'; dept.disabled = m; if (hint) hint.hidden = !m; window.placeDept(role, dept); }
     role.addEventListener('change', sync); sync();
   })();
 </script>

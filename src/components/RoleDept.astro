@@ -1,0 +1,27 @@
+---
+/**
+ * Keeps a role picker and a department picker consistent: the President and the board go in the
+ * leadership, heads and members in one of the five departments. The server checks the same rule
+ * (placeRole in lib/members.ts); this only stops people from picking a pair that will be refused.
+ * Leadership <option>s carry data-leadership.
+ */
+---
+<script is:inline>
+  window.placeDept = function (role, dept) {
+    var r = role.value, lead = null, first = null;
+    for (var i = 0; i < dept.options.length; i++) {
+      var o = dept.options[i], isLead = o.hasAttribute('data-leadership');
+      if (isLead) lead = o; else if (!first) first = o;
+      o.disabled = (r === 'head' || r === 'member') ? isLead : (r === 'board' || r === 'president') ? !isLead : false;
+    }
+    if ((r === 'board' || r === 'president') && lead) dept.value = lead.value;
+    var sel = dept.options[dept.selectedIndex];
+    if ((r === 'head' || r === 'member') && sel && sel.hasAttribute('data-leadership') && first) dept.value = first.value;
+  };
+  (function () {
+    var r = document.getElementById('m_role'), d = document.getElementById('m_dept');
+    if (!r || !d) return;
+    function sync() { window.placeDept(r, d); }
+    r.addEventListener('change', sync); sync();
+  })();
+</script>

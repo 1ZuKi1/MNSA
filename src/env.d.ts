@@ -23,6 +23,8 @@ declare namespace Cloudflare {
     SITE_MODE?: string;
     /** '1' on the workers.dev test deployment only: login codes on screen + a red banner. Ignored on any other host. */
     TEST_MODE?: string;
+    /** Test deployment only: a shared passphrase the login page asks for while codes are shown on screen. */
+    STAFF_GATE?: string;
     /** Overrides for cross-links between the two sites (test deployment). */
     PUBLIC_ORIGIN?: string;
     STAFF_ORIGIN?: string;

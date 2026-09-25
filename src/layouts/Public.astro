@@ -146,6 +146,16 @@ const ogImage = new URL(image ?? '/brand/logo-512.png', Astro.url).href;
             });
           });
           document.documentElement.classList.add('reveal-on');
+          // A fast jump (End key, a link to #durem, printing) can skip past a section between two frames, and
+          // the observer never sees it: anything already above the bottom of the screen shows at once.
+          var sweep = function () {
+            document.querySelectorAll('.rv:not(.in)').forEach(function (el) {
+              if (el.getBoundingClientRect().top < innerHeight) { el.classList.add('in'); io.unobserve(el); }
+            });
+          };
+          var queued = false;
+          addEventListener('scroll', function () { if (!queued) { queued = true; setTimeout(function () { queued = false; sweep(); }, 150); } }, { passive: true });
+          addEventListener('beforeprint', function () { document.querySelectorAll('.rv').forEach(function (el) { el.classList.add('in'); }); });
         }
         // A soft shadow under the header once the page has scrolled: a 4 px marker at the very top of the
         // page is watched instead of listening to every scroll event.

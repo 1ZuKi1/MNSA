@@ -9,6 +9,7 @@ import Staff from '../../../layouts/Staff.astro';
 import PageHead from '../../../components/PageHead.astro';
 import Icon from '../../../components/Icon.astro';
 import PortraitCrop from '../../../components/PortraitCrop.astro';
+import RoleDept from '../../../components/RoleDept.astro';
 import { departments } from '../../../lib/db';
 import { int } from '../../../lib/http';
 import { asMemberLike, canSetPhoto, canSetPublic, getMember } from '../../../lib/members';
@@ -87,7 +88,7 @@ const expiring = m.term_ends_at !== null && m.term_ends_at - now() < 30 * 86400;
               <div class="field">
                 <label for="m_dept">Хэлтэс</label>
                 <select id="m_dept" name="dept">
-                  {depts.map((d) => <option value={d.slug} selected={d.slug === m.dept_slug}>{d.name_mn}</option>)}
+                  {depts.map((d) => <option value={d.slug} data-leadership={d.is_leadership === 1 ? '' : undefined} selected={d.slug === m.dept_slug}>{d.name_mn}</option>)}
                 </select>
               </div>
             </div>
@@ -201,3 +202,4 @@ const expiring = m.term_ends_at !== null && m.term_ends_at - now() < 30 * 86400;
 </Staff>
 
 <PortraitCrop />
+<RoleDept />

@@ -40,6 +40,21 @@ export const membersOfDept = (deptId: number) =>
 
 export const asMemberLike = (m: MemberRow): P.MemberLike => ({ id: m.id, role: m.role, isDeputy: m.is_deputy === 1 });
 
+// ------------------------------------------------------------------ where a role belongs
+
+/**
+ * The department that goes with a role: the President and the board sit in the leadership, heads and
+ * members in one of the five departments, the maintainer in none. Returns null when the choice is wrong.
+ */
+export function placeRole(role: Role, deptSlug: string | null, depts: { slug: string; is_leadership: number }[]): { dept: DeptSlug | null } | null {
+  if (role === 'maintainer') return { dept: null };
+  const lead = depts.find((d) => d.is_leadership === 1);
+  if (role === 'president' || role === 'board') return lead ? { dept: lead.slug as DeptSlug } : null;
+  const d = depts.find((x) => x.slug === deptSlug);
+  return d && d.is_leadership !== 1 ? { dept: d.slug as DeptSlug } : null;
+}
+export const WRONG_DEPT = 'Хэлтсийн дарга, гишүүн таван хэлтсийн аль нэгэнд харьяалагдана. Удирдлагад зөвхөн Тэргүүн, Удирдах зөвлөл байна.';
+
 // ------------------------------------------------------------------ invites
 
 const INVITE_TTL = 72 * 3600;

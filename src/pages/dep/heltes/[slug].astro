@@ -83,7 +83,7 @@ const canWrite = canCreateRecordIn(user, dept.slug as DeptSlug);
             <ul class="items">
               {members.map((m) => (
                 <li class="item" style="grid-template-columns:auto minmax(0,1fr)">
-                  <span class="avatar" style={`--tint:${deptTint(dept.slug)}`} aria-hidden="true">{initials(m.name_mn)}</span>
+                  <span class="avatar" style={`--tint:${deptTint(dept.slug)};grid-row:1 / span 2;align-self:center`} aria-hidden="true">{initials(m.name_mn)}</span>
                   <span class="item-title">{m.name_mn}</span>
                   <span class="item-meta"><span>{ROLE_LABEL[m.role]}{m.is_deputy ? ' · орлогч' : ''}</span></span>
                 </li>

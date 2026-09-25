@@ -7,6 +7,8 @@ import { codeRateOk, issueCode, looksLikeEmail, normalizeEmail, turnstileOk, ver
 import { audit, one, run } from '../../lib/db';
 import { clearDevCode, stashDevCode, takeDevCode } from '../../lib/devcode';
 import { clientIp, safeNext, str } from '../../lib/http';
+import { safeEqual } from '../../lib/crypto';
+import { isTestMode } from '../../lib/site';
 import { loginCodeMail, sendMail } from '../../lib/mailer';
 import { loadActiveUser, setSessionCookie, signSession } from '../../lib/session';
 import { now } from '../../lib/time';
@@ -18,6 +20,10 @@ let step: 'email' | 'code' = Astro.url.searchParams.get('step') === 'code' ? 'co
 let email = normalizeEmail(Astro.url.searchParams.get('email') ?? '');
 let next = safeNext(Astro.url.searchParams.get('next'));
 let error = '';
+// While the site runs on workers.dev the login code is shown on screen, so knowing someone's e-mail would be
+// enough to log in as them. A shared passphrase (secret STAFF_GATE, told to the team in person) closes that
+// until e-mail sending works. It only exists in test mode, so on the real domain it is gone by itself.
+const gate = isTestMode(Astro.url) && env.STAFF_GATE ? env.STAFF_GATE : null;
 
 if (Astro.request.method === 'POST') {
   const fd = await Astro.request.formData();
@@ -32,6 +38,9 @@ if (Astro.request.method === 'POST') {
       error = 'Хамгаалалтын шалгалт амжилтгүй боллоо. Дахин оролдоно уу.';
     } else if (!(await codeRateOk(email, ip))) {
       error = 'Хэт олон удаа код хүслээ. 15 минутын дараа дахин оролдоно уу.';
+    } else if (gate && !safeEqual(str(fd, 'gate', 200).trim().toLowerCase(), gate.trim().toLowerCase())) {
+      // Checked after the rate limit, so guessing costs the same attempts as asking for codes.
+      error = 'Багийн нууц үг буруу байна. Тэргүүн эсвэл техникийн хариуцагчаас асууна уу.';
     } else {
       // Same response whether or not this address is a member — the member list stays private.
       const u = await one<{ id: number }>(`SELECT id FROM users WHERE email = ? AND status = 'active'`, email);
@@ -95,6 +104,13 @@ const siteKey = env.TURNSTILE_SITE_KEY;
               <input id="email" name="email" type="email" autocomplete="email" inputmode="email" required value={email} autofocus
                 aria-invalid={error ? 'true' : undefined} aria-describedby={error ? 'login-err' : undefined} />
             </div>
+            {gate && (
+              <div class="field">
+                <label for="gate">Багийн нууц үг</label>
+                <input id="gate" name="gate" type="password" autocomplete="off" required aria-describedby="gate-hint" />
+                <span class="hint" id="gate-hint">Зөвхөн туршилтын хугацаанд хэрэгтэй. Удирдлагаасаа асууна уу.</span>
+              </div>
+            )}
             {siteKey && <div class="cf-turnstile" data-sitekey={siteKey} data-language="auto" />}
             <button class="btn btn-primary btn-lg btn-block" type="submit">Код авах <Icon name="arrow" /></button>
           </form>

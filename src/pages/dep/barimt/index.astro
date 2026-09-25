@@ -116,7 +116,7 @@ const statuses: (RecordStatus | '')[] = ['', 'draft', 'in_review', 'approved', '
                     {r.number && <> · <span class="num">{r.number}</span></>}
                     {r.visibility === 'dept' && <> · <span class="tag"><Icon name="lock" /> зөвхөн хэлтэс</span></>}
                   </span>
-                  <span class="sub m-only">{r.dept_name}{r.co_dept_name && `, ${r.co_dept_name}`} · {r.author_name} · {relDay(r.updated_at)}</span>
+                  <span class="sub m-only">{r.dept_name}{r.co_dept_name && `, ${r.co_dept_name}`} · {r.author_name} · <span class="nowrap">{relDay(r.updated_at)}</span></span>
                 </td>
                 <td class="nowrap hide-sm">{r.dept_name}{r.co_dept_name && <span class="sub">+ {r.co_dept_name}</span>}</td>
                 <td class="nowrap hide-sm">{r.author_name}</td>

@@ -95,6 +95,12 @@ npm run import:members -- neccesary-files/members.csv
 
 The first three lines clear out the demo accounts and test records (the import refuses to run while `@demo.test` accounts exist). `--no-seed` deploys fresh, empty databases instead of reloading the demo data. Then the real team is loaded from `neccesary-files/members.csv` (see step 10 below for the file format). Login codes still show on screen — `TEST_MODE` only needs `*.workers.dev`, not a finished domain — so everyone can log in today. Commit the new `database_id` values `deploy:test` writes into `wrangler.jsonc`.
 
+**Team passphrase.** While codes show on screen, anyone who knows a member's e-mail could log in as them. So set a passphrase the team is told in person; the login page then asks for it too (not case-sensitive), and only on `*.workers.dev`:
+```powershell
+npx wrangler secret put STAFF_GATE --name mnsa-dep
+```
+Change it the same way; remove it with `npx wrangler secret delete STAFF_GATE --name mnsa-dep`. On the real domain it is never asked for.
+
 When `bdmnsa.com` is later bought, pick up at step 5 below (session secret is already set, so start with Resend) — nothing here needs to be redone. Once the custom domain is attached (step 9), the code-on-screen behavior turns off on its own, since it only ever worked on a `*.workers.dev` hostname.
 
 ---

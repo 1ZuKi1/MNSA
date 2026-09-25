@@ -202,6 +202,13 @@ h1, h2, h3 { text-wrap: balance; }
 .cols { display: grid; gap: 18px; grid-template-columns: minmax(0, 1fr); align-items: start; }
 @media (min-width: 1000px) { .cols { grid-template-columns: minmax(0, 1.75fr) minmax(0, 1fr); } }
 .cols > div > .panel + .panel { margin-top: 18px; }
+/* Event page on a phone: when and where first, the cancel button last. */
+@media (max-width: 999px) {
+  .ev-cols > div { display: contents; }
+  .ev-cols > div > .panel + .panel { margin-top: 0; }
+  .ev-cols .ev-facts { order: -1; }
+  .ev-cols .danger-zone { order: 99; }
+}
 .stack-lg > * + * { margin-top: 18px; }
 
 h2.sec-title { font-size: 1.12rem; margin: 0 0 12px; display: flex; align-items: center; gap: 10px; }
@@ -241,8 +248,12 @@ a.stat:active { background: var(--sunk); }
 .item .ic.ok { background: var(--ok-tint); color: var(--ok); }
 .item-title { font-weight: 600; color: var(--ink); text-decoration: none; min-width: 0; overflow-wrap: anywhere; }
 a.item-title:hover { color: var(--blue); text-decoration: underline; text-underline-offset: 0.18em; }
-.item-meta { grid-column: 2; font-size: 0.86rem; color: var(--ink-3); display: flex; flex-wrap: wrap; gap: 2px 10px; }
-.item-meta > * + *::before { content: '·'; margin-right: 10px; color: var(--line-strong); }
+/* Dots between the facts; a fact that wraps onto a new line starts clean (its dot is clipped off the left). */
+.item-meta { grid-column: 2; font-size: 0.86rem; color: var(--ink-3); display: flex; flex-wrap: wrap; gap: 2px 14px; overflow: hidden; }
+.item-meta > * { margin-left: -14px; }
+/* Document numbers and dates never break in the middle (МОХ-УД/2627/ ↵ А/001). */
+.sub .num, .item-meta .num, .kv .num { white-space: nowrap; }
+.item-meta > *::before { content: '·'; display: inline-block; width: 14px; text-align: center; color: var(--line-strong); }
 .item-act { grid-column: 3; grid-row: 1 / span 2; display: flex; gap: 6px; align-items: center; }
 .item-act form { margin: 0; }
 .group-label { margin: 18px 0 2px; font-size: 0.9rem; font-weight: 650; color: var(--ink-2); display: flex; align-items: center; gap: 8px; }
@@ -358,7 +369,7 @@ a.row-link:hover { color: var(--blue); text-decoration: underline; text-underlin
 /* ---------- approval stepper ---------- */
 .stepper { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 0; counter-reset: st; }
 .stepper li { display: flex; align-items: center; gap: 8px; font-size: 0.88rem; color: var(--ink-3); counter-increment: st; }
-.stepper li + li::before { content: ''; width: 28px; height: 2px; background: var(--line-strong); margin: 0 8px 0 2px; border-radius: 2px; }
+.stepper li + li::before { content: ''; width: 28px; height: 2px; background: var(--line-strong); margin: 0 2px 0 10px; border-radius: 2px; }
 .stepper .dot { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; border: 2px solid var(--line-strong); background: var(--surface); font-size: 0.75rem; font-weight: 700; color: var(--ink-3); flex: none; }
 .stepper .dot .icon { width: 15px; height: 15px; }
 .stepper li.done { color: var(--ok); }
@@ -483,6 +494,17 @@ legend.label { padding: 0; }
 .type-card p { margin: 0; color: var(--ink-2); font-size: 0.92rem; }
 .type-card .chain-note { margin-top: auto; padding-top: 8px; font-size: 0.82rem; color: var(--ink-3); }
 .type-card:active { transform: translateY(1px); }
+/* Phones: icon beside the text, so all ten types fit in a few screens instead of ten. */
+@media (max-width: 640px) {
+  .type-grid { gap: 10px; }
+  .type-card { display: grid; grid-template-columns: 40px 1fr; column-gap: 14px; row-gap: 3px; padding: 14px 16px; align-items: start; }
+  .type-card .ic { width: 40px; height: 40px; grid-row: 1 / span 3; }
+  .type-card .ic .icon { width: 21px; height: 21px; }
+  .type-card > :not(.ic) { grid-column: 2; }
+  .type-card h3 { margin: 0; font-size: 1.02rem; }
+  .type-card p { font-size: 0.88rem; }
+  .type-card .chain-note { padding-top: 3px; }
+}
 
 /* ---------- events ---------- */
 .ev-list { display: grid; gap: 12px; list-style: none; margin: 0; padding: 0; }

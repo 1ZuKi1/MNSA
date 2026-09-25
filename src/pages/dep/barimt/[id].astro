@@ -82,7 +82,7 @@ const ACTION_LABEL: Record<string, string> = {
 const headline = {
   draft: 'Ноорог — хянуулахаар илгээгээгүй байна.',
   in_review: rec.awaiting ? `${stepGen(rec.awaiting)} шийдвэрийг хүлээж байна.` : 'Хянагдаж байна.',
-  approved: `Батлагдсан${lastDecision ? ` · ${fmtDate(lastDecision.created_at)}` : ''}.`,
+  approved: lastDecision ? `${fmtDate(lastDecision.created_at)}-нд батлагдсан.` : 'Батлагдсан.',
   rejected: 'Буцаагдсан. Засаад дахин илгээж болно.',
   void: 'Хүчингүй болсон.',
 }[rec.status];

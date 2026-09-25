@@ -227,8 +227,12 @@ hasnt "…but not for the board" "$pg" "Д. Номин"
 has "a member prints their own letter" "$(get $J/dotood2.jar /gishuud/bichig)" "Э. Билгүүн"
 check "…but not everyone's" "$(code $J/dotood2.jar '/gishuud/bichig?id=all')" 404
 check "…nor someone else's" "$(code $J/dotood2.jar '/gishuud/bichig?id=3')" 404
-has "an invite without a student ID is fine" "$(curl -s -b $J/president.jar -H "$S" -H "$O" -X POST -d "action=invite&student_id=&role=member&dept=media" --data-urlencode "name=Б. Эсэншихэр" $B/gishuud)" "Урилга үүслээ"
+has "an invite without a student ID is fine" "$(curl -s -L -b $J/president.jar -c $J/president.jar -H "$S" -H "$O" -d "action=invite&student_id=&role=member&dept=media" --data-urlencode "name=Б. Эсэншихэр" $B/gishuud)" "Урилга үүслээ"
 has "…but a malformed one is refused" "$(curl -s -b $J/president.jar -H "$S" -H "$O" -X POST -d "action=invite&student_id=12ab&role=member&dept=media" --data-urlencode "name=x" $B/gishuud)" "зөвхөн тооноос"
+has "a member can't be invited into the leadership" "$(curl -s -b $J/president.jar -H "$S" -H "$O" -X POST -d "action=invite&student_id=&role=member&dept=udirdlaga" --data-urlencode "name=x" $B/gishuud)" "таван хэлтсийн аль нэгэнд"
+has "…nor moved there" "$(post $J/president.jar /gishuud -d action=change -d user=8 -d role=member -d dept=udirdlaga -d back=/gishuud/8)" "err=wrong_dept"
+has "a board member always lands in the leadership" "$(post $J/president.jar /gishuud -d action=change -d user=2 -d role=board -d dept=media -d back=/gishuud/2)" "ok=saved"
+has "…whatever department was sent" "$(get $J/president.jar /gishuud/2)" "<span>Удирдлага</span>"
 check "a member opens their own page" "$(code $J/dotood2.jar /gishuud/4)" 200
 check "…but not someone else's" "$(code $J/dotood2.jar /gishuud/3)" 404
 has "President changes an e-mail" "$(post $J/president.jar /gishuud -d action=email -d user=6 -d back=/gishuud/6 --data-urlencode email=surgalt.new@demo.test)" "ok=saved"
