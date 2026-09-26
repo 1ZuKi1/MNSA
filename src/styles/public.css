@@ -129,8 +129,6 @@ html:has(body.public) { scroll-padding-top: calc(var(--header-h) + 16px); }
   .js .ph-nav a[aria-current='page']::after { transform: scaleY(1); }
 }
 
-/* ---------- test-mode ribbon (added by the Worker on *.workers.dev) ---------- */
-.test-ribbon { background: #b3261e; color: #fff; text-align: center; font: 600 0.85rem/1.4 var(--font-sans); padding: 6px 12px; }
 
 /* ---------- buttons ---------- */
 .public .btn {

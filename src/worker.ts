@@ -26,16 +26,13 @@ const STAFF_HEADERS: Record<string, string> = {
  * Test deployment only (TEST_MODE=1 on a *.workers.dev host): mark every public page as a test —
  * a red banner and noindex — including pages that were prerendered at build time.
  */
+/**
+ * The workers.dev deployment is kept out of search engines until the real domain is attached. It used to
+ * carry a red «Туршилтын хувилбар» ribbon too; that went when the real team moved onto it (2026-09-26) —
+ * this IS the association's site now, just on a temporary address.
+ */
 function markAsTest(res: Response): Response {
-  if (!(res.headers.get('content-type') ?? '').includes('text/html')) return res;
-  const out = new HTMLRewriter()
-    .on('body', {
-      element(el) {
-        el.prepend('<div class="test-ribbon" role="note">Туршилтын хувилбар — албан ёсны сайт бус</div>', { html: true });
-      },
-    })
-    .transform(res);
-  const marked = new Response(out.body, out);
+  const marked = new Response(res.body, res);
   marked.headers.set('X-Robots-Tag', 'noindex, nofollow');
   return marked;
 }
@@ -49,6 +46,8 @@ function withHeaders(res: Response, headers: Record<string, string>): Response {
 export default {
   async fetch(request, env, ctx): Promise<Response> {
     const url = new URL(request.url);
+    // Browsers ask for /favicon.ico on their own (a PDF opened on its own, for one); the icon is an SVG.
+    if (url.pathname === '/favicon.ico') return Response.redirect(new URL('/favicon.svg', url).toString(), 301);
 
     // ── staff host ──────────────────────────────────────────────────────────
     if (env.SITE_MODE === 'staff' || isStaffHost(url.hostname, env.STAFF_HOST)) {

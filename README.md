@@ -75,7 +75,7 @@ npm run deploy:test
 | `https://mnsa.<subdomain>.workers.dev` | public site |
 | `https://mnsa-dep.<subdomain>.workers.dev` | staff site |
 
-Both carry a red "test" banner and are hidden from search engines. Because Resend can't send mail without a verified domain, **the login code is shown on the login page** — but only on `*.workers.dev` addresses, never on `bdmnsa.com`. Log in with the demo accounts above. Don't enter real personal data on the test site.
+Both are hidden from search engines; the staff site shows a strip saying it runs on a temporary address. Because Resend can't send mail without a verified domain, **the login code is shown on the login page** — but only on `*.workers.dev` addresses, never on `bdmnsa.com`. Log in with the demo accounts above. Don't enter real personal data on the test site.
 
 Safe to re-run after every change. It rewrites the two `database_id` values in `wrangler.jsonc` — commit that change.
 

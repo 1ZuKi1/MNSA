@@ -136,7 +136,7 @@ ${c.g(c.b('Done.'))}
   Public site   ${c.b(publicUrl)}
   Staff site    ${c.b(staffUrl)}
 
-  ${noSeed ? 'Run `npm run import:members -- neccesary-files/members.csv` next to load the real team.' : 'Log in to the staff site with any demo account (README), e.g. president@demo.test —\n  the 6-digit code appears on the page.'} Both sites show a red "test" banner.
+  ${noSeed ? 'Run `npm run import:members -- neccesary-files/members.csv` next to load the real team.' : 'Log in to the staff site with any demo account (README), e.g. president@demo.test —\n  the 6-digit code appears on the page.'} The staff site shows a strip saying it runs on a temporary address.
 
   Needs a VPN from mainland China: *.workers.dev addresses are commonly blocked there.
   bdmnsa.com itself won't have that problem once the domain is bought.
