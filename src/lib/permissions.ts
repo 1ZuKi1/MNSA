@@ -10,7 +10,9 @@
  *   A document may have a second department: it reads there as at home, and that дарга approves it too.
  *   Events belong to the President and the Media department.
  *   The maintainer (technical administrator) has the President's powers, so the site can be overseen and
- *   fixed at any time; but they are not on the team: they take no tasks or jobs and never appear publicly.
+ *   fixed at any time, except official signing: the President's approval step, voiding an approved
+ *   document and the stamp stay the President's alone. The maintainer is not on the team either: they take
+ *   no tasks or jobs and never appear publicly.
  *   The official stamp is the President's alone.
  */
 import type { DeptSlug, RecordStatus, Role, SessionUser, Step, Visibility } from './types';
@@ -32,8 +34,10 @@ export interface RecordLike {
   step?: Step | null;
 }
 
-/** The President, or the maintainer acting with the President's powers. */
-const isPresident = (a: Actor) => a.role === 'president' || a.role === 'maintainer';
+/** The President themself: official signing (their approval step, voiding, the stamp) is theirs alone. */
+const isPresident = (a: Actor) => a.role === 'president';
+/** The President, or the maintainer acting with the President's powers (everything but official signing). */
+const hasPresidentPowers = (a: Actor) => isPresident(a) || a.role === 'maintainer';
 const isBoard = (a: Actor) => a.role === 'board';
 /** Is a member of the team who takes on work (everyone except the maintainer). */
 const governs = (a: Actor) => a.role !== 'maintainer';
@@ -41,14 +45,14 @@ const governs = (a: Actor) => a.role !== 'maintainer';
 // ------------------------------------------------------------------ records
 
 export function canCreateRecordIn(a: Actor, dept: DeptSlug): boolean {
-  if (isPresident(a) || isBoard(a)) return true;
+  if (hasPresidentPowers(a) || isBoard(a)) return true;
   if (!governs(a)) return false;
   return a.dept === dept;
 }
 
 export function canReadRecord(a: Actor, r: RecordLike): boolean {
   if (r.authorId === a.id) return true;
-  if (isPresident(a)) return true;
+  if (hasPresidentPowers(a)) return true;
 
   // Drafts are work in progress: author, their own дарга, and the President.
   if (r.status === 'draft') return a.role === 'head' && a.dept === r.dept;
@@ -65,7 +69,7 @@ export function canReadRecord(a: Actor, r: RecordLike): boolean {
 /** Content edits. Only while a draft, or after being sent back. */
 export function canEditRecord(a: Actor, r: RecordLike): boolean {
   if (r.status !== 'draft' && r.status !== 'rejected') return false;
-  if (isPresident(a) || isBoard(a)) return true;
+  if (hasPresidentPowers(a) || isBoard(a)) return true;
   if (!governs(a)) return false;
   if (a.dept !== r.dept) return false; // ← the wall
   if (a.role === 'head') return true;
@@ -76,7 +80,7 @@ export const canSubmitRecord = canEditRecord;
 
 export function canWithdrawRecord(a: Actor, r: RecordLike): boolean {
   if (r.status !== 'in_review') return false;
-  if (isPresident(a)) return true;
+  if (hasPresidentPowers(a)) return true;
   return r.authorId === a.id || (a.role === 'head' && a.dept === r.dept);
 }
 
@@ -112,13 +116,14 @@ export function stepApplies(step: Step, recordDept: DeptSlug, coDept: DeptSlug |
 /** May act (approve / send back) on the current step. The President can stand in for any step. */
 export function canDecideStep(a: Actor, r: RecordLike): boolean {
   if (r.status !== 'in_review' || !r.step) return false;
-  return isStepOwner(a, r.step, r.dept, r.coDept ?? null) || isPresident(a);
+  // The President can stand in for any step; the maintainer for any step but the President's own (official signing).
+  return isStepOwner(a, r.step, r.dept, r.coDept ?? null) || isPresident(a) || (hasPresidentPowers(a) && r.step !== 'president');
 }
 
 // ------------------------------------------------------------------ events
 
 export function canEditEvents(a: Actor): boolean {
-  return isPresident(a) || (governs(a) && a.dept === MEDIA);
+  return hasPresidentPowers(a) || (governs(a) && a.dept === MEDIA);
 }
 
 export function canManageTasks(a: Actor, eventDept: DeptSlug | null): boolean {
@@ -137,7 +142,7 @@ export function canFinishAssignment(a: Actor, assigneeId: number, eventDept: Dep
 /** The yearly "who took which jobs" report. Everyone may always see their own row. */
 export function canSeeParticipation(a: Actor, ofUserId?: number): boolean {
   if (ofUserId !== undefined && ofUserId === a.id) return true;
-  return isPresident(a) || isBoard(a);
+  return hasPresidentPowers(a) || isBoard(a);
 }
 
 // ------------------------------------------------------------------ jobs («Ажлууд», not tied to an event)
@@ -152,19 +157,19 @@ export interface JobLike {
 
 /** A department's дарга adds jobs to their department; the President anywhere. */
 export function canCreateJobIn(a: Actor, dept: DeptSlug): boolean {
-  return isPresident(a) || (a.role === 'head' && a.dept === dept);
+  return hasPresidentPowers(a) || (a.role === 'head' && a.dept === dept);
 }
 
 /** 'staff' jobs are open to everyone; a department's own jobs to that department, the leadership, and the people on it. */
 export function canReadJob(a: Actor, j: JobLike): boolean {
   if (j.visibility === 'staff') return true;
-  if (isPresident(a) || isBoard(a)) return true;
+  if (hasPresidentPowers(a) || isBoard(a)) return true;
   return a.dept === j.dept || a.id === j.ownerId || a.id === j.createdBy;
 }
 
 /** Title, notes, who's on it, when, who sees it, cancelling: that department's дарга and the President. */
 export function canEditJob(a: Actor, j: JobLike): boolean {
-  return isPresident(a) || (a.role === 'head' && a.dept === j.dept);
+  return hasPresidentPowers(a) || (a.role === 'head' && a.dept === j.dept);
 }
 
 /** Moving a job between stages and writing progress notes: the хариуцагч too. */
@@ -180,12 +185,12 @@ export function canTakeJob(a: Actor, j: JobLike): boolean {
 // ------------------------------------------------------------------ members
 
 export function canManageMembers(a: Actor): boolean {
-  return isPresident(a) || (governs(a) && a.isDeputy);
+  return hasPresidentPowers(a) || (governs(a) && a.isDeputy);
 }
 
 /** Roles this person may hand out. Nobody hands out "president" — only the handover does. */
 export function grantableRoles(a: Actor): Role[] {
-  if (isPresident(a)) return ['board', 'head', 'member', 'maintainer'];
+  if (hasPresidentPowers(a)) return ['board', 'head', 'member', 'maintainer'];
   if (canManageMembers(a)) return ['head', 'member'];
   return [];
 }
@@ -201,16 +206,16 @@ export function canModifyMember(a: Actor, target: MemberLike): boolean {
   if (!canManageMembers(a)) return false;
   if (target.id === a.id) return false;
   if (target.role === 'president') return false;
-  if (isPresident(a)) return true;
+  if (hasPresidentPowers(a)) return true;
   return (target.role === 'head' || target.role === 'member') && !target.isDeputy;
 }
 
 export function canSetDeputy(a: Actor): boolean {
-  return isPresident(a);
+  return hasPresidentPowers(a);
 }
 
 export function canSeeAudit(a: Actor): boolean {
-  return isPresident(a) || isBoard(a);
+  return hasPresidentPowers(a) || isBoard(a);
 }
 
 // ------------------------------------------------------------------ settings

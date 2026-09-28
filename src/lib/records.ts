@@ -138,7 +138,7 @@ export function awaitingWhere(a: SessionUser): { sql: string; params: unknown[] 
     conds.push(`(r.awaiting = 'cohead' AND r.co_department_id = ?${params.length})`);
   }
   if (P.isLegalHead(a)) conds.push(`r.awaiting = 'legal'`);
-  if (a.role === 'president' || a.role === 'maintainer') conds.push(`r.awaiting = 'president'`);
+  if (a.role === 'president') conds.push(`r.awaiting = 'president'`); // official signing: the President's alone
   if (!conds.length) return null;
   return { sql: `r.status = 'in_review' AND (${conds.join(' OR ')})`, params };
 }

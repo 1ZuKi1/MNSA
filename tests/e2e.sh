@@ -49,6 +49,7 @@ has "reject needs a comment" "$(post $J/dotood.jar /barimt/$RID -d action=reject
 has "дарга approves" "$(post $J/dotood.jar /barimt/$RID -d action=approve)" "ok=approved"
 has "now awaiting Legal" "$(get $J/legal.jar /barimt/$RID)" "Эрх зүйн хэлтсийн"
 has "Legal approves" "$(post $J/legal.jar /barimt/$RID -d action=approve)" "ok=approved"
+has "the maintainer cannot sign at the President's step" "$(post $J/dev.jar /barimt/$RID -d action=approve)" "err=denied"
 has "President approves" "$(post $J/president.jar /barimt/$RID -d action=approve --data-urlencode "comment=Зөвшөөрөв")" "ok=approved"
 pg=$(get $J/dotood2.jar /barimt/$RID)
 has "status is approved" "$pg" "b-approved"
@@ -161,7 +162,7 @@ has "past event shows cover publicly" "$(curl -s -H "$P" $B/uil-ajillagaa)" "/me
 echo "── official stamp"
 check "settings: President only" "$(code $J/president.jar /tohirgoo)" 200
 check "…not the board" "$(code $J/board.jar /tohirgoo)" 404
-check "…and the maintainer (President's powers)" "$(code $J/dev.jar /tohirgoo)" 200
+check "…not the maintainer (official signing is the President's alone)" "$(code $J/dev.jar /tohirgoo)" 404
 check "…and a дарга cannot post to it" "$(curl -s -o /dev/null -w '%{http_code}' -b $J/legal.jar -H "$S" -H "$O" -X POST -F action=stamp -F "file=@$J/p.jpg;type=image/jpeg" $B/tohirgoo)" 404
 echo "iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAABs0lEQVR42u1bwRECMQg8qMEirMgircgi7EFfzjiOehAWQnR55wK7B4SEZNsolL8WqVR2PhxvlnGn60V+ggAr4JmESFfQVWTIKsCziJCOsV2ZKyQTOOovZeqRDKOyklaGTkEaUrV8IfXrauC/6RpJxBIFXwk8wyZdGfwnGzyeINXgszL6qI1SAX60SELo2ZvDTYDHqBGDooR77U0z5vlbhFtHqshv3woaPAJ4dE6P7YqMxwzwr3NZ8kl4GRxJWlngR0mwYlLU36+oDTLsUGSMVhRGDx2o8weNLiOV4L0kvNr0brxufy66iutnhQI9AFX2dpW9PKAruj8yDBgCJIAEkAASQAJIwPxd2axaRL27p9Vkr7plCHQ6nJhRitMDvLunDl5g/fuW3S3EAypJQO9C1aMUPTaa0RFj1XKI4D14yCAh2ncId4a8HRkkCYjW2CdhczRaSaEJbNUeRxgUCYcWFyRQJHjrCsS8kCsyGSRULI/w5mj0NlZH8C4P2ANd7Q0oO9ylMPKW5mzwQx5gAfzzl6WzM3qlHj6YmLFTQ27B2xBQRUTbR1OZZCz1bK5LbFMoFJPcAV19sGmRciE2AAAAAElFTkSuQmCC" | base64 -d > $J/stamp.png
 has "a fake image is refused" "$(curl -s -o /dev/null -w "%{redirect_url}" -b $J/president.jar -H "$S" -H "$O" -F action=stamp -F "file=@$J/fake.jpg;type=image/jpeg" $B/tohirgoo)" "err=image"

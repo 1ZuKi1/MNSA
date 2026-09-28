@@ -80,11 +80,16 @@ describe('writing is walled by department', () => {
     expect(P.canEditRecord(gadaadHead, rec({ status: 'rejected', dept: 'dotood' }))).toBe(false);
   });
 
-  it('the maintainer acts with the President\'s powers on documents', () => {
+  it('the maintainer acts with the President\'s powers on documents, but never signs officially', () => {
     expect(P.canEditRecord(maintainer, draft)).toBe(true);
     expect(P.canCreateRecordIn(maintainer, 'dotood')).toBe(true);
-    expect(P.canDecideStep(maintainer, rec({ status: 'in_review', step: 'president' }))).toBe(true);
-    expect(P.canVoidRecord(maintainer, rec({ status: 'approved' }))).toBe(true);
+    expect(P.canDecideStep(maintainer, rec({ status: 'in_review', step: 'head' }))).toBe(true);
+    expect(P.canDecideStep(maintainer, rec({ status: 'in_review', step: 'legal' }))).toBe(true);
+    expect(P.canDecideStep(maintainer, rec({ status: 'in_review', step: 'president' }))).toBe(false);
+    expect(P.isStepOwner(maintainer, 'president', 'dotood')).toBe(false);
+    expect(P.canVoidRecord(maintainer, rec({ status: 'approved' }))).toBe(false);
+    expect(P.canDecideStep(president, rec({ status: 'in_review', step: 'president' }))).toBe(true);
+    expect(P.canVoidRecord(president, rec({ status: 'approved' }))).toBe(true);
   });
 
   it('you can only create in your own department (President and board anywhere)', () => {
@@ -188,10 +193,9 @@ describe('members: President adds everyone, one deputy as backup', () => {
 });
 
 describe('settings', () => {
-  it('only the President (and the maintainer, with the President\'s powers) manages the official stamp', () => {
+  it('only the President manages the official stamp — not even the maintainer', () => {
     expect(P.canManageSettings(president)).toBe(true);
-    expect(P.canManageSettings(maintainer)).toBe(true);
-    for (const a of [board, legalHead, dotoodHead, mediaMember]) expect(P.canManageSettings(a)).toBe(false);
+    for (const a of [board, legalHead, dotoodHead, mediaMember, maintainer]) expect(P.canManageSettings(a)).toBe(false);
   });
 });
 
