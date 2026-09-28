@@ -73,7 +73,7 @@ export async function getRecord(id: number): Promise<RecordRow | null> {
  * Mirrors P.canReadRecord; results are re-checked in JS as a second wall.
  */
 function readableWhere(a: SessionUser): { sql: string; params: unknown[] } {
-  if (a.role === 'president') return { sql: '1', params: [] };
+  if (a.role === 'president' || a.role === 'maintainer') return { sql: '1', params: [] };
   const isBoard = a.role === 'board' ? 1 : 0;
   const isHead = a.role === 'head' ? 1 : 0;
   const isLegalHead = P.isLegalHead(a) ? 1 : 0;
@@ -138,7 +138,7 @@ export function awaitingWhere(a: SessionUser): { sql: string; params: unknown[] 
     conds.push(`(r.awaiting = 'cohead' AND r.co_department_id = ?${params.length})`);
   }
   if (P.isLegalHead(a)) conds.push(`r.awaiting = 'legal'`);
-  if (a.role === 'president') conds.push(`r.awaiting = 'president'`);
+  if (a.role === 'president' || a.role === 'maintainer') conds.push(`r.awaiting = 'president'`);
   if (!conds.length) return null;
   return { sql: `r.status = 'in_review' AND (${conds.join(' OR ')})`, params };
 }

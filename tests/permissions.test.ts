@@ -46,7 +46,7 @@ describe('reading is open across departments', () => {
     expect(P.canReadRecord(dotoodMember2, secret)).toBe(true);
     expect(P.canReadRecord(board, secret)).toBe(true);
     expect(P.canReadRecord(gadaadHead, secret)).toBe(false);
-    expect(P.canReadRecord(maintainer, secret)).toBe(false);
+    expect(P.canReadRecord(maintainer, secret)).toBe(true); // President's powers
     expect(P.canReadRecord(legalHead, secret)).toBe(false);
     expect(P.canReadRecord(legalHead, rec({ visibility: 'dept', step: 'legal' }))).toBe(true);
   });
@@ -80,9 +80,11 @@ describe('writing is walled by department', () => {
     expect(P.canEditRecord(gadaadHead, rec({ status: 'rejected', dept: 'dotood' }))).toBe(false);
   });
 
-  it('the maintainer never edits content', () => {
-    expect(P.canEditRecord(maintainer, draft)).toBe(false);
-    expect(P.canCreateRecordIn(maintainer, 'dotood')).toBe(false);
+  it('the maintainer acts with the President\'s powers on documents', () => {
+    expect(P.canEditRecord(maintainer, draft)).toBe(true);
+    expect(P.canCreateRecordIn(maintainer, 'dotood')).toBe(true);
+    expect(P.canDecideStep(maintainer, rec({ status: 'in_review', step: 'president' }))).toBe(true);
+    expect(P.canVoidRecord(maintainer, rec({ status: 'approved' }))).toBe(true);
   });
 
   it('you can only create in your own department (President and board anywhere)', () => {
@@ -119,7 +121,7 @@ describe('events: President and Media', () => {
     expect(P.canEditEvents(mediaMember)).toBe(true);
     expect(P.canEditEvents(board)).toBe(false);
     expect(P.canEditEvents(dotoodHead)).toBe(false);
-    expect(P.canEditEvents(maintainer)).toBe(false);
+    expect(P.canEditEvents(maintainer)).toBe(true); // President's powers
   });
 
   it('the organising дарга can manage tasks for their own event only', () => {
@@ -154,7 +156,7 @@ describe('members: President adds everyone, one deputy as backup', () => {
     expect(P.canManageMembers(president)).toBe(true);
     expect(P.canManageMembers(legalHead)).toBe(true); // deputy
     expect(P.canManageMembers(dotoodHead)).toBe(false);
-    expect(P.canManageMembers(u(99, 'maintainer', null, true))).toBe(false); // a maintainer can't be made deputy-powerful
+    expect(P.canManageMembers(maintainer)).toBe(true); // the maintainer has the President's powers
   });
 
   it('nobody can grant the presidency; the deputy grants only heads and members', () => {
@@ -186,9 +188,10 @@ describe('members: President adds everyone, one deputy as backup', () => {
 });
 
 describe('settings', () => {
-  it('only the President manages the official stamp', () => {
+  it('only the President (and the maintainer, with the President\'s powers) manages the official stamp', () => {
     expect(P.canManageSettings(president)).toBe(true);
-    for (const a of [board, legalHead, dotoodHead, mediaMember, maintainer]) expect(P.canManageSettings(a)).toBe(false);
+    expect(P.canManageSettings(maintainer)).toBe(true);
+    for (const a of [board, legalHead, dotoodHead, mediaMember]) expect(P.canManageSettings(a)).toBe(false);
   });
 });
 
@@ -201,14 +204,14 @@ describe('jobs («Ажлууд»)', () => {
     expect(P.canCreateJobIn(president, 'gadaad')).toBe(true);
     expect(P.canCreateJobIn(dotoodMember, 'dotood')).toBe(false);
     expect(P.canCreateJobIn(board, 'media')).toBe(false);
-    expect(P.canCreateJobIn(maintainer, 'dotood')).toBe(false);
+    expect(P.canCreateJobIn(maintainer, 'dotood')).toBe(true);
   });
 
   it("a department's own job stays in the department and the leadership", () => {
     expect(P.canReadJob(dotoodMember2, job())).toBe(true);
     expect(P.canReadJob(board, job())).toBe(true);
     expect(P.canReadJob(mediaHead, job())).toBe(false);
-    expect(P.canReadJob(maintainer, job())).toBe(false);
+    expect(P.canReadJob(maintainer, job())).toBe(true);
   });
 
   it('a job put on someone from another department is visible to them', () => {
@@ -232,7 +235,7 @@ describe('jobs («Ажлууд»)', () => {
     expect(P.canUpdateJob(dotoodMember, job())).toBe(true);
     expect(P.canUpdateJob(dotoodMember2, job())).toBe(false);
     expect(P.canUpdateJob(gadaadHead, job({ visibility: 'staff' }))).toBe(false);
-    expect(P.canUpdateJob(maintainer, job({ visibility: 'staff', ownerId: maintainer.id }))).toBe(false);
+    expect(P.canTakeJob(maintainer, job({ visibility: 'staff', ownerId: null }))).toBe(false); // never on the team
   });
 
   it('a job with nobody on it can be taken by anyone who sees it', () => {

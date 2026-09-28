@@ -116,7 +116,7 @@ check "dept-only draft visible to its author" "$(code $J/legal.jar /barimt/4)" 2
 pg=$(curl -s -b $J/dotood2.jar -H "$S" -H "$O" -X POST -d "type=tailan&dept=gadaad&visibility=staff&then=save" --data-urlencode "title=x" --data-urlencode "f_report_kind=Улирлын эцсийн" -d "f_period=2026-09-01&f_period_to=2026-12-20" --data-urlencode "f_work=x" $B/barimt/shine)
 has "posting into another dept is refused, with the reason" "$pg" "Энэ хэлтэст бичих эрх танд байхгүй"
 check "…and nothing was created" "$(get $J/president.jar '/barimt?dept=gadaad' | grep -c 'class="row-link"')" 0
-has "maintainer cannot create records" "$(curl -s -o /dev/null -w '%{redirect_url}' -b $J/dev.jar -H "$S" $B/barimt/shine)" "err=denied"
+check "maintainer can create records (President's powers)" "$(code $J/dev.jar /barimt/shine)" 200
 has "records list shows other dept (open read)" "$(get $J/gadaad.jar /barimt)" "Нээлтийн уулзалтын тайлан"
 hasnt "records list hides dept-only draft" "$(get $J/gadaad.jar /barimt)" "Гишүүнчлэлийн батламжийн"
 
@@ -161,7 +161,7 @@ has "past event shows cover publicly" "$(curl -s -H "$P" $B/uil-ajillagaa)" "/me
 echo "── official stamp"
 check "settings: President only" "$(code $J/president.jar /tohirgoo)" 200
 check "…not the board" "$(code $J/board.jar /tohirgoo)" 404
-check "…not the maintainer" "$(code $J/dev.jar /tohirgoo)" 404
+check "…and the maintainer (President's powers)" "$(code $J/dev.jar /tohirgoo)" 200
 check "…and a дарга cannot post to it" "$(curl -s -o /dev/null -w '%{http_code}' -b $J/legal.jar -H "$S" -H "$O" -X POST -F action=stamp -F "file=@$J/p.jpg;type=image/jpeg" $B/tohirgoo)" 404
 echo "iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAABs0lEQVR42u1bwRECMQg8qMEirMgircgi7EFfzjiOehAWQnR55wK7B4SEZNsolL8WqVR2PhxvlnGn60V+ggAr4JmESFfQVWTIKsCziJCOsV2ZKyQTOOovZeqRDKOyklaGTkEaUrV8IfXrauC/6RpJxBIFXwk8wyZdGfwnGzyeINXgszL6qI1SAX60SELo2ZvDTYDHqBGDooR77U0z5vlbhFtHqshv3woaPAJ4dE6P7YqMxwzwr3NZ8kl4GRxJWlngR0mwYlLU36+oDTLsUGSMVhRGDx2o8weNLiOV4L0kvNr0brxufy66iutnhQI9AFX2dpW9PKAruj8yDBgCJIAEkAASQAJIwPxd2axaRL27p9Vkr7plCHQ6nJhRitMDvLunDl5g/fuW3S3EAypJQO9C1aMUPTaa0RFj1XKI4D14yCAh2ncId4a8HRkkCYjW2CdhczRaSaEJbNUeRxgUCYcWFyRQJHjrCsS8kCsyGSRULI/w5mj0NlZH8C4P2ANd7Q0oO9ylMPKW5mzwQx5gAfzzl6WzM3qlHj6YmLFTQ27B2xBQRUTbR1OZZCz1bK5LbFMoFJPcAV19sGmRciE2AAAAAElFTkSuQmCC" | base64 -d > $J/stamp.png
 has "a fake image is refused" "$(curl -s -o /dev/null -w "%{redirect_url}" -b $J/president.jar -H "$S" -H "$O" -F action=stamp -F "file=@$J/fake.jpg;type=image/jpeg" $B/tohirgoo)" "err=image"
@@ -296,8 +296,7 @@ has "a fake image is refused" "$(post $J/dotood2.jar /gishuud -F action=photo -F
 has "other dept head cannot set someone's photo" "$(post $J/gadaad.jar /gishuud -F action=photo -F user=4 -F "file=@$J/p.png;type=image/png")" "err=denied"
 check "maintainer can open a member's page (to load photos)" "$(code $J/dev.jar /gishuud/5)" 200
 has "…and set their photo" "$(post $J/dev.jar /gishuud -F action=photo -F user=5 -F back=/gishuud/5 -F "file=@$J/p.png;type=image/png")" "ok=portrait"
-has "…but still cannot change their role" "$(post $J/dev.jar /gishuud -d action=change -d user=5 -d role=member -d dept=gadaad)" "err=denied"
-hasnt "…and sees no role form there" "$(get $J/dev.jar /gishuud/5)" 'id="role-h"'
+has "…and sees the role form there (President's powers)" "$(get $J/dev.jar /gishuud/5)" 'id="role-h"'
 has "photo change is in the audit log" "$(get $J/president.jar /burtgel)" "Зураг сольсон"
 has "member removes their photo" "$(post $J/dotood2.jar /gishuud -d action=photo_remove -d user=4 -d back=/gishuud/4)" "ok=portrait_removed"
 check "…its bytes are gone" "$(curl -s -o /dev/null -w '%{http_code}' -H "$P" $B$PHOTO)" 404
@@ -323,7 +322,7 @@ has "…with the note" "$pg" "Гэрээний төслийг авсан"
 has "a note on its own" "$(post $J/dotood2.jar /ajil/$JID -d action=status -d action=note --data-urlencode "note=Даваа гарагт гарын үсэг зурна")" "ok=saved"
 has "…needs text" "$(post $J/dotood2.jar /ajil/$JID -d action=status -d action=note -d note=)" "err=invalid"
 has "the хариуцагч of a job their дарга set up can't cancel it" "$(post $J/dotood2.jar /ajil/1 -d action=status -d status=cancelled)" "err=denied"
-has "the maintainer can't touch it" "$(post $J/dev.jar /ajil/$JID -d action=status -d status=done)" "err=denied\|^$"
+has "the maintainer can't take a job (not on the team)" "$(post $J/dev.jar /ajil/$JID -d action=take)" "err=denied\|^$"
 has "the дарга opens it to everyone" "$(post $J/dotood.jar /ajil/$JID -d action=save -d dept=dotood -d owner=4 -d visibility=staff -d due=2026-10-20 --data-urlencode "title=Танхимын түрээсийн гэрээ" -d notes=)" "ok=saved"
 has "…now another department sees it" "$(get $J/gadaad.jar /ajil)" "Танхимын түрээсийн гэрээ"
 check "…and can open it" "$(code $J/gadaad.jar /ajil/$JID)" 200

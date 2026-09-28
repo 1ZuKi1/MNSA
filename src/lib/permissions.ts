@@ -9,7 +9,8 @@
  *   Legal (Эрх зүйн хэлтэс) reviews every department's official letters but cannot edit them.
  *   A document may have a second department: it reads there as at home, and that дарга approves it too.
  *   Events belong to the President and the Media department.
- *   The maintainer can read, but governs nothing.
+ *   The maintainer (technical administrator) has the President's powers, so the site can be overseen and
+ *   fixed at any time; but they are not on the team: they take no tasks or jobs and never appear publicly.
  *   The official stamp is the President's alone.
  */
 import type { DeptSlug, RecordStatus, Role, SessionUser, Step, Visibility } from './types';
@@ -31,15 +32,17 @@ export interface RecordLike {
   step?: Step | null;
 }
 
-const isPresident = (a: Actor) => a.role === 'president';
+/** The President, or the maintainer acting with the President's powers. */
+const isPresident = (a: Actor) => a.role === 'president' || a.role === 'maintainer';
 const isBoard = (a: Actor) => a.role === 'board';
+/** Is a member of the team who takes on work (everyone except the maintainer). */
 const governs = (a: Actor) => a.role !== 'maintainer';
 
 // ------------------------------------------------------------------ records
 
 export function canCreateRecordIn(a: Actor, dept: DeptSlug): boolean {
-  if (!governs(a)) return false;
   if (isPresident(a) || isBoard(a)) return true;
+  if (!governs(a)) return false;
   return a.dept === dept;
 }
 
@@ -61,9 +64,9 @@ export function canReadRecord(a: Actor, r: RecordLike): boolean {
 
 /** Content edits. Only while a draft, or after being sent back. */
 export function canEditRecord(a: Actor, r: RecordLike): boolean {
-  if (!governs(a)) return false;
   if (r.status !== 'draft' && r.status !== 'rejected') return false;
   if (isPresident(a) || isBoard(a)) return true;
+  if (!governs(a)) return false;
   if (a.dept !== r.dept) return false; // ← the wall
   if (a.role === 'head') return true;
   return r.authorId === a.id;
@@ -207,7 +210,7 @@ export function canSetDeputy(a: Actor): boolean {
 }
 
 export function canSeeAudit(a: Actor): boolean {
-  return isPresident(a) || isBoard(a) || a.role === 'maintainer';
+  return isPresident(a) || isBoard(a);
 }
 
 // ------------------------------------------------------------------ settings
