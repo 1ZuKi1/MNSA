@@ -34,8 +34,8 @@ const link = (p: Record<string, string | number>) => `/oroltsoo?${new URLSearchP
   <PageHead
     title={seeAll ? `Оролцоо · ${year}` : `Миний оролцоо · ${year}`}
     sub={seeAll
-      ? 'Хэн хэдэн арга хэмжээнд ажилласан, хэдэн ажлыг сайн дураараа авсан, хэдийг нь хуваарилсан, хэдийг дуусгасан.'
-      : 'Таны авсан, хуваарилагдсан ажлууд. Бүх гишүүний оролцоог Тэргүүн болон Удирдах Зөвлөл харна.'}
+      ? 'Хэн хэдэн арга хэмжээнд, арга хэмжээнээс гадуурх хэдэн ажилд оролцсон, хэдийг нь сайн дураараа авсан, хэдийг нь хуваарилсан, хэдийг дуусгасан.'
+      : 'Арга хэмжээний болон арга хэмжээнээс гадуурх ажлуудаас таны авсан, танд хуваарилагдсан нь. Бүх гишүүний оролцоог Тэргүүн болон Удирдах Зөвлөл харна.'}
   >
     <Fragment slot="actions">
       <nav class="tabs" aria-label="Хичээлийн жил" style="margin:0">
@@ -60,6 +60,7 @@ const link = (p: Record<string, string | number>) => `/oroltsoo?${new URLSearchP
               <tr>
                 <th scope="col">Гишүүн</th>
                 <th scope="col" class="num">Арга хэмжээ</th>
+                <th scope="col" class="num">Ажлууд</th>
                 <th scope="col" class="num">Сайн дураар</th>
                 <th scope="col" class="num">Хуваарилсан</th>
                 <th scope="col" class="num">Дууссан</th>
@@ -76,11 +77,12 @@ const link = (p: Record<string, string | number>) => `/oroltsoo?${new URLSearchP
                       <span class="who-text">
                         <a class="row-link" href={link({ user: r.user_id }) + '#detail'}>{r.name}</a>
                         <small>{r.dept_name ?? ROLE_LABEL[r.role]}{r.status !== 'active' && ' · идэвхгүй'}</small>
-                        <small class="m-only">{r.events} арга хэмжээ · {r.volunteered} сайн дураар · {r.assigned} хуваарилсан · {r.done} дууссан</small>
+                        <small class="m-only">{r.events} арга хэмжээ · {r.jobs} ажил · {r.volunteered} сайн дураар · {r.assigned} хуваарилсан · {r.done} дууссан</small>
                       </span>
                     </span>
                   </td>
                   <td class="num hide-sm">{r.events}</td>
+                  <td class="num hide-sm">{r.jobs}</td>
                   <td class="num hide-sm">{r.volunteered}</td>
                   <td class="num hide-sm">{r.assigned}</td>
                   <td class="num side-cell">
@@ -115,11 +117,11 @@ const link = (p: Record<string, string | number>) => `/oroltsoo?${new URLSearchP
             <ul class="items">
               {detail.map((d) => (
                 <li class="item">
-                  <span class:list={['ic', d.status === 'done' ? 'ok' : d.status === 'dropped' ? 'bad' : 'blue']}><Icon name={d.volunteered ? 'hand' : 'check'} /></span>
-                  <span class="item-title">{d.task_title}</span>
+                  <span class:list={['ic', d.status === 'done' ? 'ok' : d.status === 'dropped' ? 'bad' : 'blue']}><Icon name={d.kind === 'job' ? 'list' : d.volunteered ? 'hand' : 'check'} /></span>
+                  <span class="item-title">{d.title}</span>
                   <span class="item-meta">
-                    <a href={`/uil-ajillagaa/${d.event_id}`}>{d.event_title}</a>
-                    <span>{fmtDate(d.starts_at)}</span>
+                    <a href={d.href}>{d.kind === 'job' ? `Ажлууд · ${d.where}` : d.where}</a>
+                    <span>{fmtDate(d.at)}</span>
                     <span>{d.volunteered ? 'Сайн дураар' : 'Хуваарилсан'}</span>
                   </span>
                   <span class="item-act"><span class={`badge b-${d.status === 'active' ? 'open' : d.status}`}>{STATUS[d.status]}</span></span>

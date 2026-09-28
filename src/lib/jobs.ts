@@ -8,7 +8,7 @@ import { sendMail } from './mailer';
 import * as P from './permissions';
 import { Denied } from './records';
 import { staffOrigin } from './site';
-import { now } from './time';
+import { academicYear, now } from './time';
 import type { DeptSlug, SessionUser } from './types';
 
 export type JobStatus = 'todo' | 'doing' | 'done' | 'cancelled';
@@ -240,4 +240,68 @@ export async function releaseJob(a: SessionUser, j: JobRow, ip: string | null) {
     stmt(`INSERT INTO job_updates (job_id, user_id, kind, created_at) VALUES (?,?,'release',?)`, j.id, a.id, t),
     auditStmt(a.id, 'job.release', 'job', j.id, null, ip),
   ]);
+}
+
+// ------------------------------------------------------------------ participation
+
+/** One person's part in one job, for the «Оролцоо» record. */
+export interface JobShare {
+  job_id: number;
+  title: string;
+  dept_name: string;
+  created_at: number;
+  volunteered: boolean;
+  status: 'active' | 'done' | 'dropped';
+}
+
+/**
+ * Who worked on which jobs in an academic year (a job counts in the year it was created).
+ * Read from the job's own history: «Би хийнэ» = volunteered, a дарга's appointment = assigned. The
+ * person on the job now has it active or done; someone who stepped down («Татгалзах») has it dropped.
+ * Someone the дарга moved off the job, and anyone on a cancelled job, is not counted either way.
+ */
+export async function jobParticipation(year: string): Promise<Map<number, JobShare[]>> {
+  const jobs = (
+    await many<{ id: number; title: string; status: JobStatus; owner_id: number | null; created_at: number; dept_name: string }>(
+      `SELECT j.id, j.title, j.status, j.owner_id, j.created_at, d.name_mn AS dept_name FROM jobs j JOIN departments d ON d.id = j.department_id`,
+    )
+  ).filter((j) => academicYear(j.created_at) === year && j.status !== 'cancelled');
+  const out = new Map<number, JobShare[]>();
+  if (!jobs.length) return out;
+  const updates = await many<{ job_id: number; user_id: number; kind: JobUpdateRow['kind']; target_id: number | null }>(
+    `SELECT job_id, user_id, kind, target_id FROM job_updates WHERE kind IN ('take','assign','release') ORDER BY id`,
+  );
+  const byJob = new Map<number, typeof updates>();
+  for (const u of updates) byJob.set(u.job_id, [...(byJob.get(u.job_id) ?? []), u]);
+
+  for (const j of jobs) {
+    // Walk the history: who held the job, how they got it, and whether they let it go.
+    const people = new Map<number, { volunteered: boolean; released: boolean }>();
+    for (const u of byJob.get(j.id) ?? []) {
+      if (u.kind === 'take') people.set(u.user_id, { volunteered: true, released: false });
+      else if (u.kind === 'assign' && u.target_id !== null) people.set(u.target_id, { volunteered: false, released: false });
+      else if (u.kind === 'release') {
+        const p = people.get(u.user_id);
+        if (p) p.released = true;
+      }
+    }
+    // A job made before its history was kept: the person on it counts as appointed.
+    if (j.owner_id !== null && !people.has(j.owner_id)) people.set(j.owner_id, { volunteered: false, released: false });
+
+    for (const [userId, p] of people) {
+      let status: JobShare['status'] | null;
+      if (userId === j.owner_id) status = j.status === 'done' ? 'done' : 'active';
+      else status = p.released ? 'dropped' : null; // moved off by the дарга: neither credit nor blame
+      if (!status) continue;
+      const share: JobShare = { job_id: j.id, title: j.title, dept_name: j.dept_name, created_at: j.created_at, volunteered: p.volunteered, status };
+      out.set(userId, [...(out.get(userId) ?? []), share]);
+    }
+  }
+  return out;
+}
+
+/** Academic years that have any job, for the «Оролцоо» year tabs. */
+export async function yearsWithJobs(): Promise<string[]> {
+  const rows = await many<{ created_at: number }>(`SELECT created_at FROM jobs`);
+  return [...new Set(rows.map((r) => academicYear(r.created_at)))];
 }

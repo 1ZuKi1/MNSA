@@ -4,6 +4,7 @@ import * as P from './permissions';
 import { academicYear, now } from './time';
 import type { DeptSlug, Role, SessionUser } from './types';
 import { Denied } from './records';
+import { jobParticipation, yearsWithJobs, type JobShare } from './jobs';
 
 export interface EventRow {
   id: number;
@@ -326,7 +327,11 @@ export interface ParticipationRow {
   dept_slug: DeptSlug | null;
   dept_name: string | null;
   status: string;
+  /** Events this person worked on (through their tasks). */
   events: number;
+  /** Jobs outside events («Ажлууд») this person was on. */
+  jobs: number;
+  /** The counts below cover both: event tasks and jobs outside events. */
   volunteered: number;
   assigned: number;
   done: number;
@@ -335,51 +340,97 @@ export interface ParticipationRow {
 }
 
 /**
- * Per person, per academic year. People with no jobs appear with zeros at the bottom —
- * that is the "who isn't taking jobs" answer, without anyone going looking.
+ * Per person, per academic year: event tasks and jobs outside events («Ажлууд») together. People with
+ * nothing appear with zeros at the bottom — that is the "who isn't taking jobs" answer, without anyone
+ * going looking.
  */
 export async function participation(year: string, onlyUserId?: number): Promise<ParticipationRow[]> {
   const filter = onlyUserId ? `AND u.id = ${Number(onlyUserId)}` : '';
-  return many<ParticipationRow>(
-    `WITH y AS (
-       SELECT x.user_id, e.id AS event_id, x.volunteered, x.status
-         FROM task_assignments x
-         JOIN event_tasks k ON k.id = x.task_id
-         JOIN events e ON e.id = k.event_id
-        WHERE e.academic_year = ?1
-     )
-     SELECT u.id AS user_id, u.name_mn AS name, u.role, d.slug AS dept_slug, d.name_mn AS dept_name, u.status,
-            COUNT(DISTINCT CASE WHEN y.status <> 'dropped' THEN y.event_id END) AS events,
-            COALESCE(SUM(CASE WHEN y.volunteered = 1 THEN 1 ELSE 0 END), 0) AS volunteered,
-            COALESCE(SUM(CASE WHEN y.volunteered = 0 THEN 1 ELSE 0 END), 0) AS assigned,
-            COALESCE(SUM(CASE WHEN y.status = 'done' THEN 1 ELSE 0 END), 0) AS done,
-            COALESCE(SUM(CASE WHEN y.status = 'dropped' THEN 1 ELSE 0 END), 0) AS dropped,
-            COALESCE(SUM(CASE WHEN y.status = 'active' THEN 1 ELSE 0 END), 0) AS active
-       FROM users u
-       LEFT JOIN departments d ON d.id = u.department_id
-       LEFT JOIN y ON y.user_id = u.id
-      WHERE u.role <> 'maintainer' ${filter}
-      GROUP BY u.id
-     HAVING u.status = 'active' OR COUNT(y.user_id) > 0
-      ORDER BY done DESC, volunteered DESC, events DESC, u.name_mn`,
-    year,
-  );
+  const [rows, jobs] = await Promise.all([
+    many<Omit<ParticipationRow, 'jobs'> & { tasks: number }>(
+      `WITH y AS (
+         SELECT x.user_id, e.id AS event_id, x.volunteered, x.status
+           FROM task_assignments x
+           JOIN event_tasks k ON k.id = x.task_id
+           JOIN events e ON e.id = k.event_id
+          WHERE e.academic_year = ?1
+       )
+       SELECT u.id AS user_id, u.name_mn AS name, u.role, d.slug AS dept_slug, d.name_mn AS dept_name, u.status,
+              COUNT(y.user_id) AS tasks,
+              COUNT(DISTINCT CASE WHEN y.status <> 'dropped' THEN y.event_id END) AS events,
+              COALESCE(SUM(CASE WHEN y.volunteered = 1 THEN 1 ELSE 0 END), 0) AS volunteered,
+              COALESCE(SUM(CASE WHEN y.volunteered = 0 THEN 1 ELSE 0 END), 0) AS assigned,
+              COALESCE(SUM(CASE WHEN y.status = 'done' THEN 1 ELSE 0 END), 0) AS done,
+              COALESCE(SUM(CASE WHEN y.status = 'dropped' THEN 1 ELSE 0 END), 0) AS dropped,
+              COALESCE(SUM(CASE WHEN y.status = 'active' THEN 1 ELSE 0 END), 0) AS active
+         FROM users u
+         LEFT JOIN departments d ON d.id = u.department_id
+         LEFT JOIN y ON y.user_id = u.id
+        WHERE u.role <> 'maintainer' ${filter}
+        GROUP BY u.id`,
+      year,
+    ),
+    jobParticipation(year),
+  ]);
+  return rows
+    .map(({ tasks, ...r }) => {
+      const js = jobs.get(r.user_id) ?? [];
+      const n = (f: (j: JobShare) => boolean) => js.filter(f).length;
+      return {
+        row: {
+          ...r,
+          jobs: n((j) => j.status !== 'dropped'),
+          volunteered: r.volunteered + n((j) => j.volunteered),
+          assigned: r.assigned + n((j) => !j.volunteered),
+          done: r.done + n((j) => j.status === 'done'),
+          dropped: r.dropped + n((j) => j.status === 'dropped'),
+          active: r.active + n((j) => j.status === 'active'),
+        },
+        any: tasks + js.length > 0,
+      };
+    })
+    .filter(({ row, any }) => row.status === 'active' || any)
+    .map(({ row }) => row)
+    .sort((a, b) => b.done - a.done || b.volunteered - a.volunteered || b.events + b.jobs - (a.events + a.jobs) || a.name.localeCompare(b.name, 'mn'));
 }
 
-export async function participationDetail(userId: number, year: string) {
-  return many<{ event_id: number; event_title: string; starts_at: number; task_title: string; volunteered: number; status: string; assigned_at: number }>(
-    `SELECT e.id AS event_id, e.title AS event_title, e.starts_at, k.title AS task_title, x.volunteered, x.status, x.assigned_at
-       FROM task_assignments x JOIN event_tasks k ON k.id = x.task_id JOIN events e ON e.id = k.event_id
-      WHERE x.user_id = ? AND e.academic_year = ? ORDER BY e.starts_at DESC, x.id`,
-    userId,
-    year,
-  );
+/** One line of a person's record: an event task, or a job outside events. */
+export interface ParticipationItem {
+  kind: 'task' | 'job';
+  title: string;
+  /** The event («Шинэ оюутныг угтах арга хэмжээ»), or the job's department. */
+  where: string;
+  href: string;
+  at: number;
+  volunteered: boolean;
+  status: 'active' | 'done' | 'dropped';
+}
+
+export async function participationDetail(userId: number, year: string): Promise<ParticipationItem[]> {
+  const [tasks, jobs] = await Promise.all([
+    many<{ event_id: number; event_title: string; starts_at: number; task_title: string; volunteered: number; status: 'active' | 'done' | 'dropped' }>(
+      `SELECT e.id AS event_id, e.title AS event_title, e.starts_at, k.title AS task_title, x.volunteered, x.status
+         FROM task_assignments x JOIN event_tasks k ON k.id = x.task_id JOIN events e ON e.id = k.event_id
+        WHERE x.user_id = ? AND e.academic_year = ? ORDER BY e.starts_at DESC, x.id`,
+      userId,
+      year,
+    ),
+    jobParticipation(year),
+  ]);
+  const items: ParticipationItem[] = [
+    ...tasks.map((t) => ({ kind: 'task' as const, title: t.task_title, where: t.event_title, href: `/uil-ajillagaa/${t.event_id}`, at: t.starts_at, volunteered: !!t.volunteered, status: t.status })),
+    ...(jobs.get(userId) ?? []).map((j) => ({ kind: 'job' as const, title: j.title, where: j.dept_name, href: `/ajil/${j.job_id}`, at: j.created_at, volunteered: j.volunteered, status: j.status })),
+  ];
+  return items.sort((a, b) => b.at - a.at);
 }
 
 export async function yearsWithEvents(): Promise<string[]> {
-  const rows = await many<{ academic_year: string }>(`SELECT DISTINCT academic_year FROM events ORDER BY academic_year DESC`);
+  const [rows, jobYears] = await Promise.all([
+    many<{ academic_year: string }>(`SELECT DISTINCT academic_year FROM events ORDER BY academic_year DESC`),
+    yearsWithJobs(),
+  ]);
   const cur = academicYear();
-  return [...new Set([cur, ...rows.map((r) => r.academic_year)])].sort().reverse();
+  return [...new Set([cur, ...rows.map((r) => r.academic_year), ...jobYears])].sort().reverse();
 }
 
 // ------------------------------------------------------------------ photos

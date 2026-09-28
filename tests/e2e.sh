@@ -340,6 +340,13 @@ has "…it's in the history" "$(get $J/board.jar /ajil/5)" "ажлыг өөрө�
 has "…the хариуцагч can step down" "$(post $J/media2.jar /ajil/5 -d action=release)" "ok=dropped"
 has "…and it needs someone again" "$(get $J/gadaad.jar /ajil)" "Хүн хэрэгтэй"
 has "only the хариуцагч steps down" "$(post $J/dotood.jar /ajil/1 -d action=release)" "err=denied"
+pg=$(get $J/dotood2.jar /oroltsoo)
+has "participation counts jobs outside events: the finished one" "$pg" "Танхимын түрээсийн гэрээ"
+has "…linked to the job" "$pg" "/ajil/$JID"
+pg=$(get $J/media2.jar /oroltsoo)
+has "…a job you took and stepped down from shows as dropped" "$pg" "Шинэ гишүүдэд танилцуулга бэлтгэх"
+has "…marked Орхисон" "$pg" "Орхисон"
+has "…and the President sees the jobs column" "$(get $J/president.jar /oroltsoo)" ">Ажлууд<"
 check "jobs never reach the public site" "$(curl -s -o /dev/null -w '%{http_code}' -H "$P" $B/ajil)" 404
 
 echo "── help (Тусламж)"
