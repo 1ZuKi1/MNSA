@@ -211,7 +211,10 @@ const canOpen = (m: (typeof members)[number]) => m.id === user.id || manager || 
   {
     manager && (
       <div class="cols" style="margin-top:24px">
-        <form method="post" class="panel" id="invite" aria-labelledby="inv-h">
+        {/* data-native: a normal submit, not the background one. The new link rides to the next page in a
+            one-time cookie; a background submit would use it up on the page it fetches, then reload
+            the page without it, and the link would never be seen. */}
+        <form method="post" class="panel" id="invite" aria-labelledby="inv-h" data-native>
           <input type="hidden" name="action" value="invite" />
           <div class="panel-head"><h2 id="inv-h"><Icon name="mail" /> Урилга үүсгэх</h2></div>
           <div class="panel-body" style="display:grid;gap:16px">
