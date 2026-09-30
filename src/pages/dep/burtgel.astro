@@ -23,7 +23,7 @@ const rows = await many<{ id: number; action: string; entity_type: string | null
 );
 
 const LABEL: Record<string, string> = {
-  login: 'Нэвтэрсэн', 'login.locked': 'Код олон удаа буруу',
+  login: 'Нэвтэрсэн', 'login.locked': 'Код олон удаа буруу', mail_failed: 'И-мэйл илгээгдээгүй',
   'record.create': 'Баримт үүсгэсэн', 'record.edit': 'Баримт зассан', 'record.submit': 'Хянуулахаар илгээсэн',
   'record.approve': 'Баталсан', 'record.reject': 'Буцаасан', 'record.withdraw': 'Эргүүлэн татсан', 'record.void': 'Хүчингүй болгосон',
   'event.create': 'Арга хэмжээ үүсгэсэн', 'event.edit': 'Арга хэмжээ зассан', 'event.published': 'Нийтэлсэн', 'event.draft': 'Нийтлэлээс буцаасан',
