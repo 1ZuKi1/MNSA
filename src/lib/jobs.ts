@@ -4,7 +4,7 @@
  * Who may do what is decided in permissions.ts (canReadJob / canEditJob / canUpdateJob).
  */
 import { auditStmt, db, deptBySlug, many, one, stmt } from './db';
-import { sendMail } from './mailer';
+import { jobAssignedMail, sendMail } from './mailer';
 import * as P from './permissions';
 import { Denied } from './records';
 import { staffOrigin } from './site';
@@ -133,11 +133,7 @@ async function notifyOwner(a: SessionUser, ownerId: number | null, jobId: number
   if (ownerId === null || ownerId === a.id) return;
   const o = await one<{ email: string }>(`SELECT email FROM users WHERE id = ?`, ownerId);
   if (!o) return;
-  await sendMail({
-    to: o.email,
-    subject: `Танд ажил оноолоо: ${title}`,
-    text: ['Сайн байна уу,', '', `${a.name} таныг «${title}» ажлын хариуцагчаар томиллоо.`, '', `${staffOrigin()}/ajil/${jobId}`, '', '— МОХ-ны ажлын орчин'].join('\n'),
-  });
+  await sendMail(jobAssignedMail(o.email, a.name, title, `${staffOrigin()}/ajil/${jobId}`));
 }
 
 export async function createJob(a: SessionUser, input: JobInput, ip: string | null): Promise<number> {
