@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "mnsa",
-  // Custom entry: routes bdmnsa.com (public) vs dep.bdmnsa.com (staff) before Astro sees the request.
+  // Custom entry: routes pkumongolia.com (public) vs team.pkumongolia.com (staff) before Astro sees the request.
   "main": "./src/worker.ts",
   "compatibility_date": "2026-09-01",
   "compatibility_flags": ["nodejs_compat"],
@@ -36,14 +36,14 @@
   ],
 
   "vars": {
-    "PUBLIC_HOST": "bdmnsa.com",
-    "STAFF_HOST": "dep.bdmnsa.com",
-    "MAIL_FROM": "МОХ <no-reply@bdmnsa.com>"
+    "PUBLIC_HOST": "pkumongolia.com",
+    "STAFF_HOST": "team.pkumongolia.com",
+    "MAIL_FROM": "МОХ <no-reply@pkumongolia.com>"
   },
 
   // Secrets — set with `wrangler secret put NAME`, never committed:
   //   SESSION_SECRET      long random string; signs session cookies and hashes login codes
-  //   RESEND_API_KEY      once bdmnsa.com is verified in Resend
+  //   RESEND_API_KEY      once pkumongolia.com is verified in Resend
   //   TURNSTILE_SECRET    + TURNSTILE_SITE_KEY as a var
 
   "observability": { "enabled": true }

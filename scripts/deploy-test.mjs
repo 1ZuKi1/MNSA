@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Test deployment on free workers.dev addresses — for use BEFORE bdmnsa.com is bought.
+ * Test deployment on free workers.dev addresses — for use BEFORE pkumongolia.com is bought.
  *
  *   npx wrangler login        (once — opens your browser)
  *   npm run deploy:test
@@ -14,13 +14,13 @@
  *   4. sets SESSION_SECRET on both if missing
  *
  * TEST_MODE=1 shows login codes on screen (no domain → Resend can't send yet). It only works on
- * *.workers.dev hostnames, so it can never switch on at bdmnsa.com.
+ * *.workers.dev hostnames, so it can never switch on at pkumongolia.com.
  *
  * --no-seed : skip the demo data even on an empty database. Use this to run the real association
  * on workers.dev before the domain is bought — delete the old test databases first (README §First
  * deployment, step 4), run this with --no-seed, then `npm run import:members`. Login codes still
  * show on screen (TEST_MODE), so the team can log in with no domain and no Resend key yet. When the
- * domain is later attached, TEST_MODE stops mattering — codes never show on bdmnsa.com regardless.
+ * domain is later attached, TEST_MODE stops mattering — codes never show on pkumongolia.com regardless.
  */
 import { spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
@@ -139,5 +139,5 @@ ${c.g(c.b('Done.'))}
   ${noSeed ? 'Run `npm run import:members -- neccesary-files/members.csv` next to load the real team.' : 'Log in to the staff site with any demo account (README), e.g. president@demo.test —\n  the 6-digit code appears on the page.'} The staff site shows a strip saying it runs on a temporary address.
 
   Needs a VPN from mainland China: *.workers.dev addresses are commonly blocked there.
-  bdmnsa.com itself won't have that problem once the domain is bought.
+  pkumongolia.com itself won't have that problem once the domain is bought.
 `);

@@ -23,7 +23,7 @@ export function secret(): string {
   return s;
 }
 
-/** __Host- prefix forces Secure + Path=/ + no Domain: the cookie can never leak to bdmnsa.com. */
+/** __Host- prefix forces Secure + Path=/ + no Domain: the cookie can never leak to pkumongolia.com. */
 export const cookieName = (url: URL) => (url.protocol === 'https:' ? '__Host-mnsa_s' : 'mnsa_s');
 
 export async function signSession(userId: number, version: number): Promise<string> {
@@ -54,7 +54,7 @@ export function setSessionCookie(cookies: AstroCookies, url: URL, token: string)
     sameSite: 'lax',
     path: '/',
     maxAge: LIFETIME,
-    // No `domain` → host-only. This is the whole point of dep.bdmnsa.com being a subdomain.
+    // No `domain` → host-only. This is the whole point of team.pkumongolia.com being a subdomain.
   });
 }
 

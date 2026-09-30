@@ -78,7 +78,7 @@ const kind = printKind(type, f);
 const trail = [
   `Цахим батлалт: боловсруулсан — ${rec.author_name} (${fmtDate(rec.submitted_at)})`,
   ...approvals.filter((a) => a.by).map((a) => `${stepTitle(a.step)} — ${a.by!.actor_name} (${fmtDate(a.by!.created_at)})`),
-  `dep.bdmnsa.com/barimt/${rec.id}`,
+  `team.pkumongolia.com/barimt/${rec.id}`,
 ].join(' · ');
 ---
 <!doctype html>

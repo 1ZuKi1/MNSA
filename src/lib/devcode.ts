@@ -1,6 +1,6 @@
 /**
  * Show the login code on screen: local dev (DEV_SHOW_CODES=1 on *.localhost) or the workers.dev
- * test deployment (TEST_MODE=1 on *.workers.dev). Both are host-guarded; neither can fire on bdmnsa.com.
+ * test deployment (TEST_MODE=1 on *.workers.dev). Both are host-guarded; neither can fire on pkumongolia.com.
  */
 import type { AstroCookies } from 'astro';
 import { showCodesOnScreen } from './site';

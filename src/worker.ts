@@ -1,11 +1,11 @@
 /**
  * Worker entry. One Worker serves both hostnames:
  *
- *   bdmnsa.com        public site   — prerendered pages; events pages rendered per request + edge-cached
- *   dep.bdmnsa.com    staff site    — every page rendered per request behind a login
+ *   pkumongolia.com        public site   — prerendered pages; events pages rendered per request + edge-cached
+ *   team.pkumongolia.com    staff site    — every page rendered per request behind a login
  *
  * Staff pages live in src/pages/dep/ but are served at clean URLs on the staff host
- * (dep.bdmnsa.com/barimt → /dep/barimt internally). On the public host, /dep does not exist.
+ * (team.pkumongolia.com/barimt → /dep/barimt internally). On the public host, /dep does not exist.
  */
 import { handle } from '@astrojs/cloudflare/handler';
 import { isLocalHost, isStaffHost, publicCacheSeconds, shouldPrefixStaffPath, STAFF_PREFIX } from './lib/hosts';
@@ -48,6 +48,11 @@ export default {
     const url = new URL(request.url);
     // Browsers ask for /favicon.ico on their own (a PDF opened on its own, for one); the icon is an SVG.
     if (url.pathname === '/favicon.ico') return Response.redirect(new URL('/favicon.svg', url).toString(), 301);
+    // www.pkumongolia.com → pkumongolia.com: one address for the public site, whatever people type.
+    if (url.hostname.startsWith('www.')) {
+      url.hostname = url.hostname.slice(4);
+      return Response.redirect(url.toString(), 301);
+    }
 
     // ── staff host ──────────────────────────────────────────────────────────
     if (env.SITE_MODE === 'staff' || isStaffHost(url.hostname, env.STAFF_HOST)) {

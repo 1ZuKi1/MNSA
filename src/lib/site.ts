@@ -1,7 +1,7 @@
 /**
  * Where things live, and whether this is the throwaway test deployment.
  *
- * Production: one Worker, bdmnsa.com + dep.bdmnsa.com.
+ * Production: one Worker, pkumongolia.com + team.pkumongolia.com.
  * Test (before the domain exists): the same build deployed twice on workers.dev —
  *   mnsa.<account>.workers.dev      public
  *   mnsa-dep.<account>.workers.dev  staff (SITE_MODE=staff)
@@ -11,7 +11,7 @@ import { isLocalHost } from './hosts';
 
 /**
  * Test mode shows login codes on screen, because there is no domain for Resend yet.
- * Double-guarded: needs TEST_MODE=1 AND a *.workers.dev hostname, so it can never fire on bdmnsa.com.
+ * Double-guarded: needs TEST_MODE=1 AND a *.workers.dev hostname, so it can never fire on pkumongolia.com.
  */
 export const isTestMode = (url: URL) => env.TEST_MODE === '1' && url.hostname.endsWith('.workers.dev');
 
@@ -20,7 +20,7 @@ export const showCodesOnScreen = (url: URL) =>
   (env.DEV_SHOW_CODES === '1' && isLocalHost(url.hostname)) || isTestMode(url);
 
 /** The public site's origin, as seen from the staff site. */
-export const publicOrigin = (url: URL) => env.PUBLIC_ORIGIN || `${url.protocol}//${url.host.replace(/^dep\./, '')}`;
+export const publicOrigin = (url: URL) => env.PUBLIC_ORIGIN || `${url.protocol}//${url.host.replace(/^(team|dep)\./, '')}`;
 
 /** The staff site's origin, for links inside emails. */
-export const staffOrigin = () => env.STAFF_ORIGIN || 'https://dep.bdmnsa.com';
+export const staffOrigin = () => env.STAFF_ORIGIN || 'https://team.pkumongolia.com';

@@ -1,5 +1,5 @@
 /**
- * Auth gate for the staff area. Runs only for /dep/* (the worker maps dep.bdmnsa.com/* there).
+ * Auth gate for the staff area. Runs only for /dep/* (the worker maps team.pkumongolia.com/* there).
  * The session is re-validated against the database on every request, so removing someone,
  * changing their role or letting their term lapse takes effect immediately.
  */

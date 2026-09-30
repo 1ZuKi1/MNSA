@@ -1,11 +1,11 @@
 /**
  * Which site a request belongs to.
- *   dep.bdmnsa.com, dep.localhost (dev)  → staff
+ *   team.pkumongolia.com, and team.* / dep.* in dev (dep.localhost)  → staff
  *   everything else                      → public
  */
 export function isStaffHost(hostname: string, staffHosts?: string): boolean {
   const h = hostname.toLowerCase();
-  if (h.startsWith('dep.')) return true;
+  if (h.startsWith('team.') || h.startsWith('dep.')) return true;
   return (staffHosts ?? '')
     .split(',')
     .map((s) => s.trim().toLowerCase())

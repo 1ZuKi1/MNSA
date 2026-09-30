@@ -1,11 +1,11 @@
-# МОХ — bdmnsa.com
+# МОХ — pkumongolia.com
 
 Бээжингийн Их Сургуулийн Монгол Оюутны Холбооны цахим хуудас ба ажлын орчин.
 
 | | |
 |---|---|
-| `bdmnsa.com` | Public site — Нүүр, Танилцуулга, Удирдлагын баг, Үйл ажиллагаа, Холбоо барих |
-| `dep.bdmnsa.com` | Staff workspace — one-time email codes, no passwords |
+| `pkumongolia.com` | Public site — Нүүр, Танилцуулга, Удирдлагын баг, Үйл ажиллагаа, Холбоо барих |
+| `team.pkumongolia.com` | Staff workspace — one-time email codes, no passwords |
 
 Astro 7 on Cloudflare Workers, D1 for data, a second D1 database for photos. Runs entirely on Cloudflare's free plan; the only cost is the domain. The full design rationale is in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
@@ -75,7 +75,7 @@ npm run deploy:test
 | `https://mnsa.<subdomain>.workers.dev` | public site |
 | `https://mnsa-dep.<subdomain>.workers.dev` | staff site |
 
-Both are hidden from search engines; the staff site shows a strip saying it runs on a temporary address. Because Resend can't send mail without a verified domain, **the login code is shown on the login page** — but only on `*.workers.dev` addresses, never on `bdmnsa.com`. Log in with the demo accounts above. Don't enter real personal data on the test site.
+Both are hidden from search engines; the staff site shows a strip saying it runs on a temporary address. Because Resend can't send mail without a verified domain, **the login code is shown on the login page** — but only on `*.workers.dev` addresses, never on `pkumongolia.com`. Log in with the demo accounts above. Don't enter real personal data on the test site.
 
 Safe to re-run after every change. It rewrites the two `database_id` values in `wrangler.jsonc` — commit that change.
 
@@ -101,7 +101,30 @@ npx wrangler secret put STAFF_GATE --name mnsa-dep
 ```
 Change it the same way; remove it with `npx wrangler secret delete STAFF_GATE --name mnsa-dep`. On the real domain it is never asked for.
 
-When `bdmnsa.com` is later bought, pick up at step 5 below (session secret is already set, so start with Resend) — nothing here needs to be redone. Once the custom domain is attached (step 9), the code-on-screen behavior turns off on its own, since it only ever worked on a `*.workers.dev` hostname.
+Once the domain is bought, follow **Moving to pkumongolia.com** below — not *First deployment*, whose step 4 would delete the real data.
+
+---
+
+## Moving to pkumongolia.com
+
+The site already runs on the test addresses with the real team, so the databases stay as they are. The Worker `mnsa` serves both addresses on the domain: `pkumongolia.com` (public) and `team.pkumongolia.com` (staff). Do these in order:
+
+1. **Resend** (sends the login codes and notices):
+   1. Sign up at resend.com with the association's e-mail.
+   2. *Domains → Add domain* → `pkumongolia.com`, region **Tokyo (ap-northeast-1)**.
+   3. Add the DNS records it shows in Cloudflare → `pkumongolia.com` → DNS. If Resend offers automatic setup with Cloudflare, use it. Otherwise add them by hand, exactly as shown: a TXT record `resend._domainkey`, and an MX record and a TXT (SPF) record on `send`. Also add a TXT record `_dmarc` with `v=DMARC1; p=none;` — school and QQ/163 mail servers trust mail more with it.
+   4. Press *Verify*. It usually takes minutes, at most a few hours.
+   5. *API Keys → Create*: permission *Sending access*, domain `pkumongolia.com`. Copy the key (it is shown once) and put it in the Worker:
+      ```bash
+      npx wrangler secret put RESEND_API_KEY      # paste the key
+      ```
+2. **Deploy without test mode:** `npm run deploy`
+3. **Attach the addresses:** Cloudflare → Workers → `mnsa` → Settings → Domains & Routes → *Add → Custom domain*: `pkumongolia.com`, `www.pkumongolia.com` (it forwards to `pkumongolia.com`) and `team.pkumongolia.com`. On these addresses login codes go by e-mail; the code-on-screen behavior only ever worked on `*.workers.dev`.
+4. **Check** at `team.pkumongolia.com`: log in yourself, then have someone with a `stu.pku.edu.cn` address log in. School mail sometimes holds mail from a new domain; if it doesn't arrive, look in spam.
+5. **Tell the team** the new address, then remove the test staff Worker (its team passphrase goes with it):
+   ```bash
+   npx wrangler delete --name mnsa-dep
+   ```
 
 ---
 
@@ -110,7 +133,7 @@ When `bdmnsa.com` is later bought, pick up at step 5 below (session secret is al
 Do these once, in order. Everything uses the **association's** Cloudflare account, never a personal one.
 
 1. **Cloudflare account** on the association email. Two people know the password: the President and the maintainer.
-2. **Buy `bdmnsa.com`** in Cloudflare → Domain Registration. About $10.44/year.
+2. **Buy `pkumongolia.com`** in Cloudflare → Domain Registration. About $10.44/year.
 3. **Log in the CLI:** `npx wrangler login`
 4. **Start from empty databases.** If you used the test deployment, its databases hold the demo accounts — delete them and the test staff Worker:
    ```bash
@@ -129,17 +152,17 @@ Do these once, in order. Everything uses the **association's** Cloudflare accoun
    node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
    npx wrangler secret put SESSION_SECRET      # paste the value above
    ```
-6. **Resend** — add and verify `bdmnsa.com` at resend.com (it gives you DNS records; add them in Cloudflare DNS). Then `npx wrangler secret put RESEND_API_KEY`.
-7. **Turnstile** — Cloudflare → Turnstile → add a widget for `dep.bdmnsa.com`. Put the site key in `wrangler.jsonc` under `vars` as `TURNSTILE_SITE_KEY`, and `npx wrangler secret put TURNSTILE_SECRET`.
+6. **Resend** — add and verify `pkumongolia.com` at resend.com (it gives you DNS records; add them in Cloudflare DNS). Then `npx wrangler secret put RESEND_API_KEY`.
+7. **Turnstile** — Cloudflare → Turnstile → add a widget for `team.pkumongolia.com`. Put the site key in `wrangler.jsonc` under `vars` as `TURNSTILE_SITE_KEY`, and `npx wrangler secret put TURNSTILE_SECRET`.
 8. **Deploy:** `npm run deploy` (no test mode: codes go by email, no banner)
-9. **Attach the domains:** Cloudflare → Workers → `mnsa` → Settings → Domains & Routes → add custom domains `bdmnsa.com` and `dep.bdmnsa.com`.
+9. **Attach the domains:** Cloudflare → Workers → `mnsa` → Settings → Domains & Routes → add custom domains `pkumongolia.com` and `team.pkumongolia.com`.
 10. **Load the team** from the members list (kept in `neccesary-files/members.csv`, which is never committed):
     ```bash
     npm run import:members -- neccesary-files/members.csv --dry-run   # check the list, writes nothing
     npm run import:members -- neccesary-files/members.csv             # asks you to type "yes"
     ```
     One row per person: `name,full_name,student_id,email,role,dept,public`. Leave `email` empty to use the school address `<student ID>@stu.pku.edu.cn`; fill it for people without one (Gmail, QQ, 163). Roles: `president`, `board`, `head`, `member`, `maintainer` (or the Mongolian names); departments: `dotood`, `gadaad`, `surgalt`, `media`, `erh-zui`. The whole file is refused on any mistake, people already in the database are left alone, and it refuses to run while the demo accounts exist (step 4). Accounts last until 30 September of the next academic year.
-    Each person then just logs in at `dep.bdmnsa.com` with their e-mail. Anyone joining later is invited from *Гишүүд → Урилга үүсгэх* (school or personal address, student ID optional). Everyone shows on the public *Удирдлагын баг* page unless `public` is `no`; each person can hide themselves later.
+    Each person then just logs in at `team.pkumongolia.com` with their e-mail. Anyone joining later is invited from *Гишүүд → Урилга үүсгэх* (school or personal address, student ID optional). Everyone shows on the public *Удирдлагын баг* page unless `public` is `no`; each person can hide themselves later.
     **Photos** for that page are uploaded on each person's page in *Гишүүд → (name) → Зураг* — by the person, the President, or the maintainer. Any phone photo works; it's shrunk before upload and cropped to a circle on the page.
     Send one test code to a `stu.pku.edu.cn` address first — school mail filters sometimes hold mail from new domains; if it doesn't arrive, check spam, or change that person's address to a personal one on their *Гишүүд* page.
     Then the President uploads the official stamp at *Тохиргоо → Албан тамга*: a scan or straight-on photo of the real stamp pressed on white paper (a transparent PNG looks cleanest). It prints on the signature line only of documents the President approved, and its image is served only behind the staff login.
@@ -151,7 +174,7 @@ Do these once, in order. Everything uses the **association's** Cloudflare accoun
 
 ```
 src/
-  worker.ts            Entry. Routes bdmnsa.com vs dep.bdmnsa.com; edge-caches public events and photos
+  worker.ts            Entry. Routes pkumongolia.com vs team.pkumongolia.com; edge-caches public events and photos
   middleware.ts        Login gate for the staff area
   lib/
     permissions.ts     ← every "who may do what" rule, as pure functions. Start here.
@@ -174,7 +197,7 @@ src/
     db.ts time.ts …    Helpers
   pages/
     index.astro taniltsuulga.astro udirdlaga.astro holboo-barih.astro uil-ajillagaa/…   public site
-    dep/…                          staff site (served at clean URLs on dep.bdmnsa.com)
+    dep/…                          staff site (served at clean URLs on team.pkumongolia.com)
 migrations/            Main database schema (+ migrations-media/ for photos)
 scripts/seed-dev.sql   Demo data (local and test deployment only)
 scripts/deploy-test.mjs  `npm run deploy:test`

@@ -33,7 +33,7 @@ Updated 2026-09-23 · status: **Phases 0, 2, 3, 4 and events built** — repo `g
 
 Cheaper TLDs start around $4.18/year at Cloudflare if `.com` matters less than the budget. `.mn` is not sold by Cloudflare and costs far more.
 
-> **Decided:** `bdmnsa.com`, with the staff workspace at `dep.bdmnsa.com`.
+> **Decided:** `pkumongolia.com`, with the staff workspace at `team.pkumongolia.com`.
 > Confirmed unregistered against the Verisign `.com` registry on 2026-09-23. Buy it through Cloudflare Registrar at cost, on the association account.
 
 ### The R2 card problem — and how to avoid it for now
@@ -248,14 +248,14 @@ CREATE INDEX idx_invites_open ON invites(expires_at) WHERE claimed_at IS NULL;
 ### Domains and routing
 
 ```
-bdmnsa.com        → public site      (prerendered static assets)
-dep.bdmnsa.com    → staff workspace  (SSR, auth-gated)
-www.bdmnsa.com    → 301 → bdmnsa.com
+pkumongolia.com        → public site      (prerendered static assets)
+team.pkumongolia.com    → staff workspace  (SSR, auth-gated)
+www.pkumongolia.com    → 301 → pkumongolia.com
 ```
 
 One Worker serves both, with host-based routing in Astro middleware. On the staff host every path except `/nevtreh` and `/api/auth/*` requires a valid session; on the public host the staff routes return **404, not 403** — don't advertise that the workspace exists.
 
-**A subdomain rather than `bdmnsa.com/dep` is the right call, and specifically because of cookies.** The session cookie is scoped to the exact host `dep.bdmnsa.com`, never to `.bdmnsa.com`. That means a cross-site scripting bug in a public news post — the most likely vulnerability in a site where staff paste in content — cannot read or send a staff session cookie. A path-based staff area shares one origin with the public site and gives up that isolation entirely.
+**A subdomain rather than `pkumongolia.com/dep` is the right call, and specifically because of cookies.** The session cookie is scoped to the exact host `team.pkumongolia.com`, never to `.pkumongolia.com`. That means a cross-site scripting bug in a public news post — the most likely vulnerability in a site where staff paste in content — cannot read or send a staff session cookie. A path-based staff area shares one origin with the public site and gives up that isolation entirely.
 
 Cookie flags: `HttpOnly; Secure; SameSite=Lax; Domain` omitted (host-only); `Path=/`.
 
@@ -359,7 +359,7 @@ Added 2026-09-23. Two faces of one table: a public listing, and a work board beh
 
 The participation report is deliberately not public to all staff. "Who isn't taking jobs" is useful to a President and corrosive as a leaderboard.
 
-### Public side — `bdmnsa.com/uil-ajillagaa`
+### Public side — `pkumongolia.com/uil-ajillagaa`
 
 - **Удахгүй болох** — published events whose end date hasn't passed, soonest first
 - **Өнгөрсөн** — published events that have ended, newest first, each with photos, description, date, and **"Нийтэлсэн: name"**
@@ -367,7 +367,7 @@ The participation report is deliberately not public to all staff. "Who isn't tak
 
 Because "upcoming vs past" depends on today's date, these pages are **rendered on request and cached at Cloudflare's edge for 5 minutes**, rather than prerendered. A prerendered page would keep showing yesterday's event as upcoming until someone rebuilt the site. The 5-minute cache means a traffic spike costs one database read per 5 minutes per Cloudflare location, not one per visitor.
 
-### Staff side — `dep.bdmnsa.com/events`
+### Staff side — `team.pkumongolia.com/events`
 
 Each upcoming event has a task table:
 
@@ -542,8 +542,8 @@ Phase 3 is the one that delivers what you actually asked for. Phase 6 deliberate
 
 | | |
 |---|---|
-| Domain | **`bdmnsa.com`** — confirmed available 2026-09-23 |
-| Staff subdomain | **`dep.bdmnsa.com`** |
+| Domain | **`pkumongolia.com`** — confirmed available 2026-09-23 |
+| Staff subdomain | **`team.pkumongolia.com`** |
 | Cloudflare account | the **association email**, not a personal one |
 | Stack | Astro + Cloudflare Workers + D1 |
 | Auth | Resend one-time codes. No passwords stored, ever |
@@ -568,7 +568,7 @@ He filled in the form `MOX_Terguun_medeelel.docx`. His personal details and the 
 |---|---|
 | First account | his e-mail, name and student ID — used once in README step 10. He gave a PKU address; the team uses school addresses (§10) |
 | Cloudflare account on the association e-mail | **yes** — the address itself is still to be named |
-| Buying `bdmnsa.com` | **yes**, on the President's card. **Who renews in 2027 and 2028 is still open** — goes into the handover note |
+| Buying `pkumongolia.com` | **yes**, on the President's card. **Who renews in 2027 and 2028 is still open** — goes into the handover note |
 | «Техникийн хариуцагч» role for the developer | **yes** |
 | Deputy | **none** for now; the board override in §6 is the only fallback |
 | Scope | **leadership only** (~15 people) |
@@ -608,12 +608,12 @@ Verified with 81 unit tests (permissions, approval chain, dates, document types,
 
 ### Decisions made while building
 
-- **Staff pages live under `/dep` internally**, and the Worker maps `dep.bdmnsa.com/x` → `/dep/x`. HTML requests go through the Worker (`run_worker_first`), so the staff host can never be served a public page; hashed assets, the logo and fonts bypass it and stay free.
+- **Staff pages live under `/dep` internally**, and the Worker maps `team.pkumongolia.com/x` → `/dep/x`. HTML requests go through the Worker (`run_worker_first`), so the staff host can never be served a public page; hashed assets, the logo and fonts bypass it and stay free.
 - **Rate limit per IP loosened to 30/hour** (per address stays 3 per 15 minutes). A whole meeting may log in at once from behind PKU's campus NAT, which shares few public IPs; 10/hour would have locked out the eleventh person.
 - **School addresses are accepted (2026-09-24, reversing an earlier refusal).** The team decided members log in with `<student ID>@stu.pku.edu.cn`; the three without a student ID use personal addresses. At go-live the whole team is loaded from a CSV kept outside the repo (`npm run import:members`, README step 10): the file is checked as a whole before anything is written, existing people are never overwritten, one `member.import` audit row records it, and it refuses to write to a database that still has the demo accounts. Invites stay for anyone who joins later, with the student ID optional. Accounts also carry an optional **full name** (`users.full_name`, «Мягмарбаатар Эмүжин»): the site shows the short «М. Эмүжин», papers such as the duty letter print the full one.
 - **Photos are shrunk in the browser** to ≤1600 px and usually <450 KB before upload; the server checks the file's real type from its bytes, not its name.
 - **Removing a photo frees its bytes** in the media database.
-- **Test deployment without a domain.** `npm run deploy:test` deploys the same build twice to `*.workers.dev`: `mnsa` (public) and `mnsa-dep` with `SITE_MODE=staff`. `TEST_MODE=1` shows login codes on screen and adds a banner + `noindex` — and it only takes effect on `*.workers.dev` hostnames, so a forgotten variable can never expose codes on `bdmnsa.com`. Going live means fresh databases and deleting `mnsa-dep`.
+- **Test deployment without a domain.** `npm run deploy:test` deploys the same build twice to `*.workers.dev`: `mnsa` (public) and `mnsa-dep` with `SITE_MODE=staff`. `TEST_MODE=1` shows login codes on screen and adds a banner + `noindex` — and it only takes effect on `*.workers.dev` hostnames, so a forgotten variable can never expose codes on `pkumongolia.com`. Going live means fresh databases and deleting `mnsa-dep`.
 - **Staff workspace redesign.** Sidebar on desktop, a drawer on phones, with counts next to the menu for decisions waiting and active tasks. The dashboard is a to-do list first (decisions → returned documents → my tasks), with «Дууссан» and «Би хийнэ» right in the list. A document page shows the approval chain as a stepper with the decision form at the top, so an approver on a phone doesn't scroll past the whole letter. Tables turn into cards on phones. Each member has their own page (role, department, e-mail change, deputy, public visibility, removal). Every destructive action asks first, every form submits only once (no duplicate records on a slow connection), long forms warn before leaving with unsaved text, and form errors are listed at the top with links to each field. WCAG 2.2 AA: 0 axe violations across 40 staff page views, desktop and phone.
 - **The public team page is built from the member list** (`show_public`, on by default; each person can hide themselves). No separate list to keep in sync at handover.
 - **«Тусламж» — the help page (2026-09-26).** At the bottom of the sidebar, above «Нийтийн сайт»: signing in and out, the menu, writing a document step by step, approving, sending back and printing, events, jobs, one's own page, what to be careful about, and whom to ask. The list of document types and who approves each is read from `record-types.ts`, so it can't drift from the system; «Таны эрх» at the top follows the reader's own role, and the contacts come from the member list.
@@ -629,7 +629,7 @@ Verified with 81 unit tests (permissions, approval chain, dates, document types,
 - **The stamp scan is cleaned in the browser.** On *Тохиргоо* the page makes the white paper transparent and crops to the stamp before upload, so 38 mm on paper is 38 mm of stamp.
 - **Invites no longer need a student ID** — the President had only an e-mail for some people. A duty letter leaves a line to write it by hand.
 - **Logo images come from the official file** (`brand/LOGO-original.png`, transparent). The printed watermark is `public/brand/watermark.svg`: the logo in one colour at 15%.
-- **Signature line and stamp on printed documents.** Whoever holds the last step of the chain signs: «Тэргүүн», «Эрх зүйн хэлтсийн дарга», or that department's дарга, with the approver's real name once approved. The stamp is the President's: uploaded on *Тохиргоо* (President only, every change in the audit log), stored in the media database marked `private`, served only at `dep.bdmnsa.com/tamga` behind the login (the public `/media` route refuses private images), and printed only when the document is approved *and* its final approval was the President's.
+- **Signature line and stamp on printed documents.** Whoever holds the last step of the chain signs: «Тэргүүн», «Эрх зүйн хэлтсийн дарга», or that department's дарга, with the approver's real name once approved. The stamp is the President's: uploaded on *Тохиргоо* (President only, every change in the audit log), stored in the media database marked `private`, served only at `team.pkumongolia.com/tamga` behind the login (the public `/media` route refuses private images), and printed only when the document is approved *and* its final approval was the President's.
 
 ---
 

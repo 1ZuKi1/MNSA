@@ -3,7 +3,7 @@ import { defineConfig } from 'astro/config';
 import cloudflare from '@astrojs/cloudflare';
 
 export default defineConfig({
-  site: 'https://bdmnsa.com',
+  site: 'https://pkumongolia.com',
   // Pages are prerendered by default; staff pages and the events pages opt out with `prerender = false`.
   output: 'static',
   adapter: cloudflare({
