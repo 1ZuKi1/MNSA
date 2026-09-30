@@ -26,6 +26,8 @@ const nav = [
   { href: '/shine-oyutan', label: 'Шинэ оюутанд' },
   { href: '/holboo-barih', label: 'Холбоо барих' },
 ];
+// The course-review site is its own website; the link just leaves for it.
+const COURSES = { href: 'https://course.pkumongolia.com/', label: 'Хичээлийн үнэлгээ' };
 const current = (h: string) => (h === '/' ? path === '/' : path === h || path.startsWith(h + '/'));
 const ogImage = new URL(image ?? '/brand/logo-512.png', Astro.url).href;
 ---
@@ -68,6 +70,9 @@ const ogImage = new URL(image ?? '/brand/logo-512.png', Astro.url).href;
                 <a href={n.href} aria-current={current(n.href) ? 'page' : undefined}>{n.label}</a>
               </li>
             ))}
+            <li>
+              <a href={COURSES.href} class="nav-out">{COURSES.label}<span class="out" aria-hidden="true">↗</span><span class="sr-only"> — өөр сайт</span></a>
+            </li>
           </ul>
         </nav>
       </div>
@@ -89,6 +94,7 @@ const ogImage = new URL(image ?? '/brand/logo-512.png', Astro.url).href;
             <h2>Хуудсууд</h2>
             <ul>
               {nav.map((n) => <li><a href={n.href}>{n.label}</a></li>)}
+              <li><a href={COURSES.href}>{COURSES.label}</a></li>
               <li><a href={CONSTITUTION.href} target="_blank" rel="noopener">Үндсэн дүрэм (PDF)<span class="sr-only"> — шинэ цонхонд</span></a></li>
             </ul>
           </div>
@@ -127,7 +133,7 @@ const ogImage = new URL(image ?? '/brand/logo-512.png', Astro.url).href;
           document.addEventListener('click', function (e) {
             if (nav.classList.contains('open') && !e.target.closest('.ph-header')) set(false);
           });
-          matchMedia('(min-width: 1201px)').addEventListener('change', function (m) { if (m.matches) set(false); });
+          matchMedia('(min-width: 1381px)').addEventListener('change', function (m) { if (m.matches) set(false); });
         }
         // Sections rise in as they scroll into view. Only armed when the browser can do it and the
         // visitor hasn't asked for less motion, so nothing is ever left hidden.

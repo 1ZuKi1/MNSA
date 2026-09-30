@@ -88,9 +88,14 @@ html:has(body.public) { scroll-padding-top: calc(var(--header-h) + 16px); }
 .ph-nav a[aria-current='page'] { color: var(--maroon); }
 .ph-nav a[aria-current='page']::after { transform: scaleX(1); background: var(--maroon); }
 .menu-btn { display: none; }
+/* The course-review site: a separate website, so the link is set apart as a small outlined pill with ↗. */
+.ph-nav .nav-out { margin-left: 6px; padding: 8px 12px; border: 1px solid var(--line-strong); border-radius: 999px; color: var(--blue-deep); transition: color var(--t), border-color var(--t), background-color var(--t); }
+.ph-nav .nav-out::after { display: none; }
+.ph-nav .nav-out .out { margin-left: 5px; font-size: 0.85em; }
+.ph-nav .nav-out:hover { border-color: var(--blue); background: var(--blue-tint); color: var(--blue-deep); }
 
-/* Six menu items and the name need about 1180 px on one line; below that the menu folds into the button. */
-@media (max-width: 1200px) {
+/* Seven menu items (the last one the course-site pill) and the name need about 1375 px on one line; below that the menu folds into the button. */
+@media (max-width: 1380px) {
   :root { --header-h: 62px; }
   .ph-bar { flex-wrap: wrap; row-gap: 0; }
   .ph-brand img { width: 44px; }
@@ -127,6 +132,7 @@ html:has(body.public) { scroll-padding-top: calc(var(--header-h) + 16px); }
   .js .ph-nav a:hover { background: var(--ivory-2); }
   .js .ph-nav a:not([aria-current]):hover::after { transform: scaleY(0); }
   .js .ph-nav a[aria-current='page']::after { transform: scaleY(1); }
+  .js .ph-nav .nav-out { margin-left: 0; padding: 14px 12px; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; }
 }
 
 
