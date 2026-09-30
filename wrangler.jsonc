@@ -38,7 +38,7 @@
   "vars": {
     "PUBLIC_HOST": "pkumongolia.com",
     "STAFF_HOST": "team.pkumongolia.com",
-    "MAIL_FROM": "МОХ <no-reply@pkumongolia.com>"
+    "MAIL_FROM": "МОХ <no-reply@team.pkumongolia.com>"
   },
 
   // Secrets — set with `wrangler secret put NAME`, never committed:

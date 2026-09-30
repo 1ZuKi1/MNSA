@@ -18,7 +18,7 @@ export async function sendMail(m: Mail): Promise<boolean> {
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from: env.MAIL_FROM ?? 'МОХ <no-reply@pkumongolia.com>', to: [m.to], subject: m.subject, text: m.text }),
+    body: JSON.stringify({ from: env.MAIL_FROM ?? 'МОХ <no-reply@team.pkumongolia.com>', to: [m.to], subject: m.subject, text: m.text }),
   });
   if (!res.ok) console.error('Resend error', res.status, await res.text());
   return res.ok;

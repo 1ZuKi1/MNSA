@@ -111,10 +111,10 @@ The site already runs on the test addresses with the real team, so the databases
 
 1. **Resend** (sends the login codes and notices):
    1. Sign up at resend.com with the association's e-mail.
-   2. *Domains → Add domain* → `pkumongolia.com`, region **Tokyo (ap-northeast-1)**.
-   3. Add the DNS records it shows in Cloudflare → `pkumongolia.com` → DNS. If Resend offers automatic setup with Cloudflare, use it. Otherwise add them by hand, exactly as shown: a TXT record `resend._domainkey`, and an MX record and a TXT (SPF) record on `send`. Also add a TXT record `_dmarc` with `v=DMARC1; p=none;` — school and QQ/163 mail servers trust mail more with it.
+   2. *Domains → Add domain* → `team.pkumongolia.com`, region **Tokyo (ap-northeast-1)**. Mail goes out from `no-reply@team.pkumongolia.com` (`MAIL_FROM` in `wrangler.jsonc`); the domain in Resend and the one in `MAIL_FROM` must be the same.
+   3. Add the DNS records it shows in Cloudflare → `pkumongolia.com` → DNS (Cloudflare adds the domain itself, so a record shown as `resend._domainkey.team` is typed as just that). If Resend offers automatic setup with Cloudflare, use it. Otherwise add them by hand, exactly as shown: a TXT record `resend._domainkey.team`, and an MX record and a TXT (SPF) record on `send.team`. Also add a TXT record `_dmarc` with `v=DMARC1; p=none;` — school and QQ/163 mail servers trust mail more with it.
    4. Press *Verify*. It usually takes minutes, at most a few hours.
-   5. *API Keys → Create*: permission *Sending access*, domain `pkumongolia.com`. Copy the key (it is shown once) and put it in the Worker:
+   5. *API Keys → Create*: permission *Sending access*, domain `team.pkumongolia.com`. Copy the key (it is shown once) and put it in the Worker:
       ```bash
       npx wrangler secret put RESEND_API_KEY      # paste the key
       ```
