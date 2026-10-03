@@ -49,6 +49,10 @@ export async function publicEvents() {
   return { upcoming, past };
 }
 
+/** Public: every published event, for sitemap.xml. */
+export const sitemapEvents = () =>
+  many<{ id: number; updated_at: number }>(`SELECT id, updated_at FROM events WHERE status = 'published' ORDER BY starts_at DESC`);
+
 export interface StaffEventRow extends EventRow {
   task_total: number;
   task_open: number;
