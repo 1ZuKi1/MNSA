@@ -50,71 +50,6 @@ const top = Math.max(1, ...byPurpose.map((p) => p.fen));
     </div>
   </section>
 
-  {b.toBuy.length > 0 && (
-    <section class="sec" aria-labelledby="buy-h" id="tolovlosn">
-      <div class="wrap">
-        <span class="sec-label">Хараахан аваагүй</span>
-        <h2 id="buy-h">Авахаар төлөвлөсөн</h2>
-        <p class="intro">Эдгээрт мөнгө хараахан гараагүй, зарцуулалтад тооцогдоогүй. Худалдаж авмагц бодит үнээрээ доорх хүснэгтэд шилжинэ.</p>
-        <div class="ledger-wrap plan" role="region" aria-labelledby="buy-h" tabindex="0">
-          <table class="ledger">
-            <caption class="sr-only">Авахаар төлөвлөсөн зүйлс. Тооцоот нийт = тоо ширхэг × нэгжийн үнэ.</caption>
-            <thead>
-              <tr>
-                <th scope="col" class="n">№</th>
-                <th scope="col">Хэзээ</th>
-                <th scope="col">Зүйл</th>
-                <th scope="col" class="r">Тоо ширхэг</th>
-                <th scope="col" class="r">Нэгжийн үнэ</th>
-                <th scope="col" class="r">Тооцоот нийт</th>
-              </tr>
-            </thead>
-            <tbody>
-              {b.toBuy.map((i, n) => (
-                <tr>
-                  <td class="n num">{n + 1}</td>
-                  <td class="d num">{fmtDate(i.spent_on)}</td>
-                  <th scope="row" class="what">
-                    {i.item}
-                    {i.purpose && <small>{i.purpose}</small>}
-                    <small class="m-calc num">{fmtQty(i.qty_c)} × {fmtYuan(i.unit_fen)} · {fmtDate(i.spent_on)}</small>
-                  </th>
-                  <td class="r q num">{fmtQty(i.qty_c)}</td>
-                  <td class="r u num">{fmtYuan(i.unit_fen, 'always')}</td>
-                  <td class="r t num">{fmtYuan(i.total_fen, 'always')}</td>
-                </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr>
-                <th scope="row" colspan="5">Нийт төлөвлөсөн</th>
-                <td class="r t num">{fmtYuan(b.toBuyFen, 'always')}</td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-      </div>
-    </section>
-  )}
-
-  {byPurpose.length > 1 && (
-    <section class="sec alt" aria-labelledby="what-h">
-      <div class="wrap">
-        <span class="sec-label">Зориулалтаар</span>
-        <h2 id="what-h">Юунд хэдийг</h2>
-        <ul class="spend-by">
-          {byPurpose.map((p) => (
-            <li>
-              <span class="sb-name">{p.name}</span>
-              <span class="sb-bar" aria-hidden="true"><span style={`width:${Math.max(2, Math.round((p.fen / top) * 100))}%`}></span></span>
-              <span class="sb-val num">{fmtYuan(p.fen)}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </section>
-  )}
-
   <section class="sec" aria-labelledby="lines-h" id="zarlaga">
     <div class="wrap">
       <span class="sec-label">Зарцуулалт</span>
@@ -167,4 +102,69 @@ const top = Math.max(1, ...byPurpose.map((p) => p.fen));
       </p>
     </div>
   </section>
+
+  {b.toBuy.length > 0 && (
+    <section class="sec alt" aria-labelledby="buy-h" id="tolovlosn">
+      <div class="wrap">
+        <span class="sec-label">Хараахан аваагүй</span>
+        <h2 id="buy-h">Авахаар төлөвлөсөн</h2>
+        <p class="intro">Эдгээрт мөнгө хараахан гараагүй, зарцуулалтад тооцогдоогүй. Худалдаж авмагц бодит үнээрээ дээрх «Зарлага бүрээр» хүснэгтэд шилжинэ.</p>
+        <div class="ledger-wrap plan" role="region" aria-labelledby="buy-h" tabindex="0">
+          <table class="ledger">
+            <caption class="sr-only">Авахаар төлөвлөсөн зүйлс. Тооцоот нийт = тоо ширхэг × нэгжийн үнэ.</caption>
+            <thead>
+              <tr>
+                <th scope="col" class="n">№</th>
+                <th scope="col">Хэзээ</th>
+                <th scope="col">Зүйл</th>
+                <th scope="col" class="r">Тоо ширхэг</th>
+                <th scope="col" class="r">Нэгжийн үнэ</th>
+                <th scope="col" class="r">Тооцоот нийт</th>
+              </tr>
+            </thead>
+            <tbody>
+              {b.toBuy.map((i, n) => (
+                <tr>
+                  <td class="n num">{n + 1}</td>
+                  <td class="d num">{fmtDate(i.spent_on)}</td>
+                  <th scope="row" class="what">
+                    {i.item}
+                    {i.purpose && <small>{i.purpose}</small>}
+                    <small class="m-calc num">{fmtQty(i.qty_c)} × {fmtYuan(i.unit_fen)} · {fmtDate(i.spent_on)}</small>
+                  </th>
+                  <td class="r q num">{fmtQty(i.qty_c)}</td>
+                  <td class="r u num">{fmtYuan(i.unit_fen, 'always')}</td>
+                  <td class="r t num">{fmtYuan(i.total_fen, 'always')}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr>
+                <th scope="row" colspan="5">Нийт төлөвлөсөн</th>
+                <td class="r t num">{fmtYuan(b.toBuyFen, 'always')}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </section>
+  )}
+
+  {byPurpose.length > 1 && (
+    <section class="sec" aria-labelledby="what-h">
+      <div class="wrap">
+        <span class="sec-label">Зориулалтаар</span>
+        <h2 id="what-h">Юунд хэдийг</h2>
+        <ul class="spend-by">
+          {byPurpose.map((p) => (
+            <li>
+              <span class="sb-name">{p.name}</span>
+              <span class="sb-bar" aria-hidden="true"><span style={`width:${Math.max(2, Math.round((p.fen / top) * 100))}%`}></span></span>
+              <span class="sb-val num">{fmtYuan(p.fen)}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  )}
 </Public>
