@@ -122,9 +122,9 @@ const keeperNames = keepers.map((k) => k.name_mn).join(', ');
 
   <div class="stats budget-stats" role="group" aria-label="Төсвийн дүн">
     <div class="stat"><b class="num">{b.hasHeader && b.plannedFen > 0 ? fmtYuan(b.plannedFen) : '—'}</b><span>Төлөвлөсөн төсөв</span></div>
-    <div class="stat"><b class="num">{b.hasHeader ? fmtYuan(b.fundsFen) : '—'}</b><span>Одоо байгаа хөрөнгө</span></div>
+    <div class="stat"><b class="num">{b.hasHeader ? fmtYuan(b.fundsFen) : '—'}</b><span>Цугласан хөрөнгө</span></div>
     <div class="stat"><b class="num">{fmtYuan(b.spentFen)}</b><span>Зарцуулсан{b.plannedFen > 0 && <> · төлөвлөснөөс {usedPct}%</>}</span></div>
-    <div class:list={['stat', { 'stat-bad': over }]}><b class="num">{b.hasHeader ? fmtYuan(b.remainingFen) : '—'}</b><span>{over ? 'Байгаа хөрөнгөөс илүү зарцуулсан' : 'Үлдэгдэл'}</span></div>
+    <div class:list={['stat', { 'stat-bad': over }]}><b class="num">{b.hasHeader ? fmtYuan(b.remainingFen) : '—'}</b><span>{over ? 'Цугласан хөрөнгөөс илүү зарцуулсан' : 'Үлдэгдэл'}</span></div>
     {b.toBuy.length > 0 && (
       <a class:list={['stat stat-plan', { 'stat-bad': b.hasHeader && b.afterToBuyFen < 0 }]} href="#to-buy">
         <b class="num">{fmtYuan(b.toBuyFen)}</b>
@@ -232,10 +232,10 @@ const keeperNames = keepers.map((k) => k.name_mn).join(', ');
             {yearErrors.planned && <span class="error"><Icon name="alert" /> {yearErrors.planned}</span>}
           </div>
           <div class="field">
-            <label for="y_funds">Одоо байгаа хөрөнгө, ¥</label>
+            <label for="y_funds">Цугласан хөрөнгө, ¥</label>
             <input id="y_funds" name="funds" type="text" inputmode="decimal" value={yearValues.funds} placeholder="0" autocomplete="off"
               aria-invalid={yearErrors.funds ? 'true' : undefined} aria-describedby="y_funds-hint" />
-            <span class="hint" id="y_funds-hint">Бодитоор хүлээн авсан мөнгө. Үлдэгдэл = байгаа хөрөнгө − зарцуулсан.</span>
+            <span class="hint" id="y_funds-hint">Нийт цугласан мөнгө — зарцуулахаас өмнөх. Үлдэгдэл = цугласан − зарцуулсан, өөрөө бодогдоно.</span>
             {yearErrors.funds && <span class="error"><Icon name="alert" /> {yearErrors.funds}</span>}
           </div>
           <div><button class="btn" type="submit" data-confirm="Төсвийн дүнг шинэчлэх үү? Нийтийн сайтад шууд харагдана.">Хадгалах</button></div>

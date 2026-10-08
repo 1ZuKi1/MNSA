@@ -453,7 +453,7 @@ One budget per academic year. Four numbers on top, then every purchase:
 | | Монголоор | Where it comes from |
 |---|---|---|
 | planned | **Төлөвлөсөн төсөв** | typed once at the start of the year |
-| in hand | **Одоо байгаа хөрөнгө** | typed, updated whenever money arrives |
+| collected | **Цугласан хөрөнгө** | typed: all the money received, before spending; updated whenever money arrives |
 | spent | **Зарцуулсан** | summed from the lines — never typed, never stored |
 | left | **Үлдэгдэл** | in hand − spent; red, and called «Хэтэрсэн», when negative |
 
@@ -662,7 +662,7 @@ He filled in the form `MOX_Terguun_medeelel.docx`. His personal details and the 
 | 5 · Live meeting minutes | not started |
 | 6 · Presidency handover page, weekly backup | not started |
 
-Verified with 112 unit tests (permissions, approval chain, dates, document types, co-departments, record fields, session cookie, jobs, safe redirects, the members import, budget money and forms) and a 337-step end-to-end test driving every role through the real server, plus a production-build check with `wrangler dev` and an axe accessibility audit of every public page.
+Verified with 112 unit tests (permissions, approval chain, dates, document types, co-departments, record fields, session cookie, jobs, safe redirects, the members import, budget money and forms) and a 338-step end-to-end test driving every role through the real server, plus a production-build check with `wrangler dev` and an axe accessibility audit of every public page.
 
 ### Decisions made while building
 
