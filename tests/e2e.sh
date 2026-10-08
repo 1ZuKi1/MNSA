@@ -59,7 +59,8 @@ pr=$(get $J/dotood2.jar /barimt/$RID/hevleh)
 has "print has the President's signature line" "$pr" 's-title">Холбооны Тэргүүн'
 has "…with the approver's name on it" "$pr" 's-name">Б. Тэмүүлэн'
 has "…and Legal's beside it" "$pr" 's-title">Эрх Зүйн Хэлтэс'
-has "…and the official date line" "$pr" "оны 9 дүгээр сарын"
+M=$(TZ=Asia/Shanghai date +%-m); case $M in 1|4|9|11) SUF=дүгээр;; *) SUF=дугаар;; esac
+has "…and the official date line (today's month)" "$pr" "оны $M $SUF сарын"
 hasnt "…and no stamp while none is uploaded" "$pr" "/tamga?v="
 has "letterhead carries the Chinese name" "$pr" "北京大学蒙古国留学生学生会"
 has "approved record is locked" "$(curl -s -o /dev/null -w '%{redirect_url}' -b $J/dotood.jar -H "$S" $B/barimt/$RID/zasah)" "err=denied"
@@ -217,6 +218,14 @@ NEWID=$(get $J/president.jar /gishuud | grep -o 'href="/gishuud/[0-9]*"' | grep 
 has "President removes the new member" "$(post $J/president.jar /gishuud -d action=remove -d user=$NEWID)" "ok=removed"
 has "removed member is logged out instantly" "$(curl -s -o /dev/null -w '%{redirect_url}' -b $J/new.jar -H "$S" $B/)" "/nevtreh"
 has "President cannot remove themselves" "$(post $J/president.jar /gishuud -d action=remove -d user=1)" "err=denied"
+# Someone who left can come back: a new invite, the same address → their old account, history intact
+pg=$(curl -s -L -b $J/president.jar -c $J/president.jar -H "$S" -H "$O" -d "action=invite&student_id=&role=member&dept=gadaad" --data-urlencode "name=Н. Туршилт" $B/gishuud)
+LINK=$(echo "$pg" | grep -o 'value="http://dep.localhost:4321/urilga/[^"]*"' | cut -d'"' -f2); TOK=${LINK##*/}
+has "a former member's address is accepted on a new invite" "$(curl -s -o /dev/null -w '%{redirect_url}' -c $J/new.jar -b $J/new.jar -H "$S" -H "$O" -X POST -d "action=email&email=new.person@demo.test" $B/urilga/$TOK)" "step=code"
+C=$(curl -s -c $J/new.jar -b $J/new.jar -H "$S" "$B/urilga/$TOK?step=code" | grep -o 'num[^>]*>[0-9]\{6\}' | grep -o '[0-9]\{6\}')
+has "…they verify and are back in" "$(curl -s -o /dev/null -w "%{redirect_url}" -c $J/new.jar -b $J/new.jar -H "$S" -H "$O" -X POST -d "action=verify&code=$C" $B/urilga/$TOK)" "ok=created"
+check "…on their old account" "$(get $J/president.jar /gishuud | grep -o 'href="/gishuud/[0-9]*"' | grep -o '[0-9]*' | sort -n | tail -1)" "$NEWID"
+has "…in the new department" "$(get $J/president.jar /gishuud/$NEWID)" "Гадаад харилцааны\|Гадаад"
 
 echo "── member pages"
 pg=$(get $J/president.jar '/gishuud/bichig?id=all&date=2026-09-26')
@@ -347,6 +356,42 @@ pg=$(get $J/media2.jar /oroltsoo)
 has "…a job you took and stepped down from shows as dropped" "$pg" "Шинэ гишүүдэд танилцуулга бэлтгэх"
 has "…marked Орхисон" "$pg" "Орхисон"
 has "…and the President sees the jobs column" "$(get $J/president.jar /oroltsoo)" ">Ажлууд<"
+
+echo "── jobs: joining to help (Нэгдэх)"
+J2=$(echo "$(post $J/dotood.jar /ajil/shine -d dept=dotood -d owner=4 -d visibility=staff --data-urlencode "title=Төсвийн төлөвлөгөө гаргах")" | grep -o 'ajil/[0-9]*' | grep -o '[0-9]*'); echo "  job #$J2"
+has "someone else's job offers «Нэгдэх» on the board" "$(get $J/media2.jar /ajil)" 'value="join"'
+has "…and on its page" "$(get $J/media2.jar /ajil/$J2)" "Туслах уу?"
+has "a member of another department joins without being appointed" "$(post $J/media2.jar /ajil/$J2 -d action=join)" "ok=joined"
+has "…joining twice does nothing" "$(post $J/media2.jar /ajil/$J2 -d action=join)" "err=denied"
+pg=$(get $J/dotood.jar /ajil/$J2)
+has "…the job lists who is helping" "$pg" "Хамт хийж буй"
+has "…by name" "$pg" "Ц. Мөнхжин"
+has "…and the history says they joined" "$pg" "туслахаар нэгдсэн"
+has "…the хариуцагч stays the same" "$pg" "Э. Билгүүн"
+has "the helper sees it on their dashboard" "$(get $J/media2.jar /)" "туслаж байна"
+has "…writes a progress note" "$(post $J/media2.jar /ajil/$J2 -d action=status -d action=note --data-urlencode "note=Өнгөрсөн жилийн төсвийг цуглуулсан")" "ok=saved"
+has "…but the stages stay with the хариуцагч" "$(post $J/media2.jar /ajil/$J2 -d action=status -d status=done)" "err=denied"
+has "the хариуцагч can't join their own job" "$(post $J/dotood2.jar /ajil/$J2 -d action=join)" "err=denied"
+has "the maintainer can't join (not on the team)" "$(post $J/dev.jar /ajil/$J2 -d action=join)" "err=denied"
+has "another person joins too" "$(post $J/gadaad.jar /ajil/$J2 -d action=join)" "ok=joined"
+has "…and steps back" "$(post $J/gadaad.jar /ajil/$J2 -d action=leave)" "ok=left"
+has "…which the history keeps" "$(get $J/dotood.jar /ajil/$J2)" "туслахаа больсон"
+has "only a helper can step back" "$(post $J/gadaad.jar /ajil/$J2 -d action=leave)" "err=denied"
+has "the хариуцагч finishes it" "$(post $J/dotood2.jar /ajil/$J2 -d action=status -d status=done)" "ok=done"
+pg=$(get $J/media2.jar /oroltsoo)
+has "participation credits the helper" "$pg" "Төсвийн төлөвлөгөө гаргах"
+has "…as a volunteer helper" "$pg" "туслагчаар"
+hasnt "…but not someone who joined and stepped back" "$(get $J/president.jar "/oroltsoo?user=5")" "Төсвийн төлөвлөгөө гаргах"
+J3=$(echo "$(post $J/president.jar /ajil/shine -d dept=gadaad -d owner=$NEWID -d visibility=staff --data-urlencode "title=Урилгын жагсаалт")" | grep -o 'ajil/[0-9]*' | grep -o '[0-9]*')
+has "removing someone…" "$(post $J/president.jar /gishuud -d action=remove -d user=$NEWID)" "ok=removed"
+pg=$(get $J/gadaad.jar /ajil/$J3)
+has "…lets go of their open jobs" "$pg" "Хэн ч аваагүй"
+has "…so others can take them" "$pg" 'value="take"'
+
+echo "── safety"
+J4=$(mktemp -d); login president@demo.test $J4/p.jar
+loc=$(curl -s -o /dev/null -w '%{redirect_url}' -b $J4/p.jar -H "$S" "$B/nevtreh?next=/%09/evil.example")
+hasnt "login never sends you to another site (tab trick)" "$loc" "evil.example"
 check "jobs never reach the public site" "$(curl -s -o /dev/null -w '%{http_code}' -H "$P" $B/ajil)" 404
 
 echo "── help (Тусламж)"

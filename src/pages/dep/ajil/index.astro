@@ -8,7 +8,7 @@ import Staff from '../../../layouts/Staff.astro';
 import PageHead from '../../../components/PageHead.astro';
 import Icon from '../../../components/Icon.astro';
 import { departments } from '../../../lib/db';
-import { JOB_STATUS_LABEL, asJobLike, visibleJobs, type JobRow, type JobStatus } from '../../../lib/jobs';
+import { JOB_STATUS_LABEL, asJobLike, helpersOf, visibleJobs, type JobRow, type JobStatus } from '../../../lib/jobs';
 import * as P from '../../../lib/permissions';
 import { initials } from '../../../lib/team';
 import { dayDiff, now, relDay } from '../../../lib/time';
@@ -72,7 +72,12 @@ const dueText = (j: JobRow) => {
                 const due = dueText(j);
                 const next = NEXT[j.status];
                 const canMove = next && P.canUpdateJob(user, asJobLike(j));
-                const canTake = (j.status === 'todo' || j.status === 'doing') && P.canTakeJob(user, asJobLike(j));
+                const live = j.status === 'todo' || j.status === 'doing';
+                const canTake = live && P.canTakeJob(user, asJobLike(j));
+                // Someone is on it already: others can still join to help, no appointment needed.
+                const canJoin = live && !canMove && P.canJoinJob(user, asJobLike(j));
+                const helpers = helpersOf(j);
+                const helping = helpers.some((h) => h.id === user.id);
                 return (
                   <li class="job-card">
                     <a class="job-title" href={`/ajil/${j.id}`}>{j.title}</a>
@@ -80,11 +85,17 @@ const dueText = (j: JobRow) => {
                       <span>{j.dept_name}</span>
                       {j.visibility === 'dept' && <span class="tag"><Icon name="lock" /> хэлтэс</span>}
                       {due && <span class:list={{ overdue: due.late }}>{due.text}</span>}
+                      {helping && <span class="tag">та туслаж байна</span>}
                     </span>
                     {j.last_note && <p class="job-note">{j.last_note}</p>}
                     <span class="job-foot">
                       {j.owner_name ? (
-                        <span class="who"><span class="avatar sm" aria-hidden="true">{initials(j.owner_name)}</span>{j.owner_name}{j.owner_id === user.id && <span class="muted"> (та)</span>}</span>
+                        <span class="who">
+                          <span class="avatar sm" aria-hidden="true">{initials(j.owner_name)}</span>{j.owner_name}{j.owner_id === user.id && <span class="muted"> (та)</span>}
+                          {helpers.length > 0 && (
+                            <span class="muted" title={helpers.map((h) => h.name).join(', ')}> +{helpers.length}<span class="sr-only"> хүн туслаж байна: {helpers.map((h) => h.name).join(', ')}</span></span>
+                          )}
+                        </span>
                       ) : (
                         <span class="tag warnc">Хүн хэрэгтэй</span>
                       )}
@@ -93,6 +104,13 @@ const dueText = (j: JobRow) => {
                           <input type="hidden" name="action" value="take" />
                           <input type="hidden" name="back" value={here} />
                           <button class="btn btn-sm btn-blue" type="submit">Би хийнэ</button>
+                        </form>
+                      )}
+                      {canJoin && (
+                        <form method="post" action={`/ajil/${j.id}`}>
+                          <input type="hidden" name="action" value="join" />
+                          <input type="hidden" name="back" value={here} />
+                          <button class="btn btn-sm" type="submit"><Icon name="plus" /> Нэгдэх</button>
                         </form>
                       )}
                       {canMove && !canTake && (

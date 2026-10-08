@@ -250,6 +250,7 @@ export async function cancelTask(a: SessionUser, ev: EventRow, taskId: number, i
 export async function assignTask(a: SessionUser, ev: EventRow, taskId: number, userId: number, ip: string | null) {
   const self = userId === a.id;
   if (self ? !P.canTakeTask(a) : !P.canManageTasks(a, ev.dept_slug)) throw new Denied();
+  if (ev.status === 'cancelled') throw new Denied(); // nobody works on a cancelled event
   const task = await one<{ id: number; status: string }>(`SELECT id, status FROM event_tasks WHERE id = ? AND event_id = ?`, taskId, ev.id);
   if (!task || task.status !== 'open') throw new Denied();
   const target = await one<{ role: Role; status: string }>(`SELECT role, status FROM users WHERE id = ?`, userId);
@@ -408,6 +409,8 @@ export interface ParticipationItem {
   at: number;
   volunteered: boolean;
   status: 'active' | 'done' | 'dropped';
+  /** Joined someone else's job to help («Нэгдэх»). */
+  helper?: boolean;
 }
 
 export async function participationDetail(userId: number, year: string): Promise<ParticipationItem[]> {
@@ -423,7 +426,7 @@ export async function participationDetail(userId: number, year: string): Promise
   ]);
   const items: ParticipationItem[] = [
     ...tasks.map((t) => ({ kind: 'task' as const, title: t.task_title, where: t.event_title, href: `/uil-ajillagaa/${t.event_id}`, at: t.starts_at, volunteered: !!t.volunteered, status: t.status })),
-    ...(jobs.get(userId) ?? []).map((j) => ({ kind: 'job' as const, title: j.title, where: j.dept_name, href: `/ajil/${j.job_id}`, at: j.created_at, volunteered: j.volunteered, status: j.status })),
+    ...(jobs.get(userId) ?? []).map((j) => ({ kind: 'job' as const, title: j.title, where: j.dept_name, href: `/ajil/${j.job_id}`, at: j.created_at, volunteered: j.volunteered, status: j.status, helper: j.helper })),
   ];
   return items.sort((a, b) => b.at - a.at);
 }

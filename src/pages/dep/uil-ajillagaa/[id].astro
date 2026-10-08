@@ -37,6 +37,7 @@ if (Astro.request.method === 'POST') {
       case 'publish': await setEventStatus(user, ev, 'published', ip); key = 'published'; break;
       case 'unpublish': await setEventStatus(user, ev, 'draft', ip); key = 'unpublished'; break;
       case 'cancel': await setEventStatus(user, ev, 'cancelled', ip); key = 'cancelled'; break;
+      case 'restore': await setEventStatus(user, ev, 'draft', ip); key = 'saved'; break;
       case 'take': await assignTask(user, ev, int(str(fd, 'task')) ?? 0, user.id, ip); key = 'taken'; break;
       case 'assign': await assignTask(user, ev, int(str(fd, 'task')) ?? 0, int(str(fd, 'user')) ?? 0, ip); key = 'assigned'; break;
       case 'done': await finishAssignment(user, ev, int(str(fd, 'assignment')) ?? 0, ip); key = 'done'; break;
@@ -138,7 +139,7 @@ const when = `${fmtDateTime(ev.starts_at)} – ${fmtDate(ev.ends_at) === fmtDate
               {tasks.map((t) => {
                 const active = t.assignees.filter((x) => x.status === 'active');
                 const mine = active.find((x) => x.user_id === user.id);
-                const open = t.status === 'open';
+                const open = t.status === 'open' && ev.status !== 'cancelled'; // a cancelled event takes no more work
                 const d = t.due_at ? dayDiff(t.due_at, t0) : null;
                 const late = open && d !== null && d < 0;
                 return (
@@ -341,6 +342,17 @@ const when = `${fmtDateTime(ev.starts_at)} – ${fmtDate(ev.ends_at) === fmtDate
             <p class="small muted">Арга хэмжээ болохгүй болсон бол цуцална. Ажил, хуваарилалт бүртгэлд хадгалагдана.</p>
             <form method="post" data-confirm="Арга хэмжээг цуцлах уу? Нийтийн сайтаас алга болно.">
               <button class="btn btn-danger btn-sm" name="action" value="cancel">Арга хэмжээг цуцлах</button>
+            </form>
+          </div>
+        </section>
+      )}
+      {editor && ev.status === 'cancelled' && (
+        <section class="panel" aria-labelledby="restore-h">
+          <div class="panel-head"><h2 id="restore-h">Цуцалснаа буцаах</h2></div>
+          <div class="panel-body">
+            <p class="small muted">Андуурч цуцалсан, эсвэл арга хэмжээ дахин болох бол ноорог болгож сэргээнэ. Дараа нь дахин нийтэлнэ.</p>
+            <form method="post">
+              <button class="btn btn-sm" name="action" value="restore">Ноорог болгож сэргээх</button>
             </form>
           </div>
         </section>

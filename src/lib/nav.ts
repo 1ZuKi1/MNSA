@@ -8,7 +8,7 @@ export interface NavCounts {
   awaiting: number;
   /** Event tasks this person has taken on and not finished. */
   tasks: number;
-  /** Jobs («Ажлууд») this person is accountable for, not done yet. */
+  /** Jobs («Ажлууд») this person is on — accountable or helping — not done yet. */
   jobs: number;
 }
 
@@ -20,7 +20,8 @@ export async function navCounts(a: SessionUser): Promise<NavCounts> {
     `SELECT ${w ? `(SELECT COUNT(*) FROM records r WHERE ${w.sql})` : '0'} AS awaiting,
             (SELECT COUNT(*) FROM task_assignments x JOIN event_tasks k ON k.id = x.task_id
               WHERE x.user_id = ?${n} AND x.status = 'active' AND k.status = 'open') AS tasks,
-            (SELECT COUNT(*) FROM jobs j WHERE j.owner_id = ?${n} AND j.status IN ('todo','doing')) AS jobs`,
+            (SELECT COUNT(*) FROM jobs j WHERE j.status IN ('todo','doing')
+                AND (j.owner_id = ?${n} OR EXISTS (SELECT 1 FROM job_helpers h WHERE h.job_id = j.id AND h.user_id = ?${n} AND h.left_at IS NULL))) AS jobs`,
     ...(w?.params ?? []),
     a.id,
   );

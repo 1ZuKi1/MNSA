@@ -1,6 +1,7 @@
 /** Members, invites, the annual renewal. President (and one deputy) only — see permissions.ts. */
 import { randomToken, sha256Hex } from './crypto';
 import { auditStmt, db, deptBySlug, many, mediaDb, one, stmt } from './db';
+import { releaseLeaverStmts } from './jobs';
 import * as P from './permissions';
 import { Denied } from './records';
 import { now, termEnd } from './time';
@@ -134,11 +135,37 @@ export async function setInvitePendingEmail(inviteId: number, email: string) {
 
 export class EmailTaken extends Error {}
 
-/** Called only after the invitee has proven they own `email` with a code. */
-export async function claimInvite(inv: InviteRow, email: string, ip: string | null): Promise<number> {
-  const existing = await one<{ id: number }>(`SELECT id FROM users WHERE email = ?`, email);
-  if (existing) throw new EmailTaken();
+/**
+ * Called only after the invitee has proven they own `email` with a code. Returns the account and its
+ * session version. Someone coming back (an alumni account on the same address — removed earlier, or their
+ * term lapsed) gets their old account back with the invite's role and department, so everything they wrote
+ * and did stays theirs. An active account on the address is refused.
+ */
+export async function claimInvite(inv: InviteRow, email: string, ip: string | null): Promise<{ id: number; version: number }> {
+  const existing = await one<{ id: number; status: string; student_id: string | null }>(`SELECT id, status, student_id FROM users WHERE email = ?`, email);
+  // Only a former member (alumni) comes back this way; an active — or ever a suspended — account is refused.
+  if (existing && existing.status !== 'alumni') throw new EmailTaken();
   const t = now();
+  if (existing) {
+    const back = await stmt(
+      `UPDATE users SET status = 'active', name_mn = ?, student_id = COALESCE(?, student_id), role = ?, department_id = ?, is_deputy = 0,
+              term_ends_at = ?, last_login_at = ?, session_version = session_version + 1
+        WHERE id = ? AND status = 'alumni' RETURNING session_version`,
+      inv.name_mn,
+      inv.student_id || null,
+      inv.role,
+      inv.department_id,
+      termEnd(t),
+      t,
+      existing.id,
+    ).first<{ session_version: number }>();
+    if (!back) throw new EmailTaken();
+    await db().batch([
+      stmt(`UPDATE invites SET claimed_by = ?, claimed_at = ?, pending_email = NULL WHERE id = ? AND claimed_at IS NULL`, existing.id, t, inv.id),
+      auditStmt(existing.id, 'invite.claim', 'invite', inv.id, { email, returning: true }, ip),
+    ]);
+    return { id: existing.id, version: back.session_version };
+  }
   const user = await stmt(
     `INSERT INTO users (email, name_mn, student_id, role, department_id, status, term_ends_at, created_by, created_at, last_login_at)
      VALUES (?,?,?,?,?,'active',?,?,?,?) RETURNING id`,
@@ -156,7 +183,7 @@ export async function claimInvite(inv: InviteRow, email: string, ip: string | nu
     stmt(`UPDATE invites SET claimed_by = ?, claimed_at = ?, pending_email = NULL WHERE id = ? AND claimed_at IS NULL`, user!.id, t, inv.id),
     auditStmt(user!.id, 'invite.claim', 'invite', inv.id, { email }, ip),
   ]);
-  return user!.id;
+  return { id: user!.id, version: 1 };
 }
 
 export async function revokeInvite(a: SessionUser, inviteId: number, ip: string | null) {
@@ -180,10 +207,14 @@ export async function changeMember(a: SessionUser, m: MemberRow, input: { role: 
   ]);
 }
 
-/** Removal = alumni + every session killed instantly. Nothing they wrote is touched. */
+/**
+ * Removal = alumni + every session killed instantly. Nothing they wrote is touched; their open jobs and
+ * upcoming event tasks are let go, so they show «Хүн хэрэгтэй» instead of waiting on someone who has left.
+ */
 export async function removeMember(a: SessionUser, m: MemberRow, ip: string | null) {
   if (!P.canModifyMember(a, asMemberLike(m))) throw new Denied();
   await db().batch([
+    ...releaseLeaverStmts([m.id], a.id),
     stmt(`UPDATE users SET status = 'alumni', is_deputy = 0, session_version = session_version + 1 WHERE id = ?`, m.id),
     auditStmt(a.id, 'member.remove', 'user', m.id, { name: m.name_mn }, ip),
   ]);
@@ -240,6 +271,16 @@ export async function setPhoto(a: SessionUser, m: MemberRow, mediaId: string | n
 
 const RENEW_WINDOW = 60 * 24 * 3600;
 
+/**
+ * Who may renew whom: whoever may change the account; the President their own; and the maintainer the
+ * President's — the one way back if a President's term runs out before they renewed it (an expired account
+ * can't log in, and nobody else may touch the President's account).
+ */
+export const canRenew = (a: SessionUser, m: Pick<MemberRow, 'id' | 'role' | 'is_deputy'>) =>
+  (a.role === 'president' && m.id === a.id) ||
+  (a.role === 'maintainer' && m.role === 'president') ||
+  P.canModifyMember(a, { id: m.id, role: m.role, isDeputy: m.is_deputy === 1 });
+
 /** Accounts ending within 60 days, or already lapsed but not yet archived. */
 export const renewalCandidates = () =>
   many<MemberRow>(
@@ -254,9 +295,7 @@ export const nextTerm = (current: number | null) => termEnd(Math.max(now(), (cur
 export async function renewMembers(a: SessionUser, ids: number[], ip: string | null) {
   if (!P.canManageMembers(a)) throw new Denied();
   const rows = await renewalCandidates();
-  const allowed = rows.filter(
-    (m) => ids.includes(m.id) && ((a.role === 'president' && m.id === a.id) || P.canModifyMember(a, asMemberLike(m))),
-  );
+  const allowed = rows.filter((m) => ids.includes(m.id) && canRenew(a, m));
   if (!allowed.length) return 0;
   await db().batch([
     ...allowed.map((m) => stmt(`UPDATE users SET term_ends_at = ? WHERE id = ?`, nextTerm(m.term_ends_at), m.id)),
@@ -267,10 +306,16 @@ export async function renewMembers(a: SessionUser, ids: number[], ip: string | n
 
 /** Everyone whose term has passed without renewal becomes alumni. Safe to call any time. */
 export async function archiveLapsed(actorId: number | null) {
-  const lapsed = await many<{ id: number }>(`SELECT id FROM users WHERE status = 'active' AND term_ends_at IS NOT NULL AND term_ends_at < ?`, now());
+  // Never the President: a lapsed President stays in place so the maintainer can still renew them — archiving
+  // them would leave the association with nobody who can add people or sign.
+  const lapsed = await many<{ id: number }>(
+    `SELECT id FROM users WHERE status = 'active' AND role <> 'president' AND term_ends_at IS NOT NULL AND term_ends_at < ?`,
+    now(),
+  );
   if (!lapsed.length) return 0;
   await db().batch([
-    stmt(`UPDATE users SET status = 'alumni', is_deputy = 0, session_version = session_version + 1 WHERE status = 'active' AND term_ends_at < ?`, now()),
+    ...releaseLeaverStmts(lapsed.map((l) => l.id), actorId),
+    stmt(`UPDATE users SET status = 'alumni', is_deputy = 0, session_version = session_version + 1 WHERE id IN (${lapsed.map((l) => Number(l.id)).join(',')})`),
     auditStmt(actorId, 'member.archive-lapsed', 'user', null, { ids: lapsed.map((l) => l.id) }, null),
   ]);
   return lapsed.length;

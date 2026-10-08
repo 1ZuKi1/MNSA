@@ -122,7 +122,7 @@ const link = (p: Record<string, string | number>) => `/oroltsoo?${new URLSearchP
                   <span class="item-meta">
                     <a href={d.href}>{d.kind === 'job' ? `Ажлууд · ${d.where}` : d.where}</a>
                     <span>{fmtDate(d.at)}</span>
-                    <span>{d.volunteered ? 'Сайн дураар' : 'Хуваарилсан'}</span>
+                    <span>{d.helper ? 'Сайн дураар, туслагчаар' : d.volunteered ? 'Сайн дураар' : 'Хуваарилсан'}</span>
                   </span>
                   <span class="item-act"><span class={`badge b-${d.status === 'active' ? 'open' : d.status}`}>{STATUS[d.status]}</span></span>
                 </li>
