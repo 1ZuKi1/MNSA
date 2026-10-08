@@ -88,8 +88,8 @@ describe('the budget line form', () => {
     expect(r.errors.date).toMatch(/Ирээдүйн/);
   });
   it('the headline numbers may be left empty (zero)', () => {
-    expect(readBudgetYearForm(fd({ planned: '', funds: '', note: '' })).input).toEqual({ plannedFen: 0, fundsFen: 0, note: null });
-    expect(readBudgetYearForm(fd({ planned: '15,000', funds: '12000.5', note: ' ЭСЯ ' })).input).toEqual({ plannedFen: 1500000, fundsFen: 1200050, note: 'ЭСЯ' });
+    expect(readBudgetYearForm(fd({ planned: '', funds: '' })).input).toEqual({ plannedFen: 0, fundsFen: 0 });
+    expect(readBudgetYearForm(fd({ planned: '15,000', funds: '12000.5' })).input).toEqual({ plannedFen: 1500000, fundsFen: 1200050 });
     expect(readBudgetYearForm(fd({ planned: '-1', funds: '0' })).ok).toBe(false);
   });
 });
