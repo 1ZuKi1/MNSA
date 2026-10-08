@@ -559,16 +559,14 @@ a.row-in h3 { transition: color var(--t); }
 .figs.compact .figs-bar { margin-top: 22px; }
 
 /* spending by purpose: name, a bar, the sum */
-.spend-by { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; max-width: 52rem; }
-.spend-by li { display: grid; grid-template-columns: minmax(8rem, 15rem) minmax(0, 1fr) 7.5rem; gap: 6px 18px; align-items: center; }
-.sb-name { font-weight: 600; overflow-wrap: anywhere; }
-.sb-bar { height: 10px; border-radius: 999px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); overflow: hidden; }
+.spend-by { list-style: none; margin: 0; padding: 0; display: grid; gap: 22px; }
+/* each purpose: its name and sum on one line, the bar under them across the whole width */
+.spend-by li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 24px; align-items: baseline; }
+.sb-name { font-weight: 600; font-size: 1.02rem; line-height: 1.4; }
+.sb-val { font: 620 1.15rem/1.2 var(--font-display); font-variant-numeric: tabular-nums lining-nums; text-align: right; white-space: nowrap; }
+.sb-val small { display: inline-block; min-width: 3.4em; text-align: right; font: 500 0.88rem var(--font-sans); color: var(--ink-3); }
+.sb-bar { grid-column: 1 / -1; height: 10px; border-radius: 999px; background: var(--ivory-2); box-shadow: inset 0 0 0 1px var(--line); overflow: hidden; }
 .sb-bar span { display: block; height: 100%; border-radius: inherit; background: var(--blue); }
-.sb-val { font: 620 1.08rem/1.2 var(--font-display); font-variant-numeric: tabular-nums lining-nums; text-align: right; }
-@media (max-width: 560px) {
-  .spend-by li { grid-template-columns: minmax(0, 1fr) auto; }
-  .sb-bar { grid-column: 1 / -1; grid-row: 2; }
-}
 
 /* the ledger: one line per purchase, totals right-aligned in tabular figures */
 .ledger-wrap { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); overflow-x: auto; }

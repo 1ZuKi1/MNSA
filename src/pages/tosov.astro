@@ -8,7 +8,7 @@ import Public from '../layouts/Public.astro';
 import Band from '../components/Band.astro';
 import BudgetFigures from '../components/BudgetFigures.astro';
 import { budgetKeepers, budgetYears, loadBudget, yearLabel } from '../lib/budget';
-import { fmtQty, fmtYuan } from '../lib/money';
+import { fmtQty, fmtYuan, percentOf } from '../lib/money';
 import { academicYear, fmtDate, fmtLong } from '../lib/time';
 
 const years = await budgetYears();
@@ -22,7 +22,6 @@ const OTHER = 'Бусад';
 const byPurpose = [...b.items.reduce((m, i) => m.set(i.purpose ?? OTHER, (m.get(i.purpose ?? OTHER) ?? 0) + i.total_fen), new Map<string, number>())]
   .map(([name, fen]) => ({ name, fen }))
   .sort((x, y) => (x.name === OTHER ? 1 : y.name === OTHER ? -1 : y.fen - x.fen));
-const top = Math.max(1, ...byPurpose.map((p) => p.fen));
 ---
 <Public title="Төсөв" description="Бээжингийн Их Сургуулийн Монгол Оюутны Холбооны төсөв: төлөвлөсөн дүн, байгаа хөрөнгө, юунд хэдийг зарцуулсан нь.">
   <Band
@@ -158,8 +157,8 @@ const top = Math.max(1, ...byPurpose.map((p) => p.fen));
           {byPurpose.map((p) => (
             <li>
               <span class="sb-name">{p.name}</span>
-              <span class="sb-bar" aria-hidden="true"><span style={`width:${Math.max(2, Math.round((p.fen / top) * 100))}%`}></span></span>
-              <span class="sb-val num">{fmtYuan(p.fen)}</span>
+              <span class="sb-val num">{fmtYuan(p.fen)}<small>{percentOf(p.fen, b.spentFen)}%</small></span>
+              <span class="sb-bar" aria-hidden="true"><span style={`width:${Math.max(1, percentOf(p.fen, b.spentFen))}%`}></span></span>
             </li>
           ))}
         </ul>
