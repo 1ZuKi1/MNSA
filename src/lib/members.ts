@@ -18,6 +18,8 @@ export interface MemberRow {
   dept_slug: DeptSlug | null;
   dept_name: string | null;
   is_deputy: number;
+  /** «Төсвийн хариуцагч»: may keep the budget (see budget.ts). */
+  is_budget_keeper: number;
   status: 'active' | 'alumni' | 'suspended';
   term_ends_at: number | null;
   last_login_at: number | null;
@@ -26,7 +28,7 @@ export interface MemberRow {
 }
 
 const SELECT = `SELECT u.id, u.email, u.name_mn, u.full_name, u.student_id, u.role, u.department_id, d.slug AS dept_slug, d.name_mn AS dept_name,
-                       u.is_deputy, u.status, u.term_ends_at, u.last_login_at, u.show_public, u.photo_id
+                       u.is_deputy, u.is_budget_keeper, u.status, u.term_ends_at, u.last_login_at, u.show_public, u.photo_id
                   FROM users u LEFT JOIN departments d ON d.id = u.department_id`;
 
 const ROLE_ORDER = `CASE u.role WHEN 'president' THEN 0 WHEN 'board' THEN 1 WHEN 'head' THEN 2 WHEN 'member' THEN 3 ELSE 4 END`;
@@ -148,7 +150,7 @@ export async function claimInvite(inv: InviteRow, email: string, ip: string | nu
   const t = now();
   if (existing) {
     const back = await stmt(
-      `UPDATE users SET status = 'active', name_mn = ?, student_id = COALESCE(?, student_id), role = ?, department_id = ?, is_deputy = 0,
+      `UPDATE users SET status = 'active', name_mn = ?, student_id = COALESCE(?, student_id), role = ?, department_id = ?, is_deputy = 0, is_budget_keeper = 0,
               term_ends_at = ?, last_login_at = ?, session_version = session_version + 1
         WHERE id = ? AND status = 'alumni' RETURNING session_version`,
       inv.name_mn,
@@ -215,7 +217,7 @@ export async function removeMember(a: SessionUser, m: MemberRow, ip: string | nu
   if (!P.canModifyMember(a, asMemberLike(m))) throw new Denied();
   await db().batch([
     ...releaseLeaverStmts([m.id], a.id),
-    stmt(`UPDATE users SET status = 'alumni', is_deputy = 0, session_version = session_version + 1 WHERE id = ?`, m.id),
+    stmt(`UPDATE users SET status = 'alumni', is_deputy = 0, is_budget_keeper = 0, session_version = session_version + 1 WHERE id = ?`, m.id),
     auditStmt(a.id, 'member.remove', 'user', m.id, { name: m.name_mn }, ip),
   ]);
 }
@@ -315,7 +317,7 @@ export async function archiveLapsed(actorId: number | null) {
   if (!lapsed.length) return 0;
   await db().batch([
     ...releaseLeaverStmts(lapsed.map((l) => l.id), actorId),
-    stmt(`UPDATE users SET status = 'alumni', is_deputy = 0, session_version = session_version + 1 WHERE id IN (${lapsed.map((l) => Number(l.id)).join(',')})`),
+    stmt(`UPDATE users SET status = 'alumni', is_deputy = 0, is_budget_keeper = 0, session_version = session_version + 1 WHERE id IN (${lapsed.map((l) => Number(l.id)).join(',')})`),
     auditStmt(actorId, 'member.archive-lapsed', 'user', null, { ids: lapsed.map((l) => l.id) }, null),
   ]);
   return lapsed.length;

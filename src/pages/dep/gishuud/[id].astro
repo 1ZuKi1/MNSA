@@ -34,6 +34,8 @@ const canPhoto = canSetPhoto(user, m) && m.role !== 'maintainer';
 const photo = mediaUrl(m.photo_id);
 const grantable = P.grantableRoles(user);
 const back = `/gishuud/${m.id}`;
+const keeper = m.is_budget_keeper === 1 && m.role !== 'president' && m.role !== 'maintainer';
+const canBudget = P.canSetBudgetKeeper(user, asMemberLike(m));
 const expiring = m.term_ends_at !== null && m.term_ends_at - now() < 30 * 86400;
 ---
 <Staff title={m.name_mn}>
@@ -41,6 +43,7 @@ const expiring = m.term_ends_at !== null && m.term_ends_at - now() < 30 * 86400;
     <span>{ROLE_LABEL[m.role]}</span>
     {m.dept_name && <span>{m.dept_name}</span>}
     {m.is_deputy === 1 && <span class="badge plain b-blue">орлогч</span>}
+    {keeper && <span class="badge plain b-gold">Төсвийн хариуцагч</span>}
     {self && <span class="badge plain">та</span>}
   </PageHead>
 
@@ -182,6 +185,23 @@ const expiring = m.term_ends_at !== null && m.term_ends_at - now() < 30 * 86400;
             {m.is_deputy === 1
               ? <button class="btn btn-sm" name="action" value="no_deputy" data-confirm="Орлогчийг цуцлах уу?">Орлогчоос чөлөөлөх</button>
               : <button class="btn btn-sm" name="action" value="deputy" data-confirm={`«${m.name_mn}» гишүүнийг орлогчоор томилох уу? Өмнөх орлогч чөлөөлөгдөнө.`}>Орлогчоор томилох</button>}
+          </div>
+        </form>
+      )}
+
+      {canBudget && (
+        <form method="post" action="/gishuud" class="panel" aria-labelledby="bg-h">
+          <input type="hidden" name="user" value={m.id} />
+          <input type="hidden" name="back" value={back} />
+          <div class="panel-head"><h2 id="bg-h"><Icon name="wallet" /> Төсвийн хариуцагч</h2></div>
+          <div class="panel-body stack" style="--stack:12px">
+            <p class="form-note">
+              Холбооны төсвийг хөтөлнө: <a href="/tosov">«Төсөв»</a> хүснэгтэд зарлагын мөр нэмж, хасаж, төлөвлөсөн болон байгаа хөрөнгийн дүнг шинэчилнэ.
+              Хүснэгт нийтийн сайтад бүгдэд ил харагдана. Тэргүүн өөрөө төсөв хөтлөхгүй — зарцуулалтыг баталдаг хүн тооцоог нь хөтлөхгүй байх нь зөв.
+            </p>
+            {keeper
+              ? <button class="btn btn-sm" name="action" value="budget_off" data-confirm={`«${m.name_mn}» гишүүнийг төсвийн хариуцагчаас чөлөөлөх үү?`}>Төсвийн хариуцагчаас чөлөөлөх</button>
+              : <button class="btn btn-sm" name="action" value="budget_on" data-confirm={`«${m.name_mn}» гишүүнийг төсвийн хариуцагчаар томилох уу? Тэр төсвийн хүснэгтэд мөр нэмж, хасах эрхтэй болно.`}>Төсвийн хариуцагчаар томилох</button>}
           </div>
         </form>
       )}

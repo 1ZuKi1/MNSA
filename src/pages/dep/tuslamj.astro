@@ -8,6 +8,7 @@ export const prerender = false;
 import Staff from '../../layouts/Staff.astro';
 import PageHead from '../../components/PageHead.astro';
 import Icon from '../../components/Icon.astro';
+import { budgetActor } from '../../lib/budget';
 import { many } from '../../lib/db';
 import * as P from '../../lib/permissions';
 import { RECORD_TYPE_LIST, TYPE_GROUPS } from '../../lib/record-types';
@@ -20,6 +21,7 @@ const onWorkersDev = Astro.url.hostname.endsWith('.workers.dev');
 const contacts = await many<{ name_mn: string; role: string; email: string }>(
   `SELECT name_mn, role, email FROM users WHERE status = 'active' AND role IN ('president','maintainer') ORDER BY role DESC`,
 );
+const keepsBudget = P.canKeepBudget(await budgetActor(user));
 const president = contacts.find((c) => c.role === 'president');
 const maintainer = contacts.find((c) => c.role === 'maintainer');
 
@@ -41,6 +43,7 @@ if (user.role === 'maintainer') {
   if (P.canEditEvents(user)) can.push('Арга хэмжээ үүсгэж, нийтийн сайтад нийтэлнэ, зураг оруулна.');
   if (user.role === 'head' || user.role === 'president') can.push(user.role === 'president' ? 'Аль ч хэлтэст ажил нэмж, хариуцагч томилно.' : 'Хэлтсийнхээ ажлыг нэмж, хариуцагч томилно.');
   can.push('Хүн хэрэгтэй ажил, арга хэмжээний ажлыг «Би хийнэ» дарж авна.');
+  if (keepsBudget) can.push('Төсвийн хариуцагч: «Төсөв» хүснэгтэд зарлага нэмж, хасна, төсвийн дүнг шинэчилнэ.');
   if (P.canManageMembers(user)) can.push('Гишүүн урьж, эрх, хэлтсийг нь өөрчилнө.');
   if (P.canSeeParticipation(user)) can.push('Бүх гишүүний оролцооны тайланг харна.');
 }
@@ -53,6 +56,7 @@ const TOC = [
   ['batlah', 'Батлах, буцаах, хэвлэх', 'check'],
   ['arga', 'Арга хэмжээ', 'calendar'],
   ['ajil', 'Ажлууд', 'list'],
+  ['tosov', 'Төсөв', 'wallet'],
   ['gishuun', 'Өөрийн мэдээлэл', 'users'],
   ['anhaar', 'Анхаарах зүйлс', 'alert'],
   ['holboo', 'Асуудал гарвал', 'mail'],
@@ -197,6 +201,19 @@ const TOC = [
           <li>Явцын тухай богино <b>тэмдэглэл</b> үлдээж болно («Танхимын эзэнтэй ярьсан, даваа гарагт хариу өгнө»). Бусад нь ажлын хуудаснаас хаана явааг харна.</li>
           <li>Хийх боломжгүй болбол ажлын хуудсан дээр <b>«ажлаас гарах»</b>-ыг дарна — ажил дахин хүн хэрэгтэй болно.</li>
           <li><b>«Зөвхөн манай хэлтэс»</b> гэсэн ажлыг тухайн хэлтэс, хариуцагч, удирдлага харна; <b>«Бүх гишүүд»</b> гэснийг бүгд харна.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="panel help-sec" id="tosov" aria-labelledby="tosov-h">
+      <div class="panel-head"><h2 id="tosov-h"><Icon name="wallet" /> Төсөв</h2></div>
+      <div class="panel-body">
+        <p>Холбооны мөнгийг юунд, хэдийг зарцуулж буйг <a href="/tosov">«Төсөв»</a> хуудсанд хөтөлнө. Энэ хүснэгт нийтийн сайтад (<b>pkumongolia.com/tosov</b>) бүгдэд ил харагдана.</p>
+        <ul class="help-list">
+          <li>Хөтлөх эрх зөвхөн <b>Төсвийн хариуцагчид</b> бий. Түүнийг Тэргүүн «Гишүүд» хэсэгт тухайн хүний хуудсанд томилно. Тэргүүн өөрөө төсөв хөтлөхгүй.</li>
+          <li>Зарлага бүрт <b>огноо, зүйл, зориулалт, тоо ширхэг, нэгжийн үнийг</b> бичнэ. <b>Нийт үнийг</b> (тоо × нэгжийн үнэ) систем өөрөө тооцно.</li>
+          <li>Жилийн эхэнд <b>төлөвлөсөн төсвийг</b> оруулж, мөнгө орох бүрт <b>одоо байгаа хөрөнгийн</b> дүнг шинэчилнэ. Зарцуулсан, үлдэгдэл хоёр автоматаар гарна.</li>
+          <li>Буруу оруулсан мөрийг <b>хасахад</b> нийтийн хүснэгтээс алга болно, гэхдээ хэн, хэзээ хассан нь «Хассан мөрүүд» хэсэгт болон үйлдлийн бүртгэлд үлдэнэ.</li>
         </ul>
       </div>
     </section>

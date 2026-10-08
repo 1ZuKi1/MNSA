@@ -1,4 +1,5 @@
 import { fromLocal } from './time';
+import { lineTotal, parseMoney, parseQty } from './money';
 import type { DeptSlug } from './types';
 import { getRecordType, isRange, joinRange, validateFields, type RecordType } from './record-types';
 import { str } from './http';
@@ -150,4 +151,64 @@ export function readJobForm(fd: FormData, allowedDepts: string[]) {
         }
       : null,
   };
+}
+
+// ------------------------------------------------------------------ budget («Төсөв»)
+
+export interface BudgetItemValues {
+  date: string;
+  item: string;
+  purpose: string;
+  qty: string;
+  unit: string;
+}
+
+/**
+ * One spending line. The date can't be in the future (counted in Beijing time; `today` is "YYYY-MM-DD"),
+ * the quantity must be more than zero, the price of one zero or more; the total is computed here, never typed.
+ */
+export function readBudgetItemForm(fd: FormData, today: string) {
+  const values: BudgetItemValues = {
+    date: str(fd, 'date', 10),
+    item: str(fd, 'item', 200),
+    purpose: str(fd, 'purpose', 200),
+    qty: str(fd, 'qty', 20),
+    unit: str(fd, 'unit', 30),
+  };
+  const errors: Record<string, string> = {};
+  let spentOn = 0;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(values.date)) errors.date = 'Огноог оруулна уу.';
+  else if (values.date > today) errors.date = 'Ирээдүйн огноо байж болохгүй.';
+  else
+    try {
+      spentOn = fromLocal(values.date);
+    } catch {
+      errors.date = 'Огноо буруу байна.';
+    }
+  if (!values.item) errors.item = 'Юунд зарцуулсныг бичнэ үү.';
+  const qtyC = parseQty(values.qty);
+  if (qtyC === null) errors.qty = 'Тоо ширхэгийг тоогоор бичнэ үү, жишээ нь 3 эсвэл 2.5.';
+  const unitFen = parseMoney(values.unit);
+  if (unitFen === null) errors.unit = 'Нэгжийн үнийг юаниар бичнэ үү, жишээ нь 45 эсвэл 12.50.';
+  const ok = Object.keys(errors).length === 0;
+  return {
+    ok,
+    values,
+    errors,
+    input: ok
+      ? { spentOn, item: values.item, purpose: values.purpose || null, qtyC: qtyC!, unitFen: unitFen!, totalFen: lineTotal(qtyC!, unitFen!) }
+      : null,
+  };
+}
+
+/** The two headline numbers for a year. Both may be zero (not known yet). */
+export function readBudgetYearForm(fd: FormData) {
+  const values = { planned: str(fd, 'planned', 20), funds: str(fd, 'funds', 20), note: str(fd, 'note', 300) };
+  const errors: Record<string, string> = {};
+  const plannedFen = values.planned ? parseMoney(values.planned) : 0;
+  const fundsFen = values.funds ? parseMoney(values.funds) : 0;
+  if (plannedFen === null) errors.planned = 'Дүнг юаниар бичнэ үү, жишээ нь 15000.';
+  if (fundsFen === null) errors.funds = 'Дүнг юаниар бичнэ үү, жишээ нь 12000.';
+  const ok = Object.keys(errors).length === 0;
+  return { ok, values, errors, input: ok ? { plannedFen: plannedFen!, fundsFen: fundsFen!, note: values.note || null } : null };
 }

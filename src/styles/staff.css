@@ -785,3 +785,70 @@ form.release { margin: 0; font-size: 0.86rem; }
 .help-dl dd { margin: 0; color: var(--ink-2); }
 .help-warn { border-left: 3px solid var(--warn); }
 @media (max-width: 560px) { .help-dl > div { grid-template-columns: 1fr; } .help-dl dd { padding-left: 25px; } }
+
+/* ---------- budget («Төсөв») ---------- */
+.stat.stat-bad::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 3px; background: var(--bad); }
+.stat.stat-bad b { color: var(--bad); }
+.budget-who, .budget-note { display: flex; align-items: center; gap: 8px; margin: 0 0 18px; }
+.budget-note { color: var(--ink-2); font-size: 0.93rem; }
+.icon.muted-ic { color: var(--ink-3); margin: 0; flex: none; vertical-align: -3px; }
+.budget-forms { margin-bottom: 22px; }
+/* quantity × price = total, on one line while there is room */
+.budget-nums { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1.2fr) auto minmax(0, 1.2fr); gap: 0 10px; align-items: start; }
+.budget-nums .field + .field { margin-top: 0; }
+.budget-nums .op { padding-top: 36px; font-size: 1.15rem; font-weight: 600; color: var(--ink-3); }
+.budget-total { display: flex; align-items: center; min-height: 42px; padding: 0 12px; border-radius: 9px; background: var(--sunk); font-weight: 700; font-size: 1.05rem; color: var(--ink); }
+@media (max-width: 520px) {
+  .budget-nums { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); row-gap: 12px; }
+  .budget-nums .op:nth-of-type(2) { display: none; }
+  .budget-nums > .field:last-child { grid-column: 1 / -1; }
+}
+.budget-lines { margin-top: 4px; }
+.budget-t tbody th, .budget-t tfoot th { font-size: inherit; color: var(--ink); text-transform: none; letter-spacing: 0; background: transparent; white-space: normal; }
+.budget-t .item-cell { font-weight: 600; min-width: 12rem; }
+.budget-forms > .panel + .panel { margin-top: 0; }
+/* the remove pop-up must not be clipped by the table's frame, so the corners are rounded on the cells instead */
+.budget-wrap { overflow: visible; }
+.budget-t thead th:first-child { border-top-left-radius: var(--radius-lg); }
+.budget-t thead th:last-child { border-top-right-radius: var(--radius-lg); }
+.budget-t tfoot > tr > :first-child { border-bottom-left-radius: var(--radius-lg); }
+.budget-t tfoot > tr > :last-child { border-bottom-right-radius: var(--radius-lg); }
+.budget-t td.strong, .budget-t th.strong { font-weight: 700; }
+.budget-t tfoot th, .budget-t tfoot td { background: var(--sunk); border-bottom: 0; border-top: 2px solid var(--line-strong); font-weight: 700; }
+.budget-t tfoot th { text-align: right; }
+.row-remove { position: relative; display: inline-block; }
+.row-remove summary { list-style: none; }
+.row-remove summary::-webkit-details-marker { display: none; }
+.row-remove summary .icon { color: var(--ink-3); }
+.row-remove[open] summary .icon { color: var(--bad); }
+.row-remove-form {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 10; display: flex; gap: 6px; width: min(340px, 80vw);
+  padding: 10px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: 12px; box-shadow: var(--shadow);
+}
+.row-remove-form input { min-height: 34px; padding: 6px 10px; font-size: 0.88rem; }
+.removed-panel { margin-top: 22px; }
+.removed-panel > summary { cursor: pointer; list-style: none; padding-bottom: 14px; }
+.removed-panel > summary::-webkit-details-marker { display: none; }
+.removed-panel[open] > summary { padding-bottom: 0; }
+.removed-panel s { text-decoration-color: var(--ink-3); }
+/* a phone: each line a card — what it is and the total on top, date and qty × price under it */
+@media (max-width: 640px) {
+  .budget-wrap { border: 0; background: transparent; box-shadow: none; overflow: visible; }
+  .budget-t, .budget-t tbody, .budget-t tfoot { display: block; }
+  .budget-t thead { display: none; }
+  .budget-t tr {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; padding: 12px 14px; margin-bottom: 8px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+  }
+  .budget-t td, .budget-t th { display: block; padding: 0; border: 0; text-align: left; }
+  .budget-t tbody td:not(.actions):not(.total) { display: none; }
+  .budget-t .item-cell { grid-column: 1; grid-row: 1 / span 2; min-width: 0; }
+  .budget-t td.total { grid-column: 2; grid-row: 1; font-size: 1.02rem; }
+  .budget-t .m-only { display: block !important; font-weight: 500; text-align: left; }
+  .budget-t td.actions { grid-column: 2; grid-row: 2; align-self: end; text-align: right; }
+  .budget-t tfoot tr { background: var(--sunk); border-color: var(--line-strong); }
+  .budget-t tfoot th, .budget-t tfoot td { border: 0; background: transparent; }
+  .budget-t tfoot th { grid-column: 1; text-align: left; }
+  .budget-t tfoot td { grid-column: 2; grid-row: 1; }
+  .budget-t tfoot td:empty { display: none; }
+}

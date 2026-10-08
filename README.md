@@ -168,6 +168,8 @@ Do these once, in order. Everything uses the **association's** Cloudflare accoun
     Then the President uploads the official stamp at *Тохиргоо → Албан тамга*: a scan or straight-on photo of the real stamp pressed on white paper (a transparent PNG looks cleanest). It prints on the signature line only of documents the President approved, and its image is served only behind the staff login.
 11. **Auto-deploy on push:** Cloudflare → Workers → `mnsa` → Settings → Builds → connect `github.com/1ZuKi1/MNSA`. Build command `npm run build`, deploy command `npx wrangler deploy`.
 
+**A change that adds a file to `migrations/`** (for example `0009_budget.sql`, the budget): auto-deploy does not touch the database, so run `npm run db:migrate:remote` **before** the change reaches `main`. New code on an old database fails on the pages that read the new tables.
+
 ---
 
 ## How it's put together
@@ -183,6 +185,7 @@ src/
     records.ts         Documents: create, edit, submit, approve, auto-numbering
     events.ts          Events, task board, participation report, photos
     members.ts         Invites, roles, deputy, annual renewal
+    budget.ts money.ts «Төсөв»: the public budget, kept by a «Төсвийн хариуцагч»; money in fen, never floats
     settings.ts        The official stamp (President only; stored private, never on the public site)
     letters.ts         Duty letters («үүрэг, хариуцлагыг хүлээн зөвшөөрсөн тухай») printed from the member list
     prefill.ts         Starting values for new documents (department members, meeting attendance)
@@ -196,7 +199,7 @@ src/
     auth.ts session.ts One-time codes and signed-cookie sessions
     db.ts time.ts …    Helpers
   pages/
-    index.astro taniltsuulga.astro udirdlaga.astro holboo-barih.astro uil-ajillagaa/…   public site
+    index.astro taniltsuulga.astro udirdlaga.astro tosov.astro holboo-barih.astro uil-ajillagaa/…   public site
     dep/…                          staff site (served at clean URLs on team.pkumongolia.com)
 migrations/            Main database schema (+ migrations-media/ for photos)
 scripts/seed-dev.sql   Demo data (local and test deployment only)

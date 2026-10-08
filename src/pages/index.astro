@@ -6,9 +6,21 @@ import Band from '../components/Band.astro';
 import EventRows from '../components/EventRows.astro';
 import Icon from '../components/Icon.astro';
 import Steps from '../components/Steps.astro';
+import BudgetFigures from '../components/BudgetFigures.astro';
+import { loadBudget, yearLabel, type Budget } from '../lib/budget';
 import { publicEvents } from '../lib/events';
+import { academicYear } from '../lib/time';
 
 const { upcoming } = await publicEvents();
+// The budget at a glance. If it can't be read (say the budget tables aren't migrated yet), the home page
+// simply goes without it rather than failing.
+let budget: Budget | null = null;
+try {
+  budget = await loadBudget(academicYear());
+} catch (e) {
+  console.error('home: budget unavailable', e);
+}
+const showBudget = !!budget && (budget.hasHeader || budget.items.length > 0);
 const soon = upcoming.slice(0, 4);
 
 // The four doors of the site — the same pages as the menu, with one line each.
@@ -60,6 +72,18 @@ const steps = [
       <a class="more" href="/uil-ajillagaa">Бүх арга хэмжээ, зургууд</a>
     </div>
   </section>
+
+  {showBudget && (
+    <section class="sec budget-home" aria-labelledby="budget-h">
+      <div class="wrap">
+        <span class="sec-label">Ил тод байдал · {yearLabel(budget!.year)}</span>
+        <h2 id="budget-h">Холбооны төсөв</h2>
+        <p class="intro">Холбооны мөнгийг юунд, хэдийг зарцуулж байгааг бүгд харах боломжтой.</p>
+        <BudgetFigures b={budget!} compact />
+        <a class="more" href="/tosov">Зарлага бүрийг хүснэгтээр харах</a>
+      </div>
+    </section>
+  )}
 
   <section class="sec alt" id="shine" aria-labelledby="new-h">
     <div class="wrap newcomer">

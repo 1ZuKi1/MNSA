@@ -12,6 +12,7 @@ import {
   WRONG_DEPT, canSetPhoto, canSetPublic, placeRole, changeEmail, changeMember, createInvite, getMember, listMembers, openInvites, recentlyClaimed, removeMember, revokeInvite, setDeputy,
   setPhoto, setShowPublic,
 } from '../../../lib/members';
+import { setBudgetKeeper } from '../../../lib/budget';
 import { BadImage, mediaUrl, storeImage } from '../../../lib/media';
 import * as P from '../../../lib/permissions';
 import { Denied } from '../../../lib/records';
@@ -98,6 +99,7 @@ if (Astro.request.method === 'POST') {
       else if (action === 'deputy') await setDeputy(user, target, ip);
       else if (action === 'no_deputy') await setDeputy(user, null, ip);
       else if (!target) throw new Denied();
+      else if (action === 'budget_on' || action === 'budget_off') await setBudgetKeeper(user, target, action === 'budget_on', ip);
       else if (action === 'change') {
         const role = str(fd, 'role', 20) as Role;
         const place = placeRole(role, str(fd, 'dept', 40) || null, depts);
@@ -111,7 +113,8 @@ if (Astro.request.method === 'POST') {
         if (email !== target.email && (await one(`SELECT 1 FROM users WHERE email = ?`, email))) return Astro.redirect(withFlash(back, 'email_taken', 'err'));
         await changeEmail(user, target, email, ip);
       }
-      const key = { revoke: 'revoked', deputy: 'deputy', no_deputy: 'deputy', change: 'saved', remove: 'removed' }[action] ?? 'saved';
+      const key =
+        { revoke: 'revoked', deputy: 'deputy', no_deputy: 'deputy', change: 'saved', remove: 'removed', budget_on: 'budget_keeper', budget_off: 'budget_keeper_off' }[action] ?? 'saved';
       // After removing someone their page no longer exists — go back to the list.
       return Astro.redirect(withFlash(action === 'remove' ? '/gishuud' : back, key));
     }
@@ -190,6 +193,7 @@ const canOpen = (m: (typeof members)[number]) => m.id === user.id || manager || 
                       {canOpen(m) ? <a class="row-link" href={`/gishuud/${m.id}`}>{m.name_mn}</a> : <b>{m.name_mn}</b>}
                       {m.id === user.id && <span class="muted small"> (та)</span>}
                       {m.is_deputy === 1 && <> <span class="badge plain b-blue">орлогч</span></>}
+                      {m.is_budget_keeper === 1 && m.role !== 'president' && m.role !== 'maintainer' && <> <span class="badge plain b-gold">төсөв</span></>}
                       <small>{m.student_id ?? ''}<span class="m-only">{ROLE_LABEL[m.role]} · {m.email}</span></small>
                     </span>
                   </span>

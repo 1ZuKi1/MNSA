@@ -66,22 +66,22 @@ html:has(body.public) { scroll-padding-top: calc(var(--header-h) + 16px); }
   transition: box-shadow var(--t);
 }
 .ph-header.is-scrolled { box-shadow: 0 8px 24px -18px rgba(13, 33, 56, 0.5); }
-.ph-bar { display: flex; align-items: center; justify-content: space-between; gap: 28px; min-height: var(--header-h); }
+.ph-bar { display: flex; align-items: center; justify-content: space-between; gap: 24px; min-height: var(--header-h); }
 .ph-brand { flex: none; display: flex; align-items: center; gap: 12px; text-decoration: none; color: var(--ink); border-radius: 10px; }
 .ph-brand img { width: 52px; height: auto; transition: transform var(--t); }
 
 .ph-brand .t1 { display: block; font: 500 0.78rem/1.2 var(--font-sans); color: var(--ink-3); }
 .ph-brand .t2 { display: block; font: 650 1.08rem/1.2 var(--font-display); color: var(--maroon); white-space: nowrap; transition: color var(--t); }
 
-.ph-nav ul { display: flex; gap: 4px; list-style: none; margin: 0; padding: 0; }
+.ph-nav ul { display: flex; gap: 2px; list-style: none; margin: 0; padding: 0; }
 .ph-nav a {
-  position: relative; display: block; padding: 10px 9px;
+  position: relative; display: block; padding: 10px 7px;
   font-weight: 560; font-size: 0.94rem; color: var(--ink-2); text-decoration: none; white-space: nowrap;
   transition: color var(--t);
 }
 /* one underline indicator: grows in on hover, stays for the current page */
 .ph-nav a::after {
-  content: ''; position: absolute; left: 9px; right: 9px; bottom: 2px; height: 2px; border-radius: 2px;
+  content: ''; position: absolute; left: 7px; right: 7px; bottom: 2px; height: 2px; border-radius: 2px;
   background: var(--ink-3); transform: scaleX(0); transform-origin: left; transition: transform var(--t), background-color var(--t);
 }
 
@@ -94,8 +94,8 @@ html:has(body.public) { scroll-padding-top: calc(var(--header-h) + 16px); }
 .ph-nav .nav-out .out { margin-left: 5px; font-size: 0.85em; }
 .ph-nav .nav-out:hover { border-color: var(--blue); background: var(--blue-tint); color: var(--blue-deep); }
 
-/* Seven menu items (the last one the course-site pill) and the name need about 1375 px on one line; below that the menu folds into the button. */
-@media (max-width: 1380px) {
+/* Eight menu items (the last one the course-site pill) and the name need about 1420 px on one line; below that the menu folds into the button. */
+@media (max-width: 1424px) {
   :root { --header-h: 62px; }
   .ph-bar { flex-wrap: wrap; row-gap: 0; }
   .ph-brand img { width: 44px; }
@@ -520,6 +520,78 @@ a.row-in h3 { transition: color var(--t); }
 .lb-prev { left: 16px; top: 50%; margin-top: -24px; }
 .lb-next { right: 16px; top: 50%; margin-top: -24px; }
 .lb-count { position: fixed; top: 26px; left: 50%; transform: translateX(-50%); color: var(--on-night-2); font-size: 0.9rem; }
+
+/* ---------- budget («Төсөв») ---------- */
+.toc a[aria-current='page'] { background: var(--night); border-color: var(--night); color: #fff; }
+/* four numbers side by side, each under a coloured rule: planned (navy), in hand (blue), spent (maroon), left (green; red when overspent) */
+.figs-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 22px clamp(16px, 3vw, 32px); margin: 0; }
+@media (max-width: 860px) { .figs-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.fig { border-top: 3px solid var(--rule, var(--night)); padding-top: 12px; min-width: 0; }
+.fig dt { font-weight: 600; font-size: 0.95rem; color: var(--ink-2); }
+.fig dd { margin: 4px 0 0; font: 620 clamp(1.55rem, 1.1rem + 1.6vw, 2.25rem)/1.15 var(--font-display); font-variant-numeric: tabular-nums lining-nums; color: var(--ink); overflow-wrap: anywhere; }
+.f-funds { --rule: var(--blue); }
+.f-spent { --rule: var(--maroon); }
+.f-left { --rule: var(--ok); }
+.f-left dd { color: var(--ok); }
+.f-left.over { --rule: var(--bad); }
+.f-left.over dd { color: var(--bad); }
+.figs-bar { margin-top: clamp(24px, 3vw, 32px); max-width: 44rem; }
+.bar { height: 12px; border-radius: 999px; background: var(--ivory-2); box-shadow: inset 0 0 0 1px var(--line); overflow: hidden; }
+.bar span { display: block; height: 100%; border-radius: inherit; background: var(--maroon); }
+.bar span.over { background: var(--bad); }
+.bar-cap { margin: 10px 0 0; color: var(--ink-2); font-size: 0.97rem; }
+.bar-cap b { color: var(--ink); }
+.figs.compact .fig dd { font-size: clamp(1.35rem, 1rem + 1.2vw, 1.85rem); }
+.figs.compact .figs-bar { margin-top: 22px; }
+
+/* spending by purpose: name, a bar, the sum */
+.spend-by { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; max-width: 52rem; }
+.spend-by li { display: grid; grid-template-columns: minmax(8rem, 15rem) minmax(0, 1fr) 7.5rem; gap: 6px 18px; align-items: center; }
+.sb-name { font-weight: 600; overflow-wrap: anywhere; }
+.sb-bar { height: 10px; border-radius: 999px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); overflow: hidden; }
+.sb-bar span { display: block; height: 100%; border-radius: inherit; background: var(--blue); }
+.sb-val { font: 620 1.08rem/1.2 var(--font-display); font-variant-numeric: tabular-nums lining-nums; text-align: right; }
+@media (max-width: 560px) {
+  .spend-by li { grid-template-columns: minmax(0, 1fr) auto; }
+  .sb-bar { grid-column: 1 / -1; grid-row: 2; }
+}
+
+/* the ledger: one line per purchase, totals right-aligned in tabular figures */
+.ledger-wrap { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); overflow-x: auto; }
+.ledger { width: 100%; border-collapse: collapse; font-size: 0.97rem; }
+.ledger th, .ledger td { text-align: left; padding: 13px 16px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.ledger thead th { font-size: 0.85rem; font-weight: 650; color: var(--ink-3); background: var(--ivory); border-bottom-color: var(--line-strong); white-space: nowrap; }
+.ledger .r { text-align: right; white-space: nowrap; }
+.ledger .n { color: var(--ink-3); width: 1%; padding-right: 0; }
+.ledger .d { white-space: nowrap; color: var(--ink-2); }
+.ledger .what { font-weight: 620; min-width: 12rem; }
+.ledger .what small { display: block; font-weight: 500; color: var(--ink-3); font-size: 0.87rem; margin-top: 2px; }
+.ledger .what .m-calc { display: none; }
+.ledger td.t { font-weight: 700; color: var(--ink); }
+.ledger tbody tr:last-child > * { border-bottom: 0; }
+.ledger tfoot th, .ledger tfoot td { border-top: 2px solid var(--ink); border-bottom: 0; background: var(--ivory); font-weight: 700; }
+.ledger tfoot th { text-align: right; }
+.ledger tfoot td.t { font: 700 1.12rem/1.3 var(--font-display); color: var(--maroon); }
+.ledger .num { font-variant-numeric: tabular-nums lining-nums; }
+/* a phone: no sideways scrolling — each line is the item with quantity × price under it, and the total on the right */
+@media (max-width: 640px) {
+  .ledger-wrap { overflow: visible; }
+  .ledger thead { display: none; }
+  .ledger, .ledger tbody, .ledger tfoot { display: block; }
+  .ledger tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 14px; padding: 13px 14px; border-bottom: 1px solid var(--line); }
+  .ledger tbody tr:last-child { border-bottom: 0; }
+  .ledger th, .ledger td { padding: 0; border: 0; }
+  .ledger .n, .ledger .d, .ledger .q, .ledger .u { display: none; }
+  .ledger .what { min-width: 0; }
+  .ledger .what .m-calc { display: block; }
+  .ledger tfoot tr { border-top: 2px solid var(--ink); background: var(--ivory); border-radius: 0 0 var(--radius-lg) var(--radius-lg); }
+  .ledger tfoot th, .ledger tfoot td { border: 0; background: transparent; }
+  .ledger tfoot th { text-align: left; align-self: center; }
+}
+.ledger-wrap:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+/* home page: the budget at a glance */
+.budget-home .figs { margin-top: 4px; }
 
 /* ---------- footer ---------- */
 .pf { background: var(--night); color: var(--on-night-2); padding: 56px 0 32px; }

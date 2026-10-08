@@ -23,6 +23,7 @@ const nav = [
   { href: '/taniltsuulga', label: 'Танилцуулга' },
   { href: '/udirdlaga', label: 'Удирдлагын баг' },
   { href: '/uil-ajillagaa', label: 'Үйл ажиллагаа' },
+  { href: '/tosov', label: 'Төсөв' },
   { href: '/shine-oyutan', label: 'Шинэ оюутанд' },
   { href: '/holboo-barih', label: 'Холбоо барих' },
 ];
@@ -133,7 +134,7 @@ const ogImage = new URL(image ?? '/brand/logo-512.png', Astro.url).href;
           document.addEventListener('click', function (e) {
             if (nav.classList.contains('open') && !e.target.closest('.ph-header')) set(false);
           });
-          matchMedia('(min-width: 1381px)').addEventListener('change', function (m) { if (m.matches) set(false); });
+          matchMedia('(min-width: 1425px)').addEventListener('change', function (m) { if (m.matches) set(false); });
         }
         // Sections rise in as they scroll into view. Only armed when the browser can do it and the
         // visitor hasn't asked for less motion, so nothing is ever left hidden.
