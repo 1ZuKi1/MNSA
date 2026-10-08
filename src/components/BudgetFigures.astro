@@ -24,8 +24,8 @@ const toBuyPct = Math.max(0, Math.min(percentOf(b.spentFen + b.toBuyFen, base), 
 const after = b.afterToBuyFen >= 0 ? { text: fmtYuan(b.afterToBuyFen), word: 'үлдэнэ', neg: false } : { text: fmtYuan(-b.afterToBuyFen), word: 'дутна', neg: true };
 // «Төлөвлөсөн төсвийн 42% зарцуулсан» / «Төлөвлөсөн төсвөөс 12% илүү зарцуулсан»
 const caption = pct > 100
-  ? { pre: planned ? 'Төлөвлөсөн төсвөөс' : 'Байгаа хөрөнгөөс', n: `${pct - 100}%`, post: 'илүү зарцуулсан' }
-  : { pre: planned ? 'Төлөвлөсөн төсвийн' : 'Байгаа хөрөнгийн', n: `${pct}%`, post: 'зарцуулсан' };
+  ? { pre: planned ? 'Төлөвлөсөн төсвөөс' : 'Цугласан хөрөнгөөс', n: `${pct - 100}%`, post: 'илүү зарцуулсан' }
+  : { pre: planned ? 'Төлөвлөсөн төсвийн' : 'Цугласан хөрөнгийн', n: `${pct}%`, post: 'зарцуулсан' };
 ---
 <div class:list={['figs', { compact }]}>
   <dl class="figs-grid">
@@ -34,7 +34,7 @@ const caption = pct > 100
       <dd class="num">{known && b.plannedFen > 0 ? fmtYuan(b.plannedFen) : '—'}</dd>
     </div>
     <div class="fig f-funds">
-      <dt>Одоо байгаа хөрөнгө</dt>
+      <dt>Цугласан хөрөнгө</dt>
       <dd class="num">{known ? fmtYuan(b.fundsFen) : '—'}</dd>
     </div>
     <div class="fig f-spent">

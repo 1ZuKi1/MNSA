@@ -23,7 +23,7 @@ const byPurpose = [...b.items.reduce((m, i) => m.set(i.purpose ?? OTHER, (m.get(
   .map(([name, fen]) => ({ name, fen }))
   .sort((x, y) => (x.name === OTHER ? 1 : y.name === OTHER ? -1 : y.fen - x.fen));
 ---
-<Public title="Төсөв" description="Бээжингийн Их Сургуулийн Монгол Оюутны Холбооны төсөв: төлөвлөсөн дүн, байгаа хөрөнгө, юунд хэдийг зарцуулсан нь.">
+<Public title="Төсөв" description="Бээжингийн Их Сургуулийн Монгол Оюутны Холбооны төсөв: төлөвлөсөн дүн, цугласан хөрөнгө, юунд хэдийг зарцуулсан нь.">
   <Band
     kicker="Ил тод байдал"
     title="Төсөв"
