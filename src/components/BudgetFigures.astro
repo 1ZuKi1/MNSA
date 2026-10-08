@@ -18,6 +18,8 @@ const over = known && b.remainingFen < 0;
 const base = b.plannedFen > 0 ? b.plannedFen : b.fundsFen;
 const pct = percentOf(b.spentFen, base);
 const planned = b.plannedFen > 0;
+// Purchases listed but not made yet: a lighter stretch of the bar after what is spent.
+const toBuyPct = Math.max(0, Math.min(percentOf(b.spentFen + b.toBuyFen, base), 100) - Math.min(pct, 100));
 // «Төлөвлөсөн төсвийн 42 хувийг зарцуулсан» / «Төлөвлөсөн төсвөөс 12 хувиар илүү зарцуулсан»
 const caption = pct > 100
   ? { pre: planned ? 'Төлөвлөсөн төсвөөс' : 'Байгаа хөрөнгөөс', n: `${pct - 100} хувиар`, post: 'илүү зарцуулсан' }
@@ -46,8 +48,16 @@ const caption = pct > 100
     <div class="figs-bar">
       <div class="bar" aria-hidden="true">
         <span style={`width:${Math.min(pct, 100)}%`} class:list={{ over: pct > 100 }}></span>
+        {toBuyPct > 0 && <span class="to-buy" style={`width:${toBuyPct}%`}></span>}
       </div>
       <p class="bar-cap">{caption.pre} <b class="num">{caption.n}</b> {caption.post}</p>
     </div>
+  )}
+  {b.toBuyFen > 0 && (
+    <p class="to-buy-cap">
+      <span class="key" aria-hidden="true"></span>
+      Авахаар төлөвлөсөн: <b class="num">{fmtYuan(b.toBuyFen)}</b>
+      {known && <> — бүгдийг авсны дараа <b class:list={['num', { neg: b.afterToBuyFen < 0 }]}>{fmtYuan(b.afterToBuyFen)}</b> {b.afterToBuyFen < 0 ? 'дутна' : 'үлдэнэ'}</>}
+    </p>
   )}
 </div>

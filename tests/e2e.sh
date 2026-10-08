@@ -434,6 +434,24 @@ has "…but the staff page keeps it, with who and why" "$pg" "Давхар ор�
 has "…under removed lines" "$pg" "Хассан мөрүүд"
 has "removing twice is refused" "$(post $J/dotood2.jar /tosov -d action=remove -d id=$BID)" "err=denied"
 has "the audit log records it" "$(get $J/president.jar '/burtgel?cat=budget')" "Төсвөөс мөр хассан"
+has "planned purchases are public, apart from the spending" "$(curl -s -H "$P" $B/tosov)" "Авахаар төлөвлөсөн"
+has "…with what they will cost" "$(curl -s -H "$P" $B/tosov)" "Монгол хоолны орц"
+has "…and what will be left after" "$(curl -s -H "$P" $B/tosov)" "бүгдийг авсны дараа"
+LATER=$(TZ=Asia/Shanghai date -d '+10 day' +%Y-%m-%d)
+has "a bought line can't be dated in the future" "$(curl -s -b $J/dotood2.jar -H "$S" -H "$O" -X POST -d action=add -d kind=spent -d date=$LATER -d item=x -d qty=1 -d unit=1 $B/tosov)" "Ирээдүйн огноо"
+has "the keeper lists a purchase to make (dated ahead)" "$(post $J/dotood2.jar /tosov -d action=add -d kind=planned -d date=$LATER --data-urlencode "item=Шагналын медаль" --data-urlencode "purpose=Спортын өдөр" -d qty=10 -d unit=12)" "ok=budget_planned"
+pb=$(curl -s -H "$P" $B/tosov)
+has "…it is public as planned" "$pb" "Шагналын медаль"
+has "…but not spent: the sum hasn't moved" "$pb" "¥1,575.50"
+PID=$(npx wrangler d1 execute mnsa-db --local --json --command "SELECT id FROM budget_items WHERE item='Шагналын медаль'" 2>/dev/null | grep -o '"id": *[0-9]*' | grep -o '[0-9]*$')
+has "only the keeper marks it bought" "$(post $J/president.jar /tosov -d action=confirm -d id=$PID -d qty=10 -d unit=11 -d date=$TODAY)" "err=denied"
+has "marking it bought needs a real date" "$(post $J/dotood2.jar /tosov -d action=confirm -d id=$PID -d qty=10 -d unit=11 -d date=$LATER)" "err=budget_confirm_invalid"
+has "the keeper marks it bought, at the real price" "$(post $J/dotood2.jar /tosov -d action=confirm -d id=$PID -d qty=10 --data-urlencode "unit=11.50" -d date=$TODAY)" "ok=budget_bought"
+pb=$(curl -s -H "$P" $B/tosov)
+has "…now it counts as spent (10 × 11.50)" "$pb" "¥115.00"
+has "…and the spent sum moves" "$pb" "¥1,690.50"
+has "a bought line can't be marked bought again" "$(post $J/dotood2.jar /tosov -d action=confirm -d id=$PID -d qty=1 -d unit=1 -d date=$TODAY)" "err=denied"
+has "the audit log keeps plan and purchase" "$(get $J/president.jar '/burtgel?cat=budget')" "Худалдаж авсан гэж тэмдэглэсэн"
 has "the President relieves the keeper" "$(post $J/president.jar /gishuud -d action=budget_off -d user=4 -d back=/gishuud/4)" "ok=budget_keeper_off"
 has "…who can no longer add" "$(post $J/dotood2.jar /tosov -d action=add -d date=$TODAY -d item=x -d qty=1 -d unit=1)" "err=denied"
 check "the staff budget page doesn't exist on the public host" "$(curl -s -o /dev/null -w '%{http_code}' -H "$P" $B/dep/tosov)" 404

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { fmtQty, fmtYuan, hundredthsInput, lineTotal, parseMoney, parseQty, percentOf } from '../src/lib/money';
-import { readBudgetItemForm, readBudgetYearForm } from '../src/lib/forms';
+import { readBudgetConfirmForm, readBudgetItemForm, readBudgetYearForm } from '../src/lib/forms';
 
 describe('typed amounts', () => {
   it('reads what people actually type', () => {
@@ -91,5 +91,24 @@ describe('the budget line form', () => {
     expect(readBudgetYearForm(fd({ planned: '', funds: '', note: '' })).input).toEqual({ plannedFen: 0, fundsFen: 0, note: null });
     expect(readBudgetYearForm(fd({ planned: '15,000', funds: '12000.5', note: ' ЭСЯ ' })).input).toEqual({ plannedFen: 1500000, fundsFen: 1200050, note: 'ЭСЯ' });
     expect(readBudgetYearForm(fd({ planned: '-1', funds: '0' })).ok).toBe(false);
+  });
+});
+
+describe('planned purchases', () => {
+  const today = '2026-10-08';
+  it('a planned line may be dated in the future; a bought one may not', () => {
+    const plan = readBudgetItemForm(fd({ kind: 'planned', date: '2026-10-24', item: 'Таваг', qty: '4', unit: '18' }), today);
+    expect(plan.ok).toBe(true);
+    expect(plan.input).toMatchObject({ status: 'planned', totalFen: 7200 });
+    const bought = readBudgetItemForm(fd({ kind: 'spent', date: '2026-10-24', item: 'Таваг', qty: '4', unit: '18' }), today);
+    expect(bought.errors.date).toMatch(/Ирээдүйн/);
+  });
+  it('anything but "planned" counts as bought', () => {
+    expect(readBudgetItemForm(fd({ kind: 'x', date: '2026-10-01', item: 'a', qty: '1', unit: '1' }), today).input?.status).toBe('spent');
+  });
+  it('marking it bought takes the real numbers, and refuses a future date', () => {
+    expect(readBudgetConfirmForm(fd({ date: '2026-10-08', qty: '3', unit: '19.5' }), today).input).toMatchObject({ qtyC: 300, unitFen: 1950, totalFen: 5850 });
+    expect(readBudgetConfirmForm(fd({ date: '2026-10-09', qty: '3', unit: '19.5' }), today).ok).toBe(false);
+    expect(readBudgetConfirmForm(fd({ date: '2026-10-08', qty: '0', unit: '19.5' }), today).ok).toBe(false);
   });
 });

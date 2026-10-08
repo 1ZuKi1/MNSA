@@ -20,7 +20,7 @@ try {
 } catch (e) {
   console.error('home: budget unavailable', e);
 }
-const showBudget = !!budget && (budget.hasHeader || budget.items.length > 0);
+const showBudget = !!budget && (budget.hasHeader || budget.items.length > 0 || budget.toBuy.length > 0);
 const soon = upcoming.slice(0, 4);
 
 // The four doors of the site — the same pages as the menu, with one line each.

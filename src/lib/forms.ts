@@ -156,6 +156,8 @@ export function readJobForm(fd: FormData, allowedDepts: string[]) {
 // ------------------------------------------------------------------ budget («Төсөв»)
 
 export interface BudgetItemValues {
+  /** 'spent': already bought; 'planned': to buy («Авахаар төлөвлөсөн»). */
+  kind: 'spent' | 'planned';
   date: string;
   item: string;
   purpose: string;
@@ -164,11 +166,13 @@ export interface BudgetItemValues {
 }
 
 /**
- * One spending line. The date can't be in the future (counted in Beijing time; `today` is "YYYY-MM-DD"),
- * the quantity must be more than zero, the price of one zero or more; the total is computed here, never typed.
+ * One line. A spent line's date can't be in the future (counted in Beijing time; `today` is "YYYY-MM-DD");
+ * a planned one's may — it's when we mean to buy. The quantity must be more than zero, the price of one
+ * zero or more; the total is computed here, never typed.
  */
 export function readBudgetItemForm(fd: FormData, today: string) {
   const values: BudgetItemValues = {
+    kind: str(fd, 'kind', 10) === 'planned' ? 'planned' : 'spent',
     date: str(fd, 'date', 10),
     item: str(fd, 'item', 200),
     purpose: str(fd, 'purpose', 200),
@@ -178,7 +182,7 @@ export function readBudgetItemForm(fd: FormData, today: string) {
   const errors: Record<string, string> = {};
   let spentOn = 0;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(values.date)) errors.date = 'Огноог оруулна уу.';
-  else if (values.date > today) errors.date = 'Ирээдүйн огноо байж болохгүй.';
+  else if (values.kind === 'spent' && values.date > today) errors.date = 'Ирээдүйн огноо байж болохгүй. Хараахан аваагүй бол «Авахаар төлөвлөж байна»-г сонгоно уу.';
   else
     try {
       spentOn = fromLocal(values.date);
@@ -196,9 +200,30 @@ export function readBudgetItemForm(fd: FormData, today: string) {
     values,
     errors,
     input: ok
-      ? { spentOn, item: values.item, purpose: values.purpose || null, qtyC: qtyC!, unitFen: unitFen!, totalFen: lineTotal(qtyC!, unitFen!) }
+      ? { status: values.kind, spentOn, item: values.item, purpose: values.purpose || null, qtyC: qtyC!, unitFen: unitFen!, totalFen: lineTotal(qtyC!, unitFen!) }
       : null,
   };
+}
+
+/** Marking a planned purchase bought: what it really came to, and when (not in the future). */
+export function readBudgetConfirmForm(fd: FormData, today: string) {
+  const values = { date: str(fd, 'date', 10), qty: str(fd, 'qty', 20), unit: str(fd, 'unit', 30) };
+  const errors: Record<string, string> = {};
+  let spentOn = 0;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(values.date)) errors.date = 'Огноог оруулна уу.';
+  else if (values.date > today) errors.date = 'Ирээдүйн огноо байж болохгүй.';
+  else
+    try {
+      spentOn = fromLocal(values.date);
+    } catch {
+      errors.date = 'Огноо буруу байна.';
+    }
+  const qtyC = parseQty(values.qty);
+  if (qtyC === null) errors.qty = 'Тоо ширхэгийг тоогоор бичнэ үү.';
+  const unitFen = parseMoney(values.unit);
+  if (unitFen === null) errors.unit = 'Нэгжийн үнийг юаниар бичнэ үү.';
+  const ok = Object.keys(errors).length === 0;
+  return { ok, errors, input: ok ? { spentOn, qtyC: qtyC!, unitFen: unitFen!, totalFen: lineTotal(qtyC!, unitFen!) } : null };
 }
 
 /** The two headline numbers for a year. Both may be zero (not known yet). */

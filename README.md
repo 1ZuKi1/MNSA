@@ -168,7 +168,7 @@ Do these once, in order. Everything uses the **association's** Cloudflare accoun
     Then the President uploads the official stamp at *Тохиргоо → Албан тамга*: a scan or straight-on photo of the real stamp pressed on white paper (a transparent PNG looks cleanest). It prints on the signature line only of documents the President approved, and its image is served only behind the staff login.
 11. **Auto-deploy on push:** Cloudflare → Workers → `mnsa` → Settings → Builds → connect `github.com/1ZuKi1/MNSA`. Build command `npm run build`, deploy command `npx wrangler deploy`.
 
-**A change that adds a file to `migrations/`** (for example `0009_budget.sql`, the budget): auto-deploy does not touch the database, so run `npm run db:migrate:remote` **before** the change reaches `main`. New code on an old database fails on the pages that read the new tables.
+**A change that adds a file to `migrations/`** (for example `0009_budget.sql` and `0010_budget_planned.sql`, the budget): auto-deploy does not touch the database, so run `npm run db:migrate:remote` **before** the change reaches `main`. New code on an old database fails on the pages that read the new tables.
 
 ---
 

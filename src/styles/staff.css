@@ -826,6 +826,15 @@ form.release { margin: 0; font-size: 0.86rem; }
   padding: 10px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: 12px; box-shadow: var(--shadow);
 }
 .row-remove-form input { min-height: 34px; padding: 6px 10px; font-size: 0.88rem; }
+.row-confirm + .row-remove { margin-left: 4px; }
+.row-remove.row-confirm summary .icon { color: currentColor; }
+.row-confirm-form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: min(320px, 86vw); white-space: normal; text-align: left; }
+.row-confirm-form .form-note, .row-confirm-form button, .row-confirm-form label:nth-of-type(3) { grid-column: 1 / -1; }
+.row-confirm-form label { display: grid; gap: 4px; font-size: 0.82rem; font-weight: 600; color: var(--ink-2); }
+.budget-plan { margin-bottom: 26px; }
+.budget-plan .table-wrap { border-color: var(--gold-deep); border-style: dashed; }
+a.stat.stat-plan::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 3px; background: var(--gold); }
+a.stat.stat-plan.stat-bad::before { background: var(--bad); }
 .removed-panel { margin-top: 22px; }
 .removed-panel > summary { cursor: pointer; list-style: none; padding-bottom: 14px; }
 .removed-panel > summary::-webkit-details-marker { display: none; }
