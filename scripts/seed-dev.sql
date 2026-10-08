@@ -65,7 +65,7 @@ INSERT INTO job_updates (job_id,user_id,status,note,created_at) VALUES
 -- what was bought, and what is still to buy (can · postponed · can't).
 UPDATE users SET is_budget_keeper = 1 WHERE id = 6;
 INSERT INTO budget_years (academic_year,planned_fen,funds_fen,note,updated_by,updated_at) VALUES
-  ('2026-2027',0,336600,'Соёлын өдөрлөгт цугласан мөнгө',6,1791300000);
+  ('2026-2027',0,336600,NULL,6,1791300000);
 INSERT INTO budget_items (status,plan_state,academic_year,spent_on,item,purpose,qty_c,qty_max_c,unit_fen,total_fen,total_max_fen,created_by,created_at) VALUES
   ('spent',NULL,'2026-2027',1791388800,'Цаасан аяга 30 мл — архи аягалах','Соёлын өдөрлөг',100,NULL,2460,2460,NULL,6,1791400000),
   ('spent',NULL,'2026-2027',1791388800,'Хоолны аяга 400 мл, 600 ш — хоол таваглах','Соёлын өдөрлөг',100,NULL,2830,2830,NULL,6,1791400001),

@@ -199,7 +199,9 @@ export function readBudgetItemForm(fd: FormData, today: string) {
     }
   if (!values.item) errors.item = 'Юу болохыг бичнэ үү.';
   const range = kind === 'planned' ? parseQtyRange(values.qty) : (() => { const v = parseQty(values.qty); return v === null ? null : { min: v, max: null }; })();
-  if (range === null)
+  if (range === null && kind === 'spent' && parseQtyRange(values.qty)?.max)
+    errors.qty = 'Хүрээ (жишээ нь 300–450) зөвхөн «Авахаар төлөвлөж байна»-д бичнэ. Худалдаж авсан бол яг хэдийг авснаа бичнэ үү.';
+  else if (range === null)
     errors.qty = kind === 'planned' ? 'Тоо ширхэгийг тоогоор бичнэ үү, жишээ нь 3, 2.5 эсвэл 300–450.' : 'Тоо ширхэгийг тоогоор бичнэ үү, жишээ нь 3 эсвэл 2.5.';
   const unitFen = parseMoney(values.unit);
   if (unitFen === null) errors.unit = 'Нэгжийн үнийг юаниар бичнэ үү, жишээ нь 45 эсвэл 12.50.';
@@ -248,12 +250,12 @@ export function readBudgetConfirmForm(fd: FormData, today: string) {
 
 /** The two headline numbers for a year. Both may be zero (not known yet). */
 export function readBudgetYearForm(fd: FormData) {
-  const values = { planned: str(fd, 'planned', 20), funds: str(fd, 'funds', 20), note: str(fd, 'note', 300) };
+  const values = { planned: str(fd, 'planned', 20), funds: str(fd, 'funds', 20) };
   const errors: Record<string, string> = {};
   const plannedFen = values.planned ? parseMoney(values.planned) : 0;
   const fundsFen = values.funds ? parseMoney(values.funds) : 0;
   if (plannedFen === null) errors.planned = 'Дүнг юаниар бичнэ үү, жишээ нь 15000.';
   if (fundsFen === null) errors.funds = 'Дүнг юаниар бичнэ үү, жишээ нь 12000.';
   const ok = Object.keys(errors).length === 0;
-  return { ok, values, errors, input: ok ? { plannedFen: plannedFen!, fundsFen: fundsFen!, note: values.note || null } : null };
+  return { ok, values, errors, input: ok ? { plannedFen: plannedFen!, fundsFen: fundsFen! } : null };
 }

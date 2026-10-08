@@ -431,9 +431,10 @@ pg=$(curl -s -b $J/dotood2.jar -H "$S" -H "$O" -X POST -d action=add -d date=299
 has "a bad line is refused with every problem listed" "$pg" "Дараах зүйлсийг засна уу"
 has "…a future date" "$pg" "Ирээдүйн огноо"
 has "…a zero quantity" "$pg" "Тоо ширхэгийг тоогоор"
-has "a bought line can't take a range" "$(curl -s -b $J/dotood2.jar -H "$S" -H "$O" -X POST -d action=add -d kind=spent -d date=$TODAY -d item=x -d qty=2-3 -d unit=1 $B/tosov)" "Тоо ширхэгийг тоогоор"
+has "a bought line can't take a range — and says where ranges go" "$(curl -s -b $J/dotood2.jar -H "$S" -H "$O" -X POST -d action=add -d kind=spent -d date=$TODAY -d item=x -d qty=2-3 -d unit=1 $B/tosov)" "зөвхөн «Авахаар төлөвлөж байна»-д"
 has "the keeper sets the numbers" "$(post $J/dotood2.jar /tosov -d action=year --data-urlencode "planned=16,000" -d funds=13000 --data-urlencode "note=ЭСЯ-ны дэмжлэг")" "ok=budget_year"
 has "…and they are public" "$(curl -s -H "$P" $B/tosov)" "¥16,000"
+hasnt "…and the old note field is gone" "$(get $J/dotood2.jar /tosov)" 'name="note"'
 BID=$(npx wrangler d1 execute mnsa-db --local --json --command "SELECT id FROM budget_items WHERE item='Цаас, A4 багц'" 2>/dev/null | grep -o '"id": *[0-9]*' | grep -o '[0-9]*$')
 has "only the keeper removes a line" "$(post $J/president.jar /tosov -d action=remove -d id=$BID)" "err=denied"
 has "the keeper removes it" "$(post $J/dotood2.jar /tosov -d action=remove -d id=$BID --data-urlencode "reason=Давхар орсон")" "ok=budget_removed"

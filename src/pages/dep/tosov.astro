@@ -31,7 +31,7 @@ const today = toDateInput(now());
 
 let item: BudgetItemValues = { kind: 'spent', state: 'can', date: today, item: '', purpose: '', qty: '1', unit: '' };
 let itemErrors: Record<string, string> = {};
-let yearValues: { planned: string; funds: string; note: string } | null = null;
+let yearValues: { planned: string; funds: string } | null = null;
 let yearErrors: Record<string, string> = {};
 
 if (Astro.request.method === 'POST') {
@@ -91,7 +91,7 @@ const [b, years, removed, keepers, purposes] = await Promise.all([
       )
     : Promise.resolve([]),
 ]);
-yearValues ??= { planned: b.hasHeader ? hundredthsInput(b.plannedFen) : '', funds: b.hasHeader ? hundredthsInput(b.fundsFen) : '', note: b.note ?? '' };
+yearValues ??= { planned: b.hasHeader ? hundredthsInput(b.plannedFen) : '', funds: b.hasHeader ? hundredthsInput(b.fundsFen) : '' };
 const over = b.hasHeader && b.remainingFen < 0;
 const usedPct = percentOf(b.spentFen, b.plannedFen);
 const publicUrl = `${publicOrigin(Astro.url)}/tosov${year === academicYear() ? '' : `?on=${year}`}`;
@@ -187,7 +187,8 @@ const keeperNames = keepers.map((k) => k.name_mn).join(', ');
               <label for="b_qty">Тоо ширхэг</label>
               <input id="b_qty" name="qty" type="text" required value={item.qty} autocomplete="off"
                 aria-invalid={itemErrors.qty ? 'true' : undefined} aria-describedby={itemErrors.qty ? 'b_qty-err b_qty-hint' : 'b_qty-hint'} />
-              <span class="hint" id="b_qty-hint" data-for="planned">Тодорхойгүй бол хүрээгээр: 300–450</span>
+              <span class="hint" id="b_qty-hint">Төлөвлөж буй, тоо нь тодорхойгүй бол: 300–450</span>
+              <span class="hint qty-switched" id="b_qty-switched" hidden role="status">Хүрээ бичсэн тул «Авахаар төлөвлөж байна» сонгогдлоо.</span>
               {itemErrors.qty && <span class="error" id="b_qty-err"><Icon name="alert" /> {itemErrors.qty}</span>}
             </div>
             <span class="op" aria-hidden="true">×</span>
@@ -235,17 +236,12 @@ const keeperNames = keepers.map((k) => k.name_mn).join(', ');
             <span class="hint" id="y_funds-hint">Бодитоор хүлээн авсан мөнгө. Үлдэгдэл = байгаа хөрөнгө − зарцуулсан.</span>
             {yearErrors.funds && <span class="error"><Icon name="alert" /> {yearErrors.funds}</span>}
           </div>
-          <div class="field">
-            <label for="y_note">Тайлбар <span class="opt">(заавал биш)</span></label>
-            <input id="y_note" name="note" type="text" maxlength="300" value={yearValues.note} placeholder="Жишээ нь: ЭСЯ-ны дэмжлэг 8,000 ¥, гишүүдийн хандив" autocomplete="off" />
-          </div>
           <div><button class="btn" type="submit" data-confirm="Төсвийн дүнг шинэчлэх үү? Нийтийн сайтад шууд харагдана.">Хадгалах</button></div>
         </div>
       </form>
     </div>
   )}
 
-  {b.note && <p class="budget-note"><Icon name="wallet" class="inline-ic muted-ic" /> {b.note}</p>}
 
   {b.toBuy.length > 0 && (
     <section aria-labelledby="buy-h" id="to-buy" class="budget-lines budget-plan">
@@ -441,6 +437,16 @@ const keeperNames = keepers.map((k) => k.name_mn).join(', ');
         out.textContent = yuan(Math.round((lo * u) / 100)) + (hi !== null ? '–' + yuan(Math.round((hi * u) / 100)) : '');
       }
       qty.addEventListener('input', show); unit.addEventListener('input', show);
+      // a range only makes sense for something not bought yet: typing one switches the line to «Авахаар төлөвлөж байна»
+      var switched = document.getElementById('b_qty-switched');
+      qty.addEventListener('input', function () {
+        if (!/\d\s*[-–~]\s*\d/.test(qty.value) || kind() !== 'spent') return;
+        var plan = document.querySelector('input[name=kind][value=planned]');
+        if (!plan) return;
+        plan.checked = true;
+        apply();
+        if (switched) switched.hidden = false;
+      });
       // changing a planned line's state saves at once
       document.querySelectorAll('select[data-autosubmit]').forEach(function (sel) {
         sel.addEventListener('change', function () { sel.form.requestSubmit(); });

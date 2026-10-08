@@ -51,7 +51,6 @@ export interface Budget {
   year: string;
   plannedFen: number;
   fundsFen: number;
-  note: string | null;
   /** Summed from the spent lines that haven't been removed. */
   spentFen: number;
   /** In hand − spent. Negative means more was spent than there is. */
@@ -97,9 +96,9 @@ export async function budgetYears(): Promise<string[]> {
 /** One year's budget: the numbers and the live lines, oldest purchase first. One round trip. */
 export async function loadBudget(year: string): Promise<Budget> {
   const [head, items] = (await db().batch([
-    stmt(`SELECT planned_fen, funds_fen, note, updated_at FROM budget_years WHERE academic_year = ?`, year),
+    stmt(`SELECT planned_fen, funds_fen, updated_at FROM budget_years WHERE academic_year = ?`, year),
     stmt(`${ITEM_SELECT} WHERE b.academic_year = ? AND b.deleted_at IS NULL ORDER BY b.spent_on, b.id`, year),
-  ])) as [D1Result<{ planned_fen: number; funds_fen: number; note: string | null; updated_at: number }>, D1Result<BudgetItem>];
+  ])) as [D1Result<{ planned_fen: number; funds_fen: number; updated_at: number }>, D1Result<BudgetItem>];
   const h = head.results[0];
   const all = items.results;
   const list = all.filter((i) => i.status === 'spent');
@@ -114,7 +113,6 @@ export async function loadBudget(year: string): Promise<Budget> {
     year,
     plannedFen: h?.planned_fen ?? 0,
     fundsFen,
-    note: h?.note ?? null,
     spentFen,
     remainingFen: fundsFen - spentFen,
     items: list,
@@ -269,28 +267,27 @@ export async function removeItem(a: SessionUser, id: number, reason: string | nu
 export async function setYearNumbers(
   a: SessionUser,
   year: string,
-  input: { plannedFen: number; fundsFen: number; note: string | null },
+  input: { plannedFen: number; fundsFen: number },
   ip: string | null,
 ) {
   await mustKeep(a);
   if (!isValidYear(year)) throw new Denied();
-  const before = await one<{ planned_fen: number; funds_fen: number; note: string | null }>(
-    `SELECT planned_fen, funds_fen, note FROM budget_years WHERE academic_year = ?`,
+  const before = await one<{ planned_fen: number; funds_fen: number }>(
+    `SELECT planned_fen, funds_fen FROM budget_years WHERE academic_year = ?`,
     year,
   );
   const t = now();
   await db().batch([
     stmt(
-      `INSERT INTO budget_years (academic_year, planned_fen, funds_fen, note, updated_by, updated_at) VALUES (?,?,?,?,?,?)
+      `INSERT INTO budget_years (academic_year, planned_fen, funds_fen, note, updated_by, updated_at) VALUES (?,?,?,NULL,?,?)
        ON CONFLICT(academic_year) DO UPDATE SET planned_fen = excluded.planned_fen, funds_fen = excluded.funds_fen,
-         note = excluded.note, updated_by = excluded.updated_by, updated_at = excluded.updated_at`,
+         note = NULL, updated_by = excluded.updated_by, updated_at = excluded.updated_at`,
       year,
       input.plannedFen,
       input.fundsFen,
-      input.note,
       a.id,
       t,
     ),
-    auditStmt(a.id, 'budget.year', 'budget_year', year, { from: before, to: { planned_fen: input.plannedFen, funds_fen: input.fundsFen, note: input.note } }, ip),
+    auditStmt(a.id, 'budget.year', 'budget_year', year, { from: before, to: { planned_fen: input.plannedFen, funds_fen: input.fundsFen } }, ip),
   ]);
 }

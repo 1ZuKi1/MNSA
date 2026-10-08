@@ -789,8 +789,7 @@ form.release { margin: 0; font-size: 0.86rem; }
 /* ---------- budget («Төсөв») ---------- */
 .stat.stat-bad::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 3px; background: var(--bad); }
 .stat.stat-bad b { color: var(--bad); }
-.budget-who, .budget-note { display: flex; align-items: center; gap: 8px; margin: 0 0 18px; }
-.budget-note { color: var(--ink-2); font-size: 0.93rem; }
+.budget-who { display: flex; align-items: center; gap: 8px; margin: 0 0 18px; }
 .icon.muted-ic { color: var(--ink-3); margin: 0; flex: none; vertical-align: -3px; }
 .budget-forms { margin-bottom: 22px; }
 /* quantity × price = total, on one line while there is room */
@@ -889,3 +888,5 @@ a.stat.stat-plan.stat-bad::before { background: var(--bad); }
   .budget-t tfoot td { grid-column: 2; grid-row: 1; }
   .budget-t tfoot td:empty { display: none; }
 }
+
+.field .hint.qty-switched { color: var(--blue-deep); font-weight: 600; }

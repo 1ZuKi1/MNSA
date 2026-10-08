@@ -45,7 +45,6 @@ const byPurpose = [...b.items.reduce((m, i) => m.set(i.purpose ?? OTHER, (m.get(
       <span class="sec-label">{yearLabel(year)} оны хичээлийн жил</span>
       <h2 id="sum-h">Товч дүн</h2>
       <BudgetFigures b={b} />
-      {b.note && <p class="note">{b.note}</p>}
     </div>
   </section>
 
