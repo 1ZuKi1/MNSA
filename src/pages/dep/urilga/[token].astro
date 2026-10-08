@@ -29,7 +29,8 @@ if (inv && Astro.request.method === 'POST') {
   if (action === 'email') {
     email = normalizeEmail(str(fd, 'email', 254));
     if (!looksLikeEmail(email)) error = 'И-мэйл хаягаа зөв оруулна уу.';
-    else if (await one(`SELECT 1 FROM users WHERE email = ?`, email)) error = 'Энэ хаяг бүртгэлтэй байна. Өөр хаяг оруулна уу, эсвэл Тэргүүнд хандана уу.';
+    // An alumni address is fine: the person gets their old account back (claimInvite).
+    else if (await one(`SELECT 1 FROM users WHERE email = ? AND status = 'active'`, email)) error = 'Энэ хаяг бүртгэлтэй байна. Өөр хаяг оруулна уу, эсвэл Тэргүүнд хандана уу.';
     else if (!(await codeRateOk(email, ip))) error = 'Хэт олон удаа код хүслээ. 15 минутын дараа дахин оролдоно уу.';
     else {
       await setInvitePendingEmail(inv.id, email);
@@ -45,8 +46,8 @@ if (inv && Astro.request.method === 'POST') {
     const r = await verifyCode(email, `invite:${inv.id}`, str(fd, 'code', 20));
     if (r === 'ok') {
       try {
-        const userId = await claimInvite(inv, email, ip);
-        setSessionCookie(Astro.cookies, Astro.url, await signSession(userId, 1));
+        const account = await claimInvite(inv, email, ip);
+        setSessionCookie(Astro.cookies, Astro.url, await signSession(account.id, account.version));
         clearDevCode(Astro.cookies);
         return Astro.redirect('/?ok=created');
       } catch (e) {

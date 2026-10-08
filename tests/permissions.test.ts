@@ -249,4 +249,27 @@ describe('jobs («Ажлууд»)', () => {
     expect(P.canTakeJob(dotoodMember2, job())).toBe(false);
     expect(P.canTakeJob(maintainer, job({ ownerId: null, visibility: 'staff' }))).toBe(false);
   });
+
+  it('anyone who sees a job someone is already on can join it to help («Нэгдэх»)', () => {
+    expect(P.canJoinJob(dotoodMember2, job())).toBe(true);
+    expect(P.canJoinJob(mediaMember, job({ visibility: 'staff' }))).toBe(true);
+    expect(P.canJoinJob(mediaMember, job())).toBe(false); // can't see a department-only job
+    expect(P.canJoinJob(dotoodMember, job())).toBe(false); // already the хариуцагч
+    expect(P.canJoinJob(dotoodMember2, job({ helperIds: [dotoodMember2.id] }))).toBe(false); // already helping
+    expect(P.canJoinJob(dotoodMember2, job({ ownerId: null }))).toBe(false); // nobody on it: take it instead
+    expect(P.canJoinJob(maintainer, job({ visibility: 'staff' }))).toBe(false); // never on the team
+  });
+
+  it('helpers keep seeing the job and write progress notes, but stages stay with the хариуцагч', () => {
+    const helped = job({ helperIds: [mediaMember.id] });
+    expect(P.canReadJob(mediaMember, helped)).toBe(true);
+    expect(P.canNoteJob(mediaMember, helped)).toBe(true);
+    expect(P.canUpdateJob(mediaMember, helped)).toBe(false);
+    expect(P.canNoteJob(dotoodMember2, helped)).toBe(false);
+    expect(P.canNoteJob(dotoodMember, helped)).toBe(true);
+  });
+
+  it('a helper can take over a job its хариуцагч stepped down from', () => {
+    expect(P.canTakeJob(mediaMember, job({ ownerId: null, helperIds: [mediaMember.id] }))).toBe(true);
+  });
 });

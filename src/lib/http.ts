@@ -12,9 +12,12 @@ export function int(v: FormDataEntryValue | string | null | undefined): number |
   return Number(v);
 }
 
-/** Only ever redirect to a path on this same site. */
+/**
+ * Only ever redirect to a path on this same site. Browsers drop tabs and line breaks inside a URL, so
+ * "/<tab>/evil.example" would become "//evil.example" — another site. Any control character or space is refused.
+ */
 export function safeNext(v: string | null | undefined, fallback = '/'): string {
-  if (!v || !v.startsWith('/') || v.startsWith('//') || v.includes('\\')) return fallback;
+  if (!v || !v.startsWith('/') || v.startsWith('//') || v.includes('\\') || /[\u0000-\u0020\u007f]/.test(v)) return fallback;
   return v;
 }
 
@@ -31,6 +34,8 @@ export const FLASH: Record<string, string> = {
   unpublished: 'Нийтлэлээс буцаалаа.',
   cancelled: 'Цуцаллаа.',
   taken: 'Ажлыг хүлээн авлаа. Баярлалаа!',
+  joined: 'Ажилд нэгдлээ. Баярлалаа!',
+  left: 'Туслахаа болилоо.',
   assigned: 'Хуваариллаа.',
   done: 'Дууссан гэж тэмдэглэлээ.',
   dropped: 'Ажлаас гарлаа.',

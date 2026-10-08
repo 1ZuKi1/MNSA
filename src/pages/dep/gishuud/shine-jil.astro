@@ -8,7 +8,7 @@ import Staff from '../../../layouts/Staff.astro';
 import PageHead from '../../../components/PageHead.astro';
 import Icon from '../../../components/Icon.astro';
 import { clientIp, str, withFlash } from '../../../lib/http';
-import { archiveLapsed, asMemberLike, nextTerm, renewalCandidates, renewMembers } from '../../../lib/members';
+import { archiveLapsed, canRenew as mayRenew, nextTerm, renewalCandidates, renewMembers } from '../../../lib/members';
 import * as P from '../../../lib/permissions';
 import { academicYear, fmtDate, now } from '../../../lib/time';
 import { ROLE_LABEL } from '../../../lib/types';
@@ -31,8 +31,9 @@ if (Astro.request.method === 'POST') {
 const rows = await renewalCandidates();
 const t = now();
 const lapsed = rows.filter((m) => (m.term_ends_at ?? 0) < t).length;
-// President may renew their own term; otherwise the usual member-change rule applies (a deputy renews heads and members).
-const canRenew = (id: number) => (user.role === 'president' && id === user.id) || P.canModifyMember(user, asMemberLike(rows.find((r) => r.id === id)!));
+// President may renew their own term, the maintainer the President's; otherwise the usual member-change rule
+// applies (a deputy renews heads and members). The rule itself is canRenew in lib/members.ts.
+const canRenew = (id: number) => mayRenew(user, rows.find((r) => r.id === id)!);
 ---
 <Staff title="Шинэ жилийн бүртгэл">
   <PageHead title="Шинэ жилийн бүртгэл" sub={`${academicYear()} · Үргэлжлүүлэн ажиллах хүмүүсийг тэмдэглэж эрхийг нь сунгана.`} crumbs={[{ href: '/gishuud', label: 'Гишүүд' }]} />

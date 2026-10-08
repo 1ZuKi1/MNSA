@@ -139,29 +139,36 @@ const due = (ts: number | null) => (ts === null ? null : dayDiff(ts, t));
               )}
               {jobs.length > 0 && (
                 <>
-                  <h3 class="group-label">Миний хариуцсан ажил <span class="n">{jobs.length}</span></h3>
+                  <h3 class="group-label">Миний ажил <span class="n">{jobs.length}</span></h3>
                   <ul class="items">
                     {jobs.map((j) => {
                       const d = due(j.due_at);
                       const late = d !== null && d < 0;
+                      // Helping on someone else's job: the хариуцагч moves the stages, so open it instead.
+                      const helping = j.owner_id !== user.id;
                       return (
                         <li class="item">
                           <span class:list={['ic', late ? 'bad' : j.status === 'doing' ? 'blue' : '']}><Icon name="list" /></span>
                           <a class="item-title" href={`/ajil/${j.id}`}>{j.title}</a>
                           <span class="item-meta">
                             <span>{JOB_STATUS_LABEL[j.status]}</span>
+                            {helping && <span>туслаж байна{j.owner_name ? ` · хариуцагч ${j.owner_name}` : ''}</span>}
                             <span>{j.dept_name}</span>
                             {j.due_at && <span class:list={{ overdue: late }}>{late ? `хугацаа ${-d!} хоног хэтэрсэн` : `хугацаа ${relDay(j.due_at)}`}</span>}
                           </span>
                           <span class="item-act">
-                            <form method="post" action={`/ajil/${j.id}`}>
-                              <input type="hidden" name="action" value="status" />
-                              <input type="hidden" name="status" value={j.status === 'todo' ? 'doing' : 'done'} />
-                              <input type="hidden" name="back" value="/" />
-                              {j.status === 'todo'
-                                ? <button class="btn btn-sm"><Icon name="arrow" /> Эхлүүлэх</button>
-                                : <button class="btn btn-sm btn-ok"><Icon name="check" /> Дууссан</button>}
-                            </form>
+                            {helping ? (
+                              <a class="btn btn-sm" href={`/ajil/${j.id}`}>Нээх</a>
+                            ) : (
+                              <form method="post" action={`/ajil/${j.id}`}>
+                                <input type="hidden" name="action" value="status" />
+                                <input type="hidden" name="status" value={j.status === 'todo' ? 'doing' : 'done'} />
+                                <input type="hidden" name="back" value="/" />
+                                {j.status === 'todo'
+                                  ? <button class="btn btn-sm"><Icon name="arrow" /> Эхлүүлэх</button>
+                                  : <button class="btn btn-sm btn-ok"><Icon name="check" /> Дууссан</button>}
+                              </form>
+                            )}
                           </span>
                         </li>
                       );

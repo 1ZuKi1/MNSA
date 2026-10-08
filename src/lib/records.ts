@@ -298,7 +298,13 @@ export async function submitRecord(a: SessionUser, r: RecordRow, ip: string | nu
     // Counter bump and number assignment in one transaction: no gaps, no duplicates.
     const prefix = numberPrefix(r.dept_code, r.academic_year, getRecordType(r.type)!.code);
     await db().batch([
-      stmt(`INSERT INTO counters (key, value) VALUES (?, 1) ON CONFLICT(key) DO UPDATE SET value = value + 1`, prefix),
+      // Only bump the counter if this record still has no number: a double submit must not skip a number.
+      stmt(
+        `INSERT INTO counters (key, value) SELECT ?1, 1 WHERE EXISTS (SELECT 1 FROM records WHERE id = ?2 AND number IS NULL)
+         ON CONFLICT(key) DO UPDATE SET value = value + 1`,
+        prefix,
+        r.id,
+      ),
       stmt(
         `UPDATE records SET number = ?1 || printf('%03d', (SELECT value FROM counters WHERE key = ?1)) WHERE id = ?2 AND number IS NULL`,
         prefix,

@@ -153,7 +153,11 @@ export interface JobLike {
   ownerId: number | null;
   createdBy: number;
   visibility: JobVisibility;
+  /** People who joined to help («Нэгдэх») — on the job with the хариуцагч, who stays accountable. */
+  helperIds?: number[];
 }
+
+const helps = (a: Actor, j: JobLike) => !!j.helperIds?.includes(a.id);
 
 /** A department's дарга adds jobs to their department; the President anywhere. */
 export function canCreateJobIn(a: Actor, dept: DeptSlug): boolean {
@@ -164,7 +168,7 @@ export function canCreateJobIn(a: Actor, dept: DeptSlug): boolean {
 export function canReadJob(a: Actor, j: JobLike): boolean {
   if (j.visibility === 'staff') return true;
   if (hasPresidentPowers(a) || isBoard(a)) return true;
-  return a.dept === j.dept || a.id === j.ownerId || a.id === j.createdBy;
+  return a.dept === j.dept || a.id === j.ownerId || a.id === j.createdBy || helps(a, j);
 }
 
 /** Title, notes, who's on it, when, who sees it, cancelling: that department's дарга and the President. */
@@ -177,9 +181,22 @@ export function canUpdateJob(a: Actor, j: JobLike): boolean {
   return (governs(a) && a.id === j.ownerId) || canEditJob(a, j);
 }
 
-/** Nobody on it yet: anyone who can see it may take it themselves («Би хийнэ»). */
+/** Progress notes: whoever moves the job along, and the people helping on it. */
+export function canNoteJob(a: Actor, j: JobLike): boolean {
+  return canUpdateJob(a, j) || (governs(a) && helps(a, j));
+}
+
+/** Nobody on it yet: anyone who can see it may take it themselves («Би хийнэ») — a helper too. */
 export function canTakeJob(a: Actor, j: JobLike): boolean {
   return governs(a) && j.ownerId === null && canReadJob(a, j);
+}
+
+/**
+ * Someone is already on it: anyone else who can see it may join to help («Нэгдэх»), without waiting to be
+ * appointed. The хариуцагч stays the one accountable; a helper can leave again at any time.
+ */
+export function canJoinJob(a: Actor, j: JobLike): boolean {
+  return governs(a) && j.ownerId !== null && j.ownerId !== a.id && !helps(a, j) && canReadJob(a, j);
 }
 
 // ------------------------------------------------------------------ members

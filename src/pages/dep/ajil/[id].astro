@@ -2,6 +2,7 @@
 /**
  * One job: where it stands, who is on it, what was said along the way. The хариуцагч moves it between
  * stages and writes progress notes; whoever set it up (or the дарга, or the leadership) can also change it.
+ * Anyone else who sees it can join to help («Нэгдэх») — helpers write notes too, and can leave again.
  */
 export const prerender = false;
 import Staff from '../../../layouts/Staff.astro';
@@ -12,7 +13,8 @@ import { departments } from '../../../lib/db';
 import { readJobForm, type JobFormValues } from '../../../lib/forms';
 import { clientIp, int, safeNext, str, withFlash } from '../../../lib/http';
 import {
-  BadJob, JOB_STAGES, JOB_STATUS_LABEL, asJobLike, assignablePeople, editJob, getJob, jobUpdates, releaseJob, takeJob, updateJob, type JobStatus,
+  BadJob, JOB_STAGES, JOB_STATUS_LABEL, asJobLike, assignablePeople, editJob, getJob, helpersOf, jobUpdates, joinJob, leaveJob, releaseJob, takeJob,
+  updateJob, type JobStatus,
 } from '../../../lib/jobs';
 import * as P from '../../../lib/permissions';
 import { Denied } from '../../../lib/records';
@@ -27,8 +29,13 @@ const here = `/ajil/${job.id}`;
 const like = asJobLike(job);
 const canEdit = P.canEditJob(user, like);
 const canUpdate = P.canUpdateJob(user, like);
-const canTake = P.canTakeJob(user, like) && (job.status === 'todo' || job.status === 'doing');
+const live = job.status === 'todo' || job.status === 'doing';
+const canTake = P.canTakeJob(user, like) && live;
+const canJoin = P.canJoinJob(user, like) && live;
+const canNote = P.canNoteJob(user, like);
 const isOwner = job.owner_id === user.id;
+const helpers = helpersOf(job);
+const isHelper = helpers.some((h) => h.id === user.id);
 const allDepts = await departments();
 const editDepts = allDepts.filter((d) => d.slug === job.dept_slug || P.canCreateJobIn(user, d.slug as DeptSlug));
 
@@ -62,6 +69,14 @@ if (Astro.request.method === 'POST') {
     if (action === 'release') {
       await releaseJob(user, job, ip);
       return Astro.redirect(withFlash(here, 'dropped'));
+    }
+    if (action === 'join') {
+      await joinJob(user, job, ip);
+      return Astro.redirect(withFlash(back, 'joined'));
+    }
+    if (action === 'leave') {
+      await leaveJob(user, job, ip);
+      return Astro.redirect(withFlash(here, 'left'));
     }
     if (action === 'note') {
       const note = str(fd, 'note', 2000);
@@ -130,17 +145,17 @@ const editOpen = Object.keys(errors).length > 0;
             </ol>
           )}
 
-          {canUpdate ? (
+          {canUpdate || canNote ? (
             <form method="post" class="stack" style="--stack:12px">
               <div class="field">
                 <label for="note">Явцын тэмдэглэл <span class="opt">(заавал биш)</span></label>
                 <textarea id="note" name="note" rows="2" maxlength="2000" placeholder="Жишээ нь: Танхимын эзэнтэй ярьсан, даваа гарагт хариу өгнө." aria-describedby="note-hint"></textarea>
-                <span class="hint" id="note-hint">Шат солиход хамт хадгалагдана, эсвэл «Тэмдэглэл нэмэх»-ээр дангаар нь.</span>
+                <span class="hint" id="note-hint">{canUpdate ? 'Шат солиход хамт хадгалагдана, эсвэл «Тэмдэглэл нэмэх»-ээр дангаар нь.' : 'Хийсэн зүйлээ бичээрэй. Шатыг хариуцагч солино.'}</span>
                 <span class="error" id="note-msg" hidden><Icon name="alert" /> Тэмдэглэлээ бичнэ үү.</span>
               </div>
               <input type="hidden" name="action" value="status" />
               <div class="btn-row">
-                {moves.map((m) => (
+                {canUpdate && moves.map((m) => (
                   <button class:list={['btn', { 'btn-primary': m.primary && m.to !== 'done', 'btn-ok': m.to === 'done' }]} type="submit" name="status" value={m.to}>
                     {m.to === 'done' && <Icon name="check" />} {m.label}
                   </button>
@@ -148,7 +163,7 @@ const editOpen = Object.keys(errors).length > 0;
                 <button class="btn btn-quiet" type="submit" name="action" value="note" data-require="note">Тэмдэглэл нэмэх</button>
               </div>
             </form>
-          ) : canTake ? null : (
+          ) : canTake || canJoin ? null : (
             <p class="form-note" style="margin:0">Явцыг хариуцагч, хэлтсийн дарга, Тэргүүн шинэчилнэ.</p>
           )}
           {canTake && (
@@ -159,6 +174,21 @@ const editOpen = Object.keys(errors).length > 0;
                 <button class="btn btn-blue" type="submit"><Icon name="hand" /> Би хийнэ</button>
               </form>
             </div>
+          )}
+          {canJoin && (
+            <div class="take-box">
+              <p style="margin:0"><b>Туслах уу?</b> Энэ ажлыг {job.owner_name} хариуцаж байна. Нэгдвэл хамт хийж, явцын тэмдэглэл бичнэ. Дараа нь хүссэн үедээ гарч болно.</p>
+              <form method="post">
+                <input type="hidden" name="action" value="join" />
+                <button class="btn btn-blue" type="submit"><Icon name="plus" /> Нэгдэх</button>
+              </form>
+            </div>
+          )}
+          {isHelper && live && (
+            <form method="post" class="release" data-confirm="Энэ ажлаас гарах уу? Хариуцагч хэвээр үлдэнэ.">
+              <input type="hidden" name="action" value="leave" />
+              <button class="linkish" type="submit">Та энэ ажилд туслаж байна — ажлаас гарах</button>
+            </form>
           )}
           {isOwner && job.status !== 'done' && job.status !== 'cancelled' && (
             <form method="post" class="release" data-confirm="Энэ ажлаас гарах уу? Ажил хариуцагчгүй болж, өөр хүн авах эсвэл дарга томилно.">
@@ -182,6 +212,8 @@ const editOpen = Object.keys(errors).length > 0;
                   {u.kind === 'take' && ' — ажлыг өөрөө авсан'}
                   {u.kind === 'release' && ' — ажлаас гарсан'}
                   {u.kind === 'assign' && (u.target_name ? <> — хариуцагч томилсон: <strong>{u.target_name}</strong></> : ' — хариуцагчгүй болгосон')}
+                  {u.kind === 'join' && ' — туслахаар нэгдсэн'}
+                  {u.kind === 'leave' && ' — туслахаа больсон'}
                 </div>
                 <div class="when">{fmtDateTime(u.created_at)}</div>
                 {u.note && <blockquote>{u.note}</blockquote>}
@@ -202,6 +234,12 @@ const editOpen = Object.keys(errors).length > 0;
         <div class="panel-body">
           <dl class="facts" style="grid-template-columns:1fr">
             <div><Icon name="user" /><dt>Хариуцагч</dt><dd>{job.owner_name ?? 'Хэн ч аваагүй'}{job.owner_id === user.id && <span class="muted"> (та)</span>}</dd></div>
+            {helpers.length > 0 && (
+              <div>
+                <Icon name="users" /><dt>Хамт хийж буй</dt>
+                <dd>{helpers.map((h, n) => <>{n > 0 && ', '}{h.name}{h.id === user.id && <span class="muted"> (та)</span>}</>)}</dd>
+              </div>
+            )}
             <div><Icon name="folder" /><dt>Хэлтэс</dt><dd><a href={`/heltes/${job.dept_slug}`}>{job.dept_name}</a></dd></div>
             <div>
               <Icon name="calendar" /><dt>Хугацаа</dt>
