@@ -454,6 +454,8 @@ PID=$(npx wrangler d1 execute mnsa-db --local --json --command "SELECT id FROM b
 has "only the keeper changes its state" "$(post $J/board.jar /tosov -d action=state -d id=$PID -d state=cannot)" "err=denied"
 has "the keeper postpones it" "$(post $J/dotood2.jar /tosov -d action=state -d id=$PID -d state=postponed)" "ok=budget_state"
 has "…in the audit log" "$(get $J/president.jar '/burtgel?cat=budget')" "Төлөвлөсний байдлыг өөрчилсөн"
+has "the state menu saves in the background, without reloading the page" "$(curl -s -b $J/dotood2.jar -H "$S" -H "$O" -H "Accept: application/json" -X POST -d action=state -d id=$PID -d state=can $B/tosov)" '{"ok":true}'
+check "…and refuses someone else with a 403" "$(curl -s -o /dev/null -w '%{http_code}' -b $J/board.jar -H "$S" -H "$O" -H "Accept: application/json" -X POST -d action=state -d id=$PID -d state=can $B/tosov)" 403
 has "a made-up state is refused" "$(post $J/dotood2.jar /tosov -d action=state -d id=$PID -d state=maybe)" "err=denied"
 has "only the keeper marks it bought" "$(post $J/president.jar /tosov -d action=confirm -d id=$PID -d qty=10 -d unit=11 -d date=$TODAY)" "err=denied"
 has "marking it bought needs a real date" "$(post $J/dotood2.jar /tosov -d action=confirm -d id=$PID -d qty=10 -d unit=11 -d date=$LATER)" "err=budget_confirm_invalid"

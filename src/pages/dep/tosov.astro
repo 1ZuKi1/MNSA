@@ -38,7 +38,11 @@ if (Astro.request.method === 'POST') {
   const fd = await Astro.request.formData();
   const action = str(fd, 'action', 20);
   const ip = clientIp(Astro.request);
-  if (!keeps) return Astro.redirect(withFlash(here, 'denied', 'err'));
+  // The state menu on a planned line saves in the background and asks for a short JSON answer, so the page
+  // stays where it is; without JavaScript it posts normally and comes back to the table.
+  const json = (Astro.request.headers.get('accept') ?? '').includes('application/json');
+  const reply = (ok: boolean) => new Response(JSON.stringify({ ok }), { status: ok ? 200 : 403, headers: { 'content-type': 'application/json' } });
+  if (!keeps) return json ? reply(false) : Astro.redirect(withFlash(here, 'denied', 'err'));
   try {
     if (action === 'add') {
       const form = readBudgetItemForm(fd, today);
@@ -53,7 +57,7 @@ if (Astro.request.method === 'POST') {
       }
     } else if (action === 'state') {
       await setPlanState(user, int(str(fd, 'id', 12)) ?? 0, str(fd, 'state', 12) as PlanState, ip);
-      return Astro.redirect(withFlash(`${here}#to-buy`, 'budget_state'));
+      return json ? reply(true) : Astro.redirect(withFlash(`${here}#to-buy`, 'budget_state'));
     } else if (action === 'confirm') {
       const form = readBudgetConfirmForm(fd, today);
       if (!form.ok) return Astro.redirect(withFlash(`${here}#to-buy`, 'budget_confirm_invalid', 'err'));
@@ -72,7 +76,7 @@ if (Astro.request.method === 'POST') {
       }
     }
   } catch (e) {
-    if (e instanceof Denied) return Astro.redirect(withFlash(here, 'denied', 'err'));
+    if (e instanceof Denied) return json ? reply(false) : Astro.redirect(withFlash(here, 'denied', 'err'));
     throw e;
   }
 }
@@ -283,6 +287,7 @@ const keeperNames = keepers.map((k) => k.name_mn).join(', ');
                         {PLAN_STATES.map((st) => <option value={st} selected={(i.plan_state ?? 'can') === st}>{PLAN_STATE_LABEL[st]}</option>)}
                       </select>
                       <noscript><button class="btn btn-sm" type="submit">Хадгалах</button></noscript>
+                      <span class="state-saved" aria-live="polite"></span>
                     </form>
                   ) : (
                     <span class:list={['badge plain', `ps-${i.plan_state ?? 'can'}`]}>{PLAN_STATE_LABEL[i.plan_state ?? 'can']}</span>
@@ -447,9 +452,29 @@ const keeperNames = keepers.map((k) => k.name_mn).join(', ');
         apply();
         if (switched) switched.hidden = false;
       });
-      // changing a planned line's state saves at once
+      // changing a planned line's state saves at once, in the background: the colour changes straight away, a
+      // small tick confirms it, and the page stays where it is. If it fails, the old state comes back.
       document.querySelectorAll('select[data-autosubmit]').forEach(function (sel) {
-        sel.addEventListener('change', function () { sel.form.requestSubmit(); });
+        var was = sel.value;
+        var note = sel.form.querySelector('.state-saved');
+        function paint(v) { sel.className = sel.className.replace(/\bps-\w+/, 'ps-' + v); }
+        sel.addEventListener('change', function () {
+          var v = sel.value;
+          paint(v);
+          if (note) { note.textContent = ''; note.className = 'state-saved'; }
+          fetch(sel.form.getAttribute('action') || location.pathname + location.search, {
+            method: 'POST', body: new FormData(sel.form), credentials: 'same-origin', headers: { Accept: 'application/json' },
+          })
+            .then(function (r) { return r.json().then(function (d) { if (!r.ok || !d.ok) throw new Error(); }); })
+            .then(function () {
+              was = v;
+              if (note) { note.textContent = '✓ Хадгаллаа'; note.className = 'state-saved ok'; setTimeout(function () { note.textContent = ''; }, 2500); }
+            })
+            .catch(function () {
+              sel.value = was; paint(was);
+              if (note) { note.textContent = 'Хадгалагдсангүй'; note.className = 'state-saved err'; }
+            });
+        });
       });
       // what the form asks follows the kind of line: a bought line can't be dated in the future, a planned one
       // can (and gets a state and may take a range), lines that cost nothing take no price, a donation names the giver
