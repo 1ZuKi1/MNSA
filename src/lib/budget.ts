@@ -3,9 +3,7 @@
  * One budget per academic year: two headline numbers (planned, in hand) and the lines. A line is
  *   spent      — bought; the only kind that counts as spending;
  *   planned    — to buy («Авахаар төлөвлөсөн»), with a state (can buy · postponed · can't buy now) and maybe a
- *                quantity range (хуушуур 300–450 ш); it counts as spent only once the keeper marks it bought;
- *   have       — «Байгаа»: already there (last year's), costs nothing;
- *   donated    — «Хандиваар»: someone gives it, costs the association nothing.
+ *                quantity range (хуушуур 300–450 ш); it counts as spent only once the keeper marks it bought.
  * Spent and remaining are always summed from the lines, never stored.
  * Who may change it: permissions.ts (canKeepBudget / canSetBudgetKeeper). Every change is in the audit log.
  */
@@ -16,7 +14,7 @@ import { Denied } from './records';
 import { academicYear, now } from './time';
 import type { SessionUser } from './types';
 
-export type ItemStatus = 'spent' | 'planned' | 'have' | 'donated';
+export type ItemStatus = 'spent' | 'planned';
 export type PlanState = 'can' | 'postponed' | 'cannot';
 export const PLAN_STATES: PlanState[] = ['can', 'postponed', 'cannot'];
 /** As the association's own sheet words it. */
@@ -40,7 +38,6 @@ export interface BudgetItem {
   unit_fen: number;
   total_fen: number;
   total_max_fen: number | null;
-  donor: string | null;
   created_by: number;
   creator_name: string;
   created_at: number;
@@ -69,8 +66,6 @@ export interface Budget {
   /** What would be left once everything planned is bought: in hand − spent − to buy, at the low and the high end of the plan. */
   afterToBuyFen: number;
   afterToBuyMinFen: number;
-  /** «Байгаа» and «Хандиваар»: listed for the record, costing nothing. */
-  free: BudgetItem[];
   /** The last time anything about this year's budget changed (null: nothing recorded yet). */
   updatedAt: number | null;
   /** Whether the headline numbers have ever been filled in. */
@@ -86,7 +81,7 @@ export const isValidYear = (y: string) => {
 };
 
 const ITEM_SELECT = `SELECT b.id, b.status, b.plan_state, b.confirmed_at, b.academic_year, b.spent_on, b.item, b.purpose,
-                            b.qty_c, b.qty_max_c, b.unit_fen, b.total_fen, b.total_max_fen, b.donor,
+                            b.qty_c, b.qty_max_c, b.unit_fen, b.total_fen, b.total_max_fen,
                             b.created_by, c.name_mn AS creator_name, b.created_at,
                             b.deleted_at, d.name_mn AS deleter_name, b.delete_reason
                        FROM budget_items b JOIN users c ON c.id = b.created_by LEFT JOIN users d ON d.id = b.deleted_by`;
@@ -109,7 +104,6 @@ export async function loadBudget(year: string): Promise<Budget> {
   const all = items.results;
   const list = all.filter((i) => i.status === 'spent');
   const toBuy = all.filter((i) => i.status === 'planned');
-  const free = all.filter((i) => i.status === 'have' || i.status === 'donated');
   const spentFen = list.reduce((s, i) => s + i.total_fen, 0);
   const toBuyFen = toBuy.reduce((s, i) => s + i.total_fen, 0);
   const toBuyMaxFen = toBuy.reduce((s, i) => s + (i.total_max_fen ?? i.total_fen), 0);
@@ -129,7 +123,6 @@ export async function loadBudget(year: string): Promise<Budget> {
     toBuyMaxFen,
     afterToBuyFen: fundsFen - spentFen - toBuyFen,
     afterToBuyMinFen: fundsFen - spentFen - toBuyMaxFen,
-    free,
     updatedAt: updatedAt > 0 ? updatedAt : null,
     hasHeader: !!h,
   };
@@ -173,7 +166,7 @@ async function mustKeep(a: SessionUser) {
 }
 
 export interface ItemInput {
-  /** 'planned': listed before buying; may be dated in the future. 'have' / 'donated': cost nothing. */
+  /** 'planned': listed before buying; may be dated in the future. */
   status: ItemStatus;
   planState: PlanState | null;
   spentOn: number;
@@ -184,7 +177,6 @@ export interface ItemInput {
   unitFen: number;
   totalFen: number;
   totalMaxFen: number | null;
-  donor: string | null;
 }
 
 export async function addItem(a: SessionUser, input: ItemInput, ip: string | null): Promise<number> {
@@ -193,8 +185,8 @@ export async function addItem(a: SessionUser, input: ItemInput, ip: string | nul
   const t = now();
   const row = await stmt(
     `INSERT INTO budget_items (status, plan_state, academic_year, spent_on, item, purpose, qty_c, qty_max_c, unit_fen, total_fen, total_max_fen,
-                               donor, created_by, created_at)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING id`,
+                               created_by, created_at)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING id`,
     input.status,
     input.status === 'planned' ? (input.planState ?? 'can') : null,
     year,
@@ -206,13 +198,12 @@ export async function addItem(a: SessionUser, input: ItemInput, ip: string | nul
     input.unitFen,
     input.totalFen,
     input.status === 'planned' ? input.totalMaxFen : null,
-    input.status === 'donated' ? input.donor : null,
     a.id,
     t,
   ).first<{ id: number }>();
-  const action = { spent: 'budget.add', planned: 'budget.plan', have: 'budget.have', donated: 'budget.donated' }[input.status];
+  const action = input.status === 'planned' ? 'budget.plan' : 'budget.add';
   await auditStmt(a.id, action, 'budget_item', row!.id, {
-    year, item: input.item, qty_c: input.qtyC, qty_max_c: input.qtyMaxC, unit_fen: input.unitFen, total_fen: input.totalFen, donor: input.donor,
+    year, item: input.item, qty_c: input.qtyC, qty_max_c: input.qtyMaxC, unit_fen: input.unitFen, total_fen: input.totalFen,
   }, ip).run();
   return row!.id;
 }

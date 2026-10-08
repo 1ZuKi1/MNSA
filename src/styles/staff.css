@@ -842,7 +842,6 @@ a.stat.stat-plan.stat-bad::before { background: var(--bad); }
 .ps-cannot { background: var(--bad-tint); color: var(--bad); }
 .state-form { margin: 0; display: flex; gap: 6px; align-items: center; }
 .staff select.state-select { width: auto; min-height: 34px; padding: 4px 30px 4px 10px; border-radius: 999px; font-size: 0.85rem; font-weight: 650; border-color: transparent; }
-.budget-free { margin-bottom: 26px; }
 /* The planned table has two more columns (state, two buttons), so it turns into cards sooner: whenever its
    own box is narrower than it needs — on a laptop with the sidebar open, not only on a phone. */
 .budget-plan .budget-wrap { container: plan / inline-size; }

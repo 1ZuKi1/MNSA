@@ -29,7 +29,7 @@ const year = isValidYear(asked) ? asked : academicYear();
 const here = year === academicYear() ? '/tosov' : `/tosov?on=${year}`;
 const today = toDateInput(now());
 
-let item: BudgetItemValues = { kind: 'spent', state: 'can', donor: '', date: today, item: '', purpose: '', qty: '1', unit: '' };
+let item: BudgetItemValues = { kind: 'spent', state: 'can', date: today, item: '', purpose: '', qty: '1', unit: '' };
 let itemErrors: Record<string, string> = {};
 let yearValues: { planned: string; funds: string; note: string } | null = null;
 let yearErrors: Record<string, string> = {};
@@ -48,8 +48,8 @@ if (Astro.request.method === 'POST') {
         // the line may belong to another year than the one on screen (a late-August receipt): go to its year
         const y = academicYear(form.input!.spentOn);
         const k = form.input!.status;
-        const to = `${y === academicYear() ? '/tosov' : `/tosov?on=${y}`}${{ spent: '#lines', planned: '#to-buy', have: '#free', donated: '#free' }[k]}`;
-        return Astro.redirect(withFlash(to, { spent: 'budget_added', planned: 'budget_planned', have: 'budget_free', donated: 'budget_free' }[k]));
+        const to = `${y === academicYear() ? '/tosov' : `/tosov?on=${y}`}${k === 'planned' ? '#to-buy' : '#lines'}`;
+        return Astro.redirect(withFlash(to, k === 'planned' ? 'budget_planned' : 'budget_added'));
       }
     } else if (action === 'state') {
       await setPlanState(user, int(str(fd, 'id', 12)) ?? 0, str(fd, 'state', 12) as PlanState, ip);
@@ -95,12 +95,10 @@ yearValues ??= { planned: b.hasHeader ? hundredthsInput(b.plannedFen) : '', fund
 const over = b.hasHeader && b.remainingFen < 0;
 const usedPct = percentOf(b.spentFen, b.plannedFen);
 const publicUrl = `${publicOrigin(Astro.url)}/tosov${year === academicYear() ? '' : `?on=${year}`}`;
-const ITEM_LABEL: Record<string, string> = { date: 'Огноо', item: 'Зүйл', qty: 'Тоо ширхэг', unit: 'Нэгжийн үнэ', donor: 'Хэн өгөх' };
+const ITEM_LABEL: Record<string, string> = { date: 'Огноо', item: 'Зүйл', qty: 'Тоо ширхэг', unit: 'Нэгжийн үнэ' };
 const KINDS = [
   { v: 'spent', b: 'Худалдаж авсан', t: 'Мөнгө зарцуулагдсан. Зарцуулалтад шууд тооцогдоно.' },
   { v: 'planned', b: 'Авахаар төлөвлөж байна', t: 'Мөнгө хараахан гараагүй. Авмагцаа «Авсан» дарна.' },
-  { v: 'have', b: 'Байгаа', t: 'Өмнөхөөс үлдсэн, бэлэн байгаа. Мөнгө гарахгүй.' },
-  { v: 'donated', b: 'Хандиваар', t: 'Хэн нэгэн өгч байгаа. Холбооноос мөнгө гарахгүй.' },
 ] as const;
 const itemProblems = Object.keys(ITEM_LABEL).filter((k) => itemErrors[k]);
 const keeperNames = keepers.map((k) => k.name_mn).join(', ');
@@ -147,7 +145,7 @@ const keeperNames = keepers.map((k) => k.name_mn).join(', ');
         <div class="panel-head"><h2 id="add-h"><Icon name="plus" /> Мөр нэмэх</h2></div>
         <div class="panel-body" style="display:grid;gap:14px">
           <fieldset class="field">
-            <legend class="label">Энэ юу вэ?</legend>
+            <legend class="label">Худалдаж авсан уу?</legend>
             <div class="choice-cards budget-kind">
               {KINDS.map((k) => (
                 <label class="choice">
@@ -157,19 +155,11 @@ const keeperNames = keepers.map((k) => k.name_mn).join(', ');
               ))}
             </div>
           </fieldset>
-          <div class="two" data-for="planned donated">
-            <div class="field" data-for="planned">
-              <label for="b_state">Одоогийн байдлаар</label>
-              <select id="b_state" name="state">
-                {PLAN_STATES.map((st) => <option value={st} selected={item.state === st}>{PLAN_STATE_LABEL[st]}</option>)}
-              </select>
-            </div>
-            <div class="field" data-for="donated">
-              <label for="b_donor">Хэн өгөх</label>
-              <input id="b_donor" name="donor" type="text" maxlength="100" value={item.donor} placeholder="Жишээ нь: Индра" autocomplete="off"
-                aria-invalid={itemErrors.donor ? 'true' : undefined} aria-describedby={itemErrors.donor ? 'b_donor-err' : undefined} />
-              {itemErrors.donor && <span class="error" id="b_donor-err"><Icon name="alert" /> {itemErrors.donor}</span>}
-            </div>
+          <div class="field" data-for="planned" style="max-width:280px">
+            <label for="b_state">Одоогийн байдлаар</label>
+            <select id="b_state" name="state">
+              {PLAN_STATES.map((st) => <option value={st} selected={item.state === st}>{PLAN_STATE_LABEL[st]}</option>)}
+            </select>
           </div>
           {itemProblems.length > 0 && (
             <div class="error-summary" role="alert" tabindex="-1" id="errors">
@@ -200,15 +190,15 @@ const keeperNames = keepers.map((k) => k.name_mn).join(', ');
               <span class="hint" id="b_qty-hint" data-for="planned">Тодорхойгүй бол хүрээгээр: 300–450</span>
               {itemErrors.qty && <span class="error" id="b_qty-err"><Icon name="alert" /> {itemErrors.qty}</span>}
             </div>
-            <span class="op" aria-hidden="true" data-for="spent planned">×</span>
-            <div class="field" data-for="spent planned">
+            <span class="op" aria-hidden="true">×</span>
+            <div class="field">
               <label for="b_unit">Нэгжийн үнэ, ¥</label>
-              <input id="b_unit" name="unit" type="text" inputmode="decimal" value={item.unit} placeholder="0.00" autocomplete="off"
+              <input id="b_unit" name="unit" type="text" inputmode="decimal" required value={item.unit} placeholder="0.00" autocomplete="off"
                 aria-invalid={itemErrors.unit ? 'true' : undefined} aria-describedby={itemErrors.unit ? 'b_unit-err' : undefined} />
               {itemErrors.unit && <span class="error" id="b_unit-err"><Icon name="alert" /> {itemErrors.unit}</span>}
             </div>
-            <span class="op" aria-hidden="true" data-for="spent planned">=</span>
-            <div class="field" data-for="spent planned">
+            <span class="op" aria-hidden="true">=</span>
+            <div class="field">
               <span class="label" id="b_total-l">Нийт үнэ</span>
               <output class="budget-total num" id="b_total" for="b_qty b_unit" aria-labelledby="b_total-l" aria-live="polite">—</output>
             </div>
@@ -217,7 +207,7 @@ const keeperNames = keepers.map((k) => k.name_mn).join(', ');
             <label for="b_date">Огноо</label>
             <input id="b_date" name="date" type="date" required max={item.kind === 'spent' ? today : undefined} value={item.date} data-today={today}
               aria-invalid={itemErrors.date ? 'true' : undefined} aria-describedby={itemErrors.date ? 'b_date-err b_date-hint' : 'b_date-hint'} />
-            <span class="hint" id="b_date-hint">Худалдаж авсан өдөр. Төлөвлөж буй бол авах гэж буй өдөр — ирээдүйд байж болно. Байгаа, хандиваар бол бүртгэсэн өдөр.</span>
+            <span class="hint" id="b_date-hint">Худалдаж авсан өдөр. Төлөвлөж буй бол авах гэж буй өдөр — ирээдүйд байж болно.</span>
             {itemErrors.date && <span class="error" id="b_date-err"><Icon name="alert" /> {itemErrors.date}</span>}
           </div>
           <div class="btn-row">
@@ -344,55 +334,6 @@ const keeperNames = keepers.map((k) => k.name_mn).join(', ');
     </section>
   )}
 
-  {b.free.length > 0 && (
-    <section aria-labelledby="free-h" id="free" class="budget-lines budget-free">
-      <h2 class="sec-title" id="free-h">Байгаа, хандиваар <span class="badge plain b-muted">{b.free.length} мөр · ¥0</span></h2>
-      <p class="form-note" style="margin:-4px 0 12px">Холбооноос мөнгө гараагүй: өмнөхөөс үлдсэн, эсвэл хэн нэгэн өгч байгаа зүйлс.</p>
-      <div class="table-wrap budget-wrap">
-        <table class="t budget-t free-t">
-          <caption class="sr-only">Мөнгө гараагүй зүйлс</caption>
-          <thead>
-            <tr>
-              <th scope="col" class="num">№</th>
-              <th scope="col">Зүйл</th>
-              <th scope="col" class="num">Тоо</th>
-              <th scope="col">Хаанаас</th>
-              {keeps && <th scope="col"><span class="sr-only">Үйлдэл</span></th>}
-            </tr>
-          </thead>
-          <tbody>
-            {b.free.map((i, n) => (
-              <tr>
-                <td class="num muted">{n + 1}</td>
-                <th scope="row" class="item-cell">
-                  {i.item}
-                  {i.purpose && <span class="sub">{i.purpose}</span>}
-                  <span class="sub m-only num">{fmtQty(i.qty_c)} · {i.status === 'donated' ? `${i.donor} өгнө` : 'Байгаа'}</span>
-                </th>
-                <td class="num">{fmtQty(i.qty_c)}</td>
-                <td class="total">{i.status === 'donated' ? <span class="badge plain b-blue">{i.donor} өгнө</span> : <span class="badge plain b-muted">Байгаа</span>}</td>
-                {keeps && (
-                  <td class="actions">
-                    <details class="row-remove">
-                      <summary class="btn btn-sm btn-quiet" aria-label={`«${i.item}» мөрийг хасах`}><Icon name="trash" /></summary>
-                      <form method="post" class="row-remove-form">
-                        <input type="hidden" name="action" value="remove" />
-                        <input type="hidden" name="id" value={i.id} />
-                        <label class="sr-only" for={`r_${i.id}`}>Хассан шалтгаан</label>
-                        <input id={`r_${i.id}`} name="reason" type="text" maxlength="200" placeholder="Шалтгаан (заавал биш)" />
-                        <button class="btn btn-sm btn-danger" type="submit" data-confirm={`«${i.item}» мөрийг хасах уу?`}>Хасах</button>
-                      </form>
-                    </details>
-                  </td>
-                )}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </section>
-  )}
-
   <section aria-labelledby="lines-h" id="lines" class="budget-lines">
     <h2 class="sec-title" id="lines-h">Зарцуулалт <span class="badge plain b-muted">{b.items.length} мөр</span></h2>
     {b.items.length === 0 ? (
@@ -463,7 +404,7 @@ const keeperNames = keepers.map((k) => k.name_mn).join(', ');
         <ul class="items">
           {removed.map((i) => (
             <li class="item" style="grid-template-columns:minmax(0,1fr) auto">
-              <span class="item-title"><s>{i.item}</s>{i.purpose && <span class="muted"> · {i.purpose}</span>}{i.status !== 'spent' && <span class="badge plain b-gold" style="margin-left:6px">{{ planned: 'төлөвлөсөн', have: 'байгаа', donated: 'хандив' }[i.status]}</span>}</span>
+              <span class="item-title"><s>{i.item}</s>{i.purpose && <span class="muted"> · {i.purpose}</span>}{i.status === 'planned' && <span class="badge plain b-gold" style="margin-left:6px">төлөвлөсөн</span>}</span>
               <span class="num nowrap" style="grid-column:2;grid-row:1"><s>{fmtYuan(i.total_fen)}</s></span>
               <span class="item-meta" style="grid-column:1 / -1">
                 <span>{fmtQty(i.qty_c)} × {fmtYuan(i.unit_fen)}, {fmtDate(i.spent_on)}</span>

@@ -113,7 +113,7 @@ describe('planned purchases', () => {
   });
 });
 
-describe('quantity ranges and lines that cost nothing', () => {
+describe('quantity ranges and plan states', () => {
   const today = '2026-10-08';
   it('reads a range for a planned line', () => {
     expect(parseQtyRange('300-450')).toEqual({ min: 30000, max: 45000 });
@@ -132,11 +132,6 @@ describe('quantity ranges and lines that cost nothing', () => {
   });
   it('a range is only for planned lines', () => {
     expect(readBudgetItemForm(fd({ kind: 'spent', date: today, item: 'x', qty: '2-3', unit: '1' }), today).ok).toBe(false);
-  });
-  it('«Байгаа» and «Хандиваар» cost nothing, whatever price is sent; a donation names its giver', () => {
-    expect(readBudgetItemForm(fd({ kind: 'have', date: today, item: 'Хадаг', qty: '30', unit: '50' }), today).input).toMatchObject({ unitFen: 0, totalFen: 0, donor: null });
-    expect(readBudgetItemForm(fd({ kind: 'donated', date: today, item: 'Скоч', qty: '1' }), today).errors.donor).toBeTruthy();
-    expect(readBudgetItemForm(fd({ kind: 'donated', date: today, item: 'Скоч', qty: '1', donor: 'Индра' }), today).input).toMatchObject({ status: 'donated', donor: 'Индра', totalFen: 0 });
   });
   it('an unknown state falls back to «Авах боломжтой»', () => {
     expect(readBudgetItemForm(fd({ kind: 'planned', state: 'maybe', date: today, item: 'x', qty: '1', unit: '1' }), today).input?.planState).toBe('can');

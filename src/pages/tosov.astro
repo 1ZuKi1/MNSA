@@ -151,43 +151,6 @@ const byPurpose = [...b.items.reduce((m, i) => m.set(i.purpose ?? OTHER, (m.get(
     </section>
   )}
 
-  {b.free.length > 0 && (
-    <section class="sec" aria-labelledby="free-h" id="haldiv">
-      <div class="wrap">
-        <span class="sec-label">Мөнгө гараагүй</span>
-        <h2 id="free-h">Байгаа, хандиваар ирсэн</h2>
-        <p class="intro">Өмнөхөөс үлдсэн, эсвэл хэн нэгний өгч буй зүйлс. Холбооноос мөнгө гараагүй тул дүнд орохгүй.</p>
-        <div class="ledger-wrap" role="region" aria-labelledby="free-h" tabindex="0">
-          <table class="ledger free">
-            <caption class="sr-only">Мөнгө гараагүй зүйлс: байгаа болон хандиваар ирсэн.</caption>
-            <thead>
-              <tr>
-                <th scope="col" class="n">№</th>
-                <th scope="col">Зүйл</th>
-                <th scope="col" class="r">Тоо ширхэг</th>
-                <th scope="col" class="s">Хаанаас</th>
-              </tr>
-            </thead>
-            <tbody>
-              {b.free.map((i, n) => (
-                <tr>
-                  <td class="n num">{n + 1}</td>
-                  <th scope="row" class="what">
-                    {i.item}
-                    {i.purpose && <small>{i.purpose}</small>}
-                    <small class="m-calc num">{fmtQty(i.qty_c)} ширхэг</small>
-                  </th>
-                  <td class="r q num">{fmtQty(i.qty_c)}</td>
-                  <td class="s">{i.status === 'donated' ? <span class="pstate ps-gift">{i.donor} өгнө</span> : <span class="pstate ps-have">Байгаа</span>}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-  )}
-
   {byPurpose.length > 1 && (
     <section class="sec" aria-labelledby="what-h">
       <div class="wrap">

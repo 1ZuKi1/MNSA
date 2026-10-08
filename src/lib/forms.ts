@@ -155,11 +155,11 @@ export function readJobForm(fd: FormData, allowedDepts: string[]) {
 
 // ------------------------------------------------------------------ budget («Төсөв»)
 
-export type BudgetKind = 'spent' | 'planned' | 'have' | 'donated';
-export const BUDGET_KINDS: BudgetKind[] = ['spent', 'planned', 'have', 'donated'];
+export type BudgetKind = 'spent' | 'planned';
+export const BUDGET_KINDS: BudgetKind[] = ['spent', 'planned'];
 
 export interface BudgetItemValues {
-  /** spent: already bought · planned: to buy · have: «Байгаа» (costs nothing) · donated: «Хандиваар» */
+  /** spent: already bought · planned: to buy */
   kind: BudgetKind;
   /** planned only: can · postponed · cannot */
   state: string;
@@ -168,14 +168,12 @@ export interface BudgetItemValues {
   purpose: string;
   qty: string;
   unit: string;
-  donor: string;
 }
 
 /**
  * One line. A bought line's date can't be in the future (counted in Beijing time; `today` is "YYYY-MM-DD");
- * a planned one's may — it's when we mean to buy. A planned quantity may be a range ("300–450"). Lines
- * that cost nothing («Байгаа», «Хандиваар») take no price; a donated one says who gives it. The total is
- * computed here, never typed.
+ * a planned one's may — it's when we mean to buy. A planned quantity may be a range ("300–450"). The total
+ * is computed here, never typed.
  */
 export function readBudgetItemForm(fd: FormData, today: string) {
   const asked = str(fd, 'kind', 10) as BudgetKind;
@@ -188,9 +186,7 @@ export function readBudgetItemForm(fd: FormData, today: string) {
     purpose: str(fd, 'purpose', 200),
     qty: str(fd, 'qty', 30),
     unit: str(fd, 'unit', 30),
-    donor: str(fd, 'donor', 100),
   };
-  const free = kind === 'have' || kind === 'donated';
   const errors: Record<string, string> = {};
   let spentOn = 0;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(values.date)) errors.date = 'Огноог оруулна уу.';
@@ -205,9 +201,8 @@ export function readBudgetItemForm(fd: FormData, today: string) {
   const range = kind === 'planned' ? parseQtyRange(values.qty) : (() => { const v = parseQty(values.qty); return v === null ? null : { min: v, max: null }; })();
   if (range === null)
     errors.qty = kind === 'planned' ? 'Тоо ширхэгийг тоогоор бичнэ үү, жишээ нь 3, 2.5 эсвэл 300–450.' : 'Тоо ширхэгийг тоогоор бичнэ үү, жишээ нь 3 эсвэл 2.5.';
-  const unitFen = free ? 0 : parseMoney(values.unit);
+  const unitFen = parseMoney(values.unit);
   if (unitFen === null) errors.unit = 'Нэгжийн үнийг юаниар бичнэ үү, жишээ нь 45 эсвэл 12.50.';
-  if (kind === 'donated' && !values.donor) errors.donor = 'Хэн өгч байгааг бичнэ үү.';
   const ok = Object.keys(errors).length === 0;
   return {
     ok,
@@ -225,7 +220,6 @@ export function readBudgetItemForm(fd: FormData, today: string) {
           unitFen: unitFen!,
           totalFen: lineTotal(range!.min, unitFen!),
           totalMaxFen: range!.max === null ? null : lineTotal(range!.max, unitFen!),
-          donor: kind === 'donated' ? values.donor : null,
         }
       : null,
   };
