@@ -463,6 +463,8 @@ Each line: date · item (Зүйл) · what it was for (Зориулалт, optio
 
 Money is stored in **fen** (1 юань = 100) and quantities in hundredths, as integers, so no sum picks up float noise. Typed amounts accept `1250`, `1 250`, `1,250.50`, `12,5` and `¥ 80` (`lib/money.ts`, tested).
 
+**From the association's real sheet (Соёлын өдөрлөг, 2026-10).** A planned line carries a state, as the sheet colours it: **Авах боломжтой** (green) · **Хойшлуулсан** (yellow) · **Авах боломжгүй** (red); the keeper changes it from a menu on the row. A planned quantity may be a **range** (хуушуур 300–450 ш × ¥5 → ¥1,500–¥2,250); the planned total and «what is left once everything is bought» then show as ranges too («¥1,569.10–¥2,319.10 дутна», or «… хүртэл дутаж магадгүй» when only the high end runs short). Things that cost nothing are lines too: **Байгаа** (left from last year) and **Хандиваар** (with who gives it). They have their own table, «Байгаа, хандиваар ирсэн», and never enter a sum. The sheet itself is the demo data in `scripts/seed-dev.sql`; a one-time import for the live database is kept in `neccesary-files/budget-soyoliin-udurlug.sql` (not committed). A planned budget of 0 shows as «—», not ¥0.
+
 ### Who can do what
 
 | Action | Who |
@@ -477,7 +479,7 @@ Money is stored in **fen** (1 юань = 100) and quantities in hundredths, as i
 
 Nothing is deleted. Removing sets `deleted_at` / `deleted_by` and an optional reason: the line leaves the public table and the sums, and stays on the staff page under «Хассан мөрүүд» and in the audit log («Төсөв» filter). A wrong line is removed and typed again — there is deliberately no in-place edit, so every number that was ever public has a trace.
 
-### Schema (migrations 0009, 0010)
+### Schema (migrations 0009–0011)
 
 ```sql
 ALTER TABLE users ADD COLUMN is_budget_keeper INTEGER NOT NULL DEFAULT 0;
@@ -488,6 +490,8 @@ CREATE TABLE budget_items (id, academic_year, spent_on, item, purpose, qty_c, un
 ALTER TABLE budget_items ADD COLUMN status TEXT NOT NULL DEFAULT 'spent' CHECK (status IN ('planned','spent'));
 ALTER TABLE budget_items ADD COLUMN confirmed_by INTEGER REFERENCES users(id);
 ALTER TABLE budget_items ADD COLUMN confirmed_at INTEGER;
+-- 0011: the table is rebuilt (SQLite can't widen a CHECK): status spent | planned | have | donated,
+--       plus plan_state (can | postponed | cannot), qty_max_c / total_max_fen for a range, donor
 ```
 
 The year of a line follows its date (1 September → 31 August), so a late-August receipt typed in September lands in the right year. Future dates are refused.
@@ -659,7 +663,7 @@ He filled in the form `MOX_Terguun_medeelel.docx`. His personal details and the 
 | 5 · Live meeting minutes | not started |
 | 6 · Presidency handover page, weekly backup | not started |
 
-Verified with 109 unit tests (permissions, approval chain, dates, document types, co-departments, record fields, session cookie, jobs, safe redirects, the members import, budget money and forms) and a 323-step end-to-end test driving every role through the real server, plus a production-build check with `wrangler dev` and an axe accessibility audit of every public page.
+Verified with 114 unit tests (permissions, approval chain, dates, document types, co-departments, record fields, session cookie, jobs, safe redirects, the members import, budget money and forms) and a 341-step end-to-end test driving every role through the real server, plus a production-build check with `wrangler dev` and an axe accessibility audit of every public page.
 
 ### Decisions made while building
 

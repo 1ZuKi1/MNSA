@@ -1,5 +1,5 @@
 import { fromLocal } from './time';
-import { lineTotal, parseMoney, parseQty } from './money';
+import { lineTotal, parseMoney, parseQty, parseQtyRange } from './money';
 import type { DeptSlug } from './types';
 import { getRecordType, isRange, joinRange, validateFields, type RecordType } from './record-types';
 import { str } from './http';
@@ -155,52 +155,78 @@ export function readJobForm(fd: FormData, allowedDepts: string[]) {
 
 // ------------------------------------------------------------------ budget («Төсөв»)
 
+export type BudgetKind = 'spent' | 'planned' | 'have' | 'donated';
+export const BUDGET_KINDS: BudgetKind[] = ['spent', 'planned', 'have', 'donated'];
+
 export interface BudgetItemValues {
-  /** 'spent': already bought; 'planned': to buy («Авахаар төлөвлөсөн»). */
-  kind: 'spent' | 'planned';
+  /** spent: already bought · planned: to buy · have: «Байгаа» (costs nothing) · donated: «Хандиваар» */
+  kind: BudgetKind;
+  /** planned only: can · postponed · cannot */
+  state: string;
   date: string;
   item: string;
   purpose: string;
   qty: string;
   unit: string;
+  donor: string;
 }
 
 /**
- * One line. A spent line's date can't be in the future (counted in Beijing time; `today` is "YYYY-MM-DD");
- * a planned one's may — it's when we mean to buy. The quantity must be more than zero, the price of one
- * zero or more; the total is computed here, never typed.
+ * One line. A bought line's date can't be in the future (counted in Beijing time; `today` is "YYYY-MM-DD");
+ * a planned one's may — it's when we mean to buy. A planned quantity may be a range ("300–450"). Lines
+ * that cost nothing («Байгаа», «Хандиваар») take no price; a donated one says who gives it. The total is
+ * computed here, never typed.
  */
 export function readBudgetItemForm(fd: FormData, today: string) {
+  const asked = str(fd, 'kind', 10) as BudgetKind;
+  const kind: BudgetKind = BUDGET_KINDS.includes(asked) ? asked : 'spent';
   const values: BudgetItemValues = {
-    kind: str(fd, 'kind', 10) === 'planned' ? 'planned' : 'spent',
+    kind,
+    state: ['can', 'postponed', 'cannot'].includes(str(fd, 'state', 12)) ? str(fd, 'state', 12) : 'can',
     date: str(fd, 'date', 10),
     item: str(fd, 'item', 200),
     purpose: str(fd, 'purpose', 200),
-    qty: str(fd, 'qty', 20),
+    qty: str(fd, 'qty', 30),
     unit: str(fd, 'unit', 30),
+    donor: str(fd, 'donor', 100),
   };
+  const free = kind === 'have' || kind === 'donated';
   const errors: Record<string, string> = {};
   let spentOn = 0;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(values.date)) errors.date = 'Огноог оруулна уу.';
-  else if (values.kind === 'spent' && values.date > today) errors.date = 'Ирээдүйн огноо байж болохгүй. Хараахан аваагүй бол «Авахаар төлөвлөж байна»-г сонгоно уу.';
+  else if (kind === 'spent' && values.date > today) errors.date = 'Ирээдүйн огноо байж болохгүй. Хараахан аваагүй бол «Авахаар төлөвлөж байна»-г сонгоно уу.';
   else
     try {
       spentOn = fromLocal(values.date);
     } catch {
       errors.date = 'Огноо буруу байна.';
     }
-  if (!values.item) errors.item = 'Юунд зарцуулсныг бичнэ үү.';
-  const qtyC = parseQty(values.qty);
-  if (qtyC === null) errors.qty = 'Тоо ширхэгийг тоогоор бичнэ үү, жишээ нь 3 эсвэл 2.5.';
-  const unitFen = parseMoney(values.unit);
+  if (!values.item) errors.item = 'Юу болохыг бичнэ үү.';
+  const range = kind === 'planned' ? parseQtyRange(values.qty) : (() => { const v = parseQty(values.qty); return v === null ? null : { min: v, max: null }; })();
+  if (range === null)
+    errors.qty = kind === 'planned' ? 'Тоо ширхэгийг тоогоор бичнэ үү, жишээ нь 3, 2.5 эсвэл 300–450.' : 'Тоо ширхэгийг тоогоор бичнэ үү, жишээ нь 3 эсвэл 2.5.';
+  const unitFen = free ? 0 : parseMoney(values.unit);
   if (unitFen === null) errors.unit = 'Нэгжийн үнийг юаниар бичнэ үү, жишээ нь 45 эсвэл 12.50.';
+  if (kind === 'donated' && !values.donor) errors.donor = 'Хэн өгч байгааг бичнэ үү.';
   const ok = Object.keys(errors).length === 0;
   return {
     ok,
     values,
     errors,
     input: ok
-      ? { status: values.kind, spentOn, item: values.item, purpose: values.purpose || null, qtyC: qtyC!, unitFen: unitFen!, totalFen: lineTotal(qtyC!, unitFen!) }
+      ? {
+          status: kind,
+          planState: kind === 'planned' ? (values.state as 'can' | 'postponed' | 'cannot') : null,
+          spentOn,
+          item: values.item,
+          purpose: values.purpose || null,
+          qtyC: range!.min,
+          qtyMaxC: range!.max,
+          unitFen: unitFen!,
+          totalFen: lineTotal(range!.min, unitFen!),
+          totalMaxFen: range!.max === null ? null : lineTotal(range!.max, unitFen!),
+          donor: kind === 'donated' ? values.donor : null,
+        }
       : null,
   };
 }

@@ -554,6 +554,14 @@ a.row-in h3 { transition: color var(--t); }
 /* what is left after buying everything sits at the right end, under the end of the bar */
 @media (min-width: 861px) { .bar-legend li:nth-child(3) { margin-left: auto; } }
 .ledger-wrap.plan { border-style: dashed; border-color: var(--gold-deep); }
+/* a planned line's state, in the colours of the association's own sheet; and where a free item comes from */
+.pstate { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 0.86rem; font-weight: 650; white-space: nowrap; }
+.ps-can { background: var(--ok-tint); color: var(--ok); }
+.ps-postponed { background: var(--warn-tint); color: var(--warn); }
+.ps-cannot { background: var(--bad-tint); color: var(--bad); }
+.ps-have { background: var(--ivory-2); color: var(--ink-2); }
+.ps-gift { background: var(--blue-tint); color: var(--blue-deep); }
+.ledger .s { white-space: nowrap; }
 .ledger-wrap.plan .ledger tfoot td.t { color: var(--warn); }
 .figs.compact .fig dd { font-size: clamp(1.35rem, 1rem + 1.2vw, 1.85rem); }
 .figs.compact .figs-bar { margin-top: 22px; }
@@ -594,6 +602,9 @@ a.row-in h3 { transition: color var(--t); }
   .ledger tbody tr:last-child { border-bottom: 0; }
   .ledger th, .ledger td { padding: 0; border: 0; }
   .ledger .n, .ledger .d, .ledger .q, .ledger .u { display: none; }
+  .ledger tbody td.s { grid-column: 1 / -1; margin-top: 6px; }
+  .ledger tfoot td.s { display: none; }
+  .ledger.free td.s { grid-column: 2; grid-row: 1; margin-top: 0; }
   .ledger .what { min-width: 0; }
   .ledger .what .m-calc { display: block; }
   .ledger tfoot tr { border-top: 2px solid var(--ink); background: var(--ivory); border-radius: 0 0 var(--radius-lg) var(--radius-lg); }

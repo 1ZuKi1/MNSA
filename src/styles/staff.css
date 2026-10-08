@@ -836,6 +836,34 @@ form.release { margin: 0; font-size: 0.86rem; }
 a.stat.stat-plan::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 3px; background: var(--gold); }
 a.stat.stat-plan.stat-bad::before { background: var(--bad); }
 .removed-panel { margin-top: 22px; }
+/* a planned line's state, in the colours of the association's own sheet: green, yellow, red */
+.ps-can { background: var(--ok-tint); color: var(--ok); }
+.ps-postponed { background: var(--warn-tint); color: var(--warn); }
+.ps-cannot { background: var(--bad-tint); color: var(--bad); }
+.state-form { margin: 0; display: flex; gap: 6px; align-items: center; }
+.staff select.state-select { width: auto; min-height: 34px; padding: 4px 30px 4px 10px; border-radius: 999px; font-size: 0.85rem; font-weight: 650; border-color: transparent; }
+.budget-free { margin-bottom: 26px; }
+/* The planned table has two more columns (state, two buttons), so it turns into cards sooner: whenever its
+   own box is narrower than it needs — on a laptop with the sidebar open, not only on a phone. */
+.budget-plan .budget-wrap { container: plan / inline-size; }
+@container plan (max-width: 960px) {
+  .budget-plan .budget-t, .budget-plan .budget-t tbody, .budget-plan .budget-t tfoot { display: block; }
+  .budget-plan .budget-t thead { display: none; }
+  .budget-plan .budget-t tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+  .budget-plan .budget-t td, .budget-plan .budget-t th { display: block; padding: 0; border: 0; text-align: left; }
+  .budget-plan .budget-t tbody td:not(.actions):not(.total):not(.state) { display: none; }
+  .budget-plan .budget-t .item-cell { grid-column: 1; grid-row: 1 / span 2; min-width: 0; }
+  .budget-plan .budget-t td.total { grid-column: 2; grid-row: 1; text-align: right; font-size: 1.02rem; }
+  .budget-plan .budget-t .m-only { display: block !important; font-weight: 500; text-align: left; }
+  .budget-plan .budget-t td.state { grid-column: 1; grid-row: 3; margin-top: 8px; }
+  .budget-plan .budget-t td.actions { grid-column: 2; grid-row: 2 / span 2; align-self: end; text-align: right; }
+  .budget-plan .budget-t tfoot tr { background: var(--sunk); border-bottom: 0; border-radius: 0 0 var(--radius-lg) var(--radius-lg); }
+  .budget-plan .budget-t tfoot th, .budget-plan .budget-t tfoot td { background: transparent; border: 0; }
+  .budget-plan .budget-t tfoot th { grid-column: 1; text-align: left; }
+  .budget-plan .budget-t tfoot td { grid-column: 2; grid-row: 1; }
+  .budget-plan .budget-t tfoot td:empty { display: none; }
+}
+.budget-kind { grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); }
 .removed-panel > summary { cursor: pointer; list-style: none; padding-bottom: 14px; }
 .removed-panel > summary::-webkit-details-marker { display: none; }
 .removed-panel[open] > summary { padding-bottom: 0; }
@@ -850,11 +878,12 @@ a.stat.stat-plan.stat-bad::before { background: var(--bad); }
     background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
   }
   .budget-t td, .budget-t th { display: block; padding: 0; border: 0; text-align: left; }
-  .budget-t tbody td:not(.actions):not(.total) { display: none; }
+  .budget-t tbody td:not(.actions):not(.total):not(.state) { display: none; }
+  .budget-t td.state { grid-column: 1; grid-row: 3; margin-top: 6px; }
   .budget-t .item-cell { grid-column: 1; grid-row: 1 / span 2; min-width: 0; }
   .budget-t td.total { grid-column: 2; grid-row: 1; font-size: 1.02rem; }
   .budget-t .m-only { display: block !important; font-weight: 500; text-align: left; }
-  .budget-t td.actions { grid-column: 2; grid-row: 2; align-self: end; text-align: right; }
+  .budget-t td.actions { grid-column: 2; grid-row: 2 / span 2; align-self: end; text-align: right; }
   .budget-t tfoot tr { background: var(--sunk); border-color: var(--line-strong); }
   .budget-t tfoot th, .budget-t tfoot td { border: 0; background: transparent; }
   .budget-t tfoot th { grid-column: 1; text-align: left; }

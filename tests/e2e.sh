@@ -391,11 +391,21 @@ has "…so others can take them" "$pg" 'value="take"'
 echo "── budget (Төсөв)"
 pb=$(curl -s -H "$P" $B/tosov)
 has "public budget page" "$pb" "Зарлага бүрээр"
-has "…shows the planned budget" "$pb" "¥15,000"
-has "…what was spent, summed from the lines" "$pb" "¥1,575.50"
-has "…and what is left (in hand − spent)" "$pb" "¥10,424.50"
-has "…by purpose" "$pb" "Юунд хэдийг"
+has "…shows the money in hand" "$pb" "¥3,366"
+has "…what was spent, summed from the lines" "$pb" "¥775.10"
+has "…and what is left (in hand − spent)" "$pb" "¥2,590.90"
+has "…no planned budget yet shows a dash, not ¥0" "$pb" '<dd class="num">—</dd>'
 has "…and who keeps it" "$pb" "Төсвийн хариуцагч: О. Энхжин"
+has "planned lines show their state: can buy" "$pb" "ps-can"
+has "…postponed" "$pb" "Хойшлуулсан"
+has "…can't buy" "$pb" "Авах боломжгүй"
+has "…a quantity range" "$pb" "300–450"
+has "…and its total as a range" "$pb" "¥1,500.00–¥2,250.00"
+has "…the planned total too" "$pb" "¥4,160.00–¥4,910.00"
+has "…buying it all would run short by a range" "$pb" "¥1,569.10–¥2,319.10</b> дутна"
+has "things that cost nothing are listed apart" "$pb" "Байгаа, хандиваар ирсэн"
+has "…with who gives them" "$pb" "Индра өгнө"
+hasnt "…and they don't touch the sums" "$pb" "¥0.00"
 has "the menu links to it" "$(curl -s -H "$P" $B/)" 'href="/tosov"'
 has "the home page shows it at a glance" "$(curl -s -H "$P" $B/)" "Холбооны төсөв"
 has "it is in the sitemap" "$(curl -s -H "$P" $B/sitemap.xml)" "/tosov</loc>"
@@ -413,16 +423,18 @@ has "the President names a keeper" "$(post $J/president.jar /gishuud -d action=b
 has "…shown on the member list" "$(get $J/president.jar /gishuud)" "төсөв</span>"
 has "the keeper now gets the form" "$(get $J/dotood2.jar /tosov)" 'value="add"'
 TODAY=$(TZ=Asia/Shanghai date +%Y-%m-%d)
+LATER=$(TZ=Asia/Shanghai date -d '+10 day' +%Y-%m-%d)
 loc=$(post $J/dotood2.jar /tosov -d action=add -d date=$TODAY --data-urlencode "item=Цаас, A4 багц" --data-urlencode "purpose=Бичиг хэрэг" -d qty=3 --data-urlencode "unit=25.50" -d total=1)
 has "the keeper adds a line" "$loc" "ok=budget_added"
 pb=$(curl -s -H "$P" $B/tosov)
 has "…it is public at once" "$pb" "Цаас, A4 багц"
 has "…with the total computed (3 × 25.50), not typed" "$pb" "¥76.50"
-has "…and the spent sum moves" "$pb" "¥1,652.00"
+has "…and the spent sum moves" "$pb" "¥851.60"
 pg=$(curl -s -b $J/dotood2.jar -H "$S" -H "$O" -X POST -d action=add -d date=2999-01-01 -d item= -d qty=0 -d unit=abc $B/tosov)
 has "a bad line is refused with every problem listed" "$pg" "Дараах зүйлсийг засна уу"
 has "…a future date" "$pg" "Ирээдүйн огноо"
 has "…a zero quantity" "$pg" "Тоо ширхэгийг тоогоор"
+has "a bought line can't take a range" "$(curl -s -b $J/dotood2.jar -H "$S" -H "$O" -X POST -d action=add -d kind=spent -d date=$TODAY -d item=x -d qty=2-3 -d unit=1 $B/tosov)" "Тоо ширхэгийг тоогоор"
 has "the keeper sets the numbers" "$(post $J/dotood2.jar /tosov -d action=year --data-urlencode "planned=16,000" -d funds=13000 --data-urlencode "note=ЭСЯ-ны дэмжлэг")" "ok=budget_year"
 has "…and they are public" "$(curl -s -H "$P" $B/tosov)" "¥16,000"
 BID=$(npx wrangler d1 execute mnsa-db --local --json --command "SELECT id FROM budget_items WHERE item='Цаас, A4 багц'" 2>/dev/null | grep -o '"id": *[0-9]*' | grep -o '[0-9]*$')
@@ -434,24 +446,31 @@ has "…but the staff page keeps it, with who and why" "$pg" "Давхар ор�
 has "…under removed lines" "$pg" "Хассан мөрүүд"
 has "removing twice is refused" "$(post $J/dotood2.jar /tosov -d action=remove -d id=$BID)" "err=denied"
 has "the audit log records it" "$(get $J/president.jar '/burtgel?cat=budget')" "Төсвөөс мөр хассан"
-has "planned purchases are public, apart from the spending" "$(curl -s -H "$P" $B/tosov)" "Авахаар төлөвлөсөн"
-has "…with what they will cost" "$(curl -s -H "$P" $B/tosov)" "Монгол хоолны орц"
-has "…and what will be left after" "$(curl -s -H "$P" $B/tosov)" "Бүгдийг авсны дараа"
-LATER=$(TZ=Asia/Shanghai date -d '+10 day' +%Y-%m-%d)
 has "a bought line can't be dated in the future" "$(curl -s -b $J/dotood2.jar -H "$S" -H "$O" -X POST -d action=add -d kind=spent -d date=$LATER -d item=x -d qty=1 -d unit=1 $B/tosov)" "Ирээдүйн огноо"
-has "the keeper lists a purchase to make (dated ahead)" "$(post $J/dotood2.jar /tosov -d action=add -d kind=planned -d date=$LATER --data-urlencode "item=Шагналын медаль" --data-urlencode "purpose=Спортын өдөр" -d qty=10 -d unit=12)" "ok=budget_planned"
+has "the keeper lists a purchase to make, a range, dated ahead" "$(post $J/dotood2.jar /tosov -d action=add -d kind=planned -d state=can -d date=$LATER --data-urlencode "item=Шагналын медаль" --data-urlencode "purpose=Спортын өдөр" --data-urlencode "qty=10–12" -d unit=12)" "ok=budget_planned"
 pb=$(curl -s -H "$P" $B/tosov)
 has "…it is public as planned" "$pb" "Шагналын медаль"
-has "…but not spent: the sum hasn't moved" "$pb" "¥1,575.50"
+has "…with its range (10–12 × 12)" "$pb" "¥120.00–¥144.00"
+has "…but not spent: the sum hasn't moved" "$pb" "¥775.10"
 PID=$(npx wrangler d1 execute mnsa-db --local --json --command "SELECT id FROM budget_items WHERE item='Шагналын медаль'" 2>/dev/null | grep -o '"id": *[0-9]*' | grep -o '[0-9]*$')
+has "only the keeper changes its state" "$(post $J/board.jar /tosov -d action=state -d id=$PID -d state=cannot)" "err=denied"
+has "the keeper postpones it" "$(post $J/dotood2.jar /tosov -d action=state -d id=$PID -d state=postponed)" "ok=budget_state"
+has "…in the audit log" "$(get $J/president.jar '/burtgel?cat=budget')" "Төлөвлөсний байдлыг өөрчилсөн"
+has "a made-up state is refused" "$(post $J/dotood2.jar /tosov -d action=state -d id=$PID -d state=maybe)" "err=denied"
 has "only the keeper marks it bought" "$(post $J/president.jar /tosov -d action=confirm -d id=$PID -d qty=10 -d unit=11 -d date=$TODAY)" "err=denied"
 has "marking it bought needs a real date" "$(post $J/dotood2.jar /tosov -d action=confirm -d id=$PID -d qty=10 -d unit=11 -d date=$LATER)" "err=budget_confirm_invalid"
 has "the keeper marks it bought, at the real price" "$(post $J/dotood2.jar /tosov -d action=confirm -d id=$PID -d qty=10 --data-urlencode "unit=11.50" -d date=$TODAY)" "ok=budget_bought"
 pb=$(curl -s -H "$P" $B/tosov)
 has "…now it counts as spent (10 × 11.50)" "$pb" "¥115.00"
-has "…and the spent sum moves" "$pb" "¥1,690.50"
+has "…and the spent sum moves" "$pb" "¥890.10"
 has "a bought line can't be marked bought again" "$(post $J/dotood2.jar /tosov -d action=confirm -d id=$PID -d qty=1 -d unit=1 -d date=$TODAY)" "err=denied"
 has "the audit log keeps plan and purchase" "$(get $J/president.jar '/burtgel?cat=budget')" "Худалдаж авсан гэж тэмдэглэсэн"
+has "a donation needs a giver" "$(curl -s -b $J/dotood2.jar -H "$S" -H "$O" -X POST -d action=add -d kind=donated -d date=$TODAY --data-urlencode "item=Аарц" -d qty=2 $B/tosov)" "Хэн өгч байгааг"
+has "the keeper lists a donation (no price asked)" "$(post $J/dotood2.jar /tosov -d action=add -d kind=donated -d date=$TODAY --data-urlencode "item=Аарц" -d qty=2 --data-urlencode "donor=Болд" -d unit=999)" "ok=budget_free"
+has "…and something already there" "$(post $J/dotood2.jar /tosov -d action=add -d kind=have -d date=$TODAY --data-urlencode "item=Дуу өсгөгч" -d qty=1)" "ok=budget_free"
+pb=$(curl -s -H "$P" $B/tosov)
+has "…both public, apart from the spending" "$pb" "Болд өгнө"
+has "…the price given is ignored: spending unchanged" "$pb" "¥890.10"
 has "the President relieves the keeper" "$(post $J/president.jar /gishuud -d action=budget_off -d user=4 -d back=/gishuud/4)" "ok=budget_keeper_off"
 has "…who can no longer add" "$(post $J/dotood2.jar /tosov -d action=add -d date=$TODAY -d item=x -d qty=1 -d unit=1)" "err=denied"
 check "the staff budget page doesn't exist on the public host" "$(curl -s -o /dev/null -w '%{http_code}' -H "$P" $B/dep/tosov)" 404
