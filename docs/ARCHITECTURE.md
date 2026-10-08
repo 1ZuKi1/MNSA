@@ -442,6 +442,63 @@ CREATE TABLE media (id TEXT PRIMARY KEY,   -- random 128-bit token: the URL is t
 
 ---
 
+## 5d. Budget — Төсөв
+
+Added 2026-10-09. The association's money, open to everyone: `pkumongolia.com/tosov` (in the main menu, with a summary on the home page), kept at `team.pkumongolia.com/tosov`.
+
+### What it shows
+
+One budget per academic year. Four numbers on top, then every purchase:
+
+| | Монголоор | Where it comes from |
+|---|---|---|
+| planned | **Төлөвлөсөн төсөв** | typed once at the start of the year |
+| in hand | **Одоо байгаа хөрөнгө** | typed, updated whenever money arrives |
+| spent | **Зарцуулсан** | summed from the lines — never typed, never stored |
+| left | **Үлдэгдэл** | in hand − spent; red, and called «Хэтэрсэн», when negative |
+
+Each line: date · item (Зүйл) · what it was for (Зориулалт, optional) · quantity · price of one · total.
+
+**Planned purchases («Авахаар төлөвлөсөн», added the same day).** A line can be listed before the money is spent. It shows on the public page in its own dashed table, above the spending, and as a striped stretch of the bar with «Авахаар төлөвлөсөн: ¥X — бүгдийг авсны дараа ¥Y үлдэнэ». It is in no spent sum. When it is bought the keeper presses **«Авсан»** and enters the real quantity, price and date (not in the future). The line then moves into the spending; the planned numbers stay in the audit log. A planned line may be dated ahead (when we mean to buy); a bought one may not. Removing a plan works like removing any line. **The total is computed by the server** (quantity × price, to the fen); a total sent in the form is ignored. The public page also sums the lines by purpose («Юунд хэдийг»), largest first, and names the keeper if they show on the public team page.
+
+Money is stored in **fen** (1 юань = 100) and quantities in hundredths, as integers, so no sum picks up float noise. Typed amounts accept `1250`, `1 250`, `1,250.50`, `12,5` and `¥ 80` (`lib/money.ts`, tested).
+
+**From the association's real sheet (Соёлын өдөрлөг, 2026-10).** A planned line carries a state, as the sheet colours it: **Авах боломжтой** (green) · **Хойшлуулсан** (yellow) · **Авах боломжгүй** (red); the keeper changes it from a menu on the row. Quantities are one whole number — no ranges, no fractions (хуушуур is entered as 450). Things on the sheet that cost nothing (left from last year, or given by someone) are deliberately not listed: the budget shows money. The sheet itself is the demo data in `scripts/seed-dev.sql`; a one-time import for the live database is kept in `neccesary-files/budget-soyoliin-udurlug.sql` (not committed). A planned budget of 0 shows as «—», not ¥0.
+
+### Who can do what
+
+| Action | Who |
+|---|---|
+| Read it | everyone — public site and every staff member |
+| Add and remove lines, list planned purchases and mark them bought, set planned / in hand | **only a «Төсвийн хариуцагч»** (`users.is_budget_keeper`) |
+| Name or relieve a keeper | the **President**, or the maintainer with the President's powers — on the person's page in *Гишүүд* |
+
+**The President cannot keep the budget, and cannot name himself.** Whoever approves spending shouldn't also keep the books; separating the two is the point of a transparent budget. The maintainer can't keep it either (not on the team). The deputy adds members but does not name the keeper. The flag is cleared when someone leaves the workspace and ignored if its holder ever becomes President. It is read fresh on each budget request, not stored in the session, so the login and the dashboard never depend on the budget tables.
+
+### Removing a line
+
+Nothing is deleted. Removing sets `deleted_at` / `deleted_by` and an optional reason: the line leaves the public table and the sums, and stays on the staff page under «Хассан мөрүүд» and in the audit log («Төсөв» filter). A wrong line is removed and typed again — there is deliberately no in-place edit, so every number that was ever public has a trace.
+
+### Schema (migrations 0009–0011)
+
+```sql
+ALTER TABLE users ADD COLUMN is_budget_keeper INTEGER NOT NULL DEFAULT 0;
+CREATE TABLE budget_years (academic_year TEXT PRIMARY KEY, planned_fen INTEGER, funds_fen INTEGER, note TEXT, updated_by, updated_at);
+CREATE TABLE budget_items (id, academic_year, spent_on, item, purpose, qty_c, unit_fen, total_fen,
+                           created_by, created_at, deleted_by, deleted_at, delete_reason);
+-- 0010: planned purchases
+ALTER TABLE budget_items ADD COLUMN status TEXT NOT NULL DEFAULT 'spent' CHECK (status IN ('planned','spent'));
+ALTER TABLE budget_items ADD COLUMN confirmed_by INTEGER REFERENCES users(id);
+ALTER TABLE budget_items ADD COLUMN confirmed_at INTEGER;
+-- 0011: plan_state (can | postponed | cannot)
+```
+
+The year of a line follows its date (1 September → 31 August), so a late-August receipt typed in September lands in the right year. Future dates are refused.
+
+**Deploying:** run `npm run db:migrate:remote` before the change reaches `main` — auto-deploy doesn't migrate. If the home page can't read the budget it simply leaves the block out instead of failing.
+
+---
+
 ## 6. September handover — your design, hardened
 
 Your instinct is right. The part that worries me is the single irreversible button: one typo in the email address and the association is permanently handed to a stranger, or to nobody. Two changes fix that without adding complexity.
@@ -601,10 +658,11 @@ He filled in the form `MOX_Terguun_medeelel.docx`. His personal details and the 
 | 4 · Approval routing + dashboards | ✅ |
 | 5b · Events, task board, participation report, photos | ✅ |
 | 5c · «Ажлууд» — jobs outside events, with a stage board; joining to help | ✅ (2026-09-26, joining 2026-10-08) |
+| 5d · «Төсөв» — public budget, kept by a «Төсвийн хариуцагч» | ✅ (2026-10-09) |
 | 5 · Live meeting minutes | not started |
 | 6 · Presidency handover page, weekly backup | not started |
 
-Verified with 91 unit tests (permissions, approval chain, dates, document types, co-departments, record fields, session cookie, jobs, safe redirects, the members import) and a 268-step end-to-end test driving every role through the real server, plus a production-build check with `wrangler dev` and an axe accessibility audit of every public page.
+Verified with 112 unit tests (permissions, approval chain, dates, document types, co-departments, record fields, session cookie, jobs, safe redirects, the members import, budget money and forms) and a 337-step end-to-end test driving every role through the real server, plus a production-build check with `wrangler dev` and an axe accessibility audit of every public page.
 
 ### Decisions made while building
 

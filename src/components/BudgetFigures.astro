@@ -1,0 +1,65 @@
+---
+/**
+ * The four budget numbers on the public site — planned, in hand, spent, remaining — and one bar showing how
+ * much of the plan is spent. Used on /tosov and, smaller, on the home page.
+ */
+import type { Budget } from '../lib/budget';
+import { fmtYuan, percentOf } from '../lib/money';
+
+interface Props {
+  b: Budget;
+  compact?: boolean;
+}
+const { b, compact = false } = Astro.props;
+// Before the keeper has filled in the year's numbers, planned and in-hand are unknown, not zero.
+const known = b.hasHeader;
+const over = known && b.remainingFen < 0;
+// The bar measures spending against the plan; with no plan yet, against the money in hand.
+const base = b.plannedFen > 0 ? b.plannedFen : b.fundsFen;
+const pct = percentOf(b.spentFen, base);
+const planned = b.plannedFen > 0;
+// Purchases listed but not made yet: a lighter stretch of the bar after what is spent.
+const toBuyPct = Math.max(0, Math.min(percentOf(b.spentFen + b.toBuyFen, base), 100) - Math.min(pct, 100));
+// What is left once everything planned is bought — or how much would be missing.
+const after = b.afterToBuyFen >= 0 ? { text: fmtYuan(b.afterToBuyFen), word: 'үлдэнэ', neg: false } : { text: fmtYuan(-b.afterToBuyFen), word: 'дутна', neg: true };
+// «Төлөвлөсөн төсвийн 42% зарцуулсан» / «Төлөвлөсөн төсвөөс 12% илүү зарцуулсан»
+const caption = pct > 100
+  ? { pre: planned ? 'Төлөвлөсөн төсвөөс' : 'Байгаа хөрөнгөөс', n: `${pct - 100}%`, post: 'илүү зарцуулсан' }
+  : { pre: planned ? 'Төлөвлөсөн төсвийн' : 'Байгаа хөрөнгийн', n: `${pct}%`, post: 'зарцуулсан' };
+---
+<div class:list={['figs', { compact }]}>
+  <dl class="figs-grid">
+    <div class="fig f-plan">
+      <dt>Төлөвлөсөн төсөв</dt>
+      <dd class="num">{known && b.plannedFen > 0 ? fmtYuan(b.plannedFen) : '—'}</dd>
+    </div>
+    <div class="fig f-funds">
+      <dt>Одоо байгаа хөрөнгө</dt>
+      <dd class="num">{known ? fmtYuan(b.fundsFen) : '—'}</dd>
+    </div>
+    <div class="fig f-spent">
+      <dt>Зарцуулсан</dt>
+      <dd class="num">{fmtYuan(b.spentFen)}</dd>
+    </div>
+    <div class:list={['fig f-left', { over }]}>
+      <dt>{over ? 'Хэтэрсэн' : 'Үлдэгдэл'}</dt>
+      <dd class="num">{known ? fmtYuan(b.remainingFen) : '—'}</dd>
+    </div>
+  </dl>
+  {base > 0 && (
+    <div class="figs-bar">
+      <div class="bar" aria-hidden="true">
+        <span style={`width:${Math.min(pct, 100)}%`} class:list={{ over: pct > 100 }}></span>
+        {toBuyPct > 0 && <span class="to-buy" style={`width:${toBuyPct}%`}></span>}
+      </div>
+      {/* one line under the bar: a key for each part, side by side (they wrap on a phone) */}
+      <ul class="bar-legend">
+        <li><span class:list={['key k-spent', { over: pct > 100 }]} aria-hidden="true"></span>{caption.pre} <b class="num">{caption.n}</b> {caption.post}</li>
+        {b.toBuyFen > 0 && <li><span class="key k-buy" aria-hidden="true"></span>Авахаар төлөвлөсөн <b class="num">{fmtYuan(b.toBuyFen)}</b></li>}
+        {b.toBuyFen > 0 && known && (
+          <li>Бүгдийг авахад <b class:list={['num', { neg: after.neg }]}>{after.text}</b> {after.word}</li>
+        )}
+      </ul>
+    </div>
+  )}
+</div>

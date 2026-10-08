@@ -388,6 +388,88 @@ pg=$(get $J/gadaad.jar /ajil/$J3)
 has "…lets go of their open jobs" "$pg" "Хэн ч аваагүй"
 has "…so others can take them" "$pg" 'value="take"'
 
+echo "── budget (Төсөв)"
+pb=$(curl -s -H "$P" $B/tosov)
+has "public budget page" "$pb" "Зарлага бүрээр"
+has "…shows the money in hand" "$pb" "¥3,366"
+has "…what was spent, summed from the lines" "$pb" "¥775.10"
+has "…and what is left (in hand − spent)" "$pb" "¥2,590.90"
+has "…the planned budget from the sheet" "$pb" "¥5,860"
+hasnt "…the planned table has no explanation paragraph" "$pb" "Эдгээрт мөнгө хараахан гараагүй"
+has "…and who keeps it" "$pb" "Төсвийн хариуцагч: О. Энхжин"
+has "planned lines show their state: can buy" "$pb" "ps-can"
+has "…postponed" "$pb" "Хойшлуулсан"
+has "…can't buy" "$pb" "Авах боломжгүй"
+has "…хуушуур, 450 × ¥5" "$pb" "¥2,250.00"
+has "…the planned total" "$pb" "¥4,910.00"
+has "…buying it all would run short" "$pb" "¥2,319.10</b> дутна"
+has "the menu links to it" "$(curl -s -H "$P" $B/)" 'href="/tosov"'
+has "the home page shows it at a glance" "$(curl -s -H "$P" $B/)" "Холбооны төсөв"
+has "it is in the sitemap" "$(curl -s -H "$P" $B/sitemap.xml)" "/tosov</loc>"
+check "staff budget page" "$(code $J/dotood2.jar /tosov)" 200
+hasnt "a member who doesn't keep it gets no form" "$(get $J/dotood2.jar /tosov)" 'value="add"'
+has "…and is told who does" "$(get $J/dotood2.jar /tosov)" "О. Энхжин</b> хөтөлдөг"
+has "nobody else may add a line — not a member" "$(post $J/dotood2.jar /tosov -d action=add -d date=2026-10-01 -d item=x -d qty=1 -d unit=1)" "err=denied"
+has "…not the President" "$(post $J/president.jar /tosov -d action=add -d date=2026-10-01 -d item=x -d qty=1 -d unit=1)" "err=denied"
+has "…not the maintainer" "$(post $J/dev.jar /tosov -d action=add -d date=2026-10-01 -d item=x -d qty=1 -d unit=1)" "err=denied"
+has "…nor change the numbers" "$(post $J/board.jar /tosov -d action=year -d planned=1 -d funds=1)" "err=denied"
+has "the President can't make himself the keeper" "$(post $J/president.jar /gishuud -d action=budget_on -d user=1 -d back=/gishuud/1)" "err=denied"
+has "the deputy can't name a keeper" "$(post $J/legal.jar /gishuud -d action=budget_on -d user=4 -d back=/gishuud/4)" "err=denied"
+has "the President's member page offers it" "$(get $J/president.jar /gishuud/4)" "Төсвийн хариуцагчаар томилох"
+has "the President names a keeper" "$(post $J/president.jar /gishuud -d action=budget_on -d user=4 -d back=/gishuud/4)" "ok=budget_keeper"
+has "…shown on the member list" "$(get $J/president.jar /gishuud)" "төсөв</span>"
+has "the keeper now gets the form" "$(get $J/dotood2.jar /tosov)" 'value="add"'
+TODAY=$(TZ=Asia/Shanghai date +%Y-%m-%d)
+LATER=$(TZ=Asia/Shanghai date -d '+10 day' +%Y-%m-%d)
+loc=$(post $J/dotood2.jar /tosov -d action=add -d date=$TODAY --data-urlencode "item=Цаас, A4 багц" --data-urlencode "purpose=Бичиг хэрэг" -d qty=3 --data-urlencode "unit=25.50" -d total=1)
+has "the keeper adds a line" "$loc" "ok=budget_added"
+pb=$(curl -s -H "$P" $B/tosov)
+has "…it is public at once" "$pb" "Цаас, A4 багц"
+has "…with the total computed (3 × 25.50), not typed" "$pb" "¥76.50"
+has "…and the spent sum moves" "$pb" "¥851.60"
+pg=$(curl -s -b $J/dotood2.jar -H "$S" -H "$O" -X POST -d action=add -d date=2999-01-01 -d item= -d qty=0 -d unit=abc $B/tosov)
+has "a bad line is refused with every problem listed" "$pg" "Дараах зүйлсийг засна уу"
+has "…a future date" "$pg" "Ирээдүйн огноо"
+has "…a zero quantity" "$pg" "нэг бүхэл тоогоор"
+has "a quantity is one whole number — no ranges, no fractions" "$(curl -s -b $J/dotood2.jar -H "$S" -H "$O" -X POST -d action=add -d kind=planned -d date=$TODAY -d item=x -d qty=300-450 -d unit=1 $B/tosov)" "нэг бүхэл тоогоор"
+has "the keeper sets the numbers" "$(post $J/dotood2.jar /tosov -d action=year --data-urlencode "planned=16,000" -d funds=13000 --data-urlencode "note=ЭСЯ-ны дэмжлэг")" "ok=budget_year"
+has "…and they are public" "$(curl -s -H "$P" $B/tosov)" "¥16,000"
+hasnt "…and the old note field is gone" "$(get $J/dotood2.jar /tosov)" 'name="note"'
+BID=$(npx wrangler d1 execute mnsa-db --local --json --command "SELECT id FROM budget_items WHERE item='Цаас, A4 багц'" 2>/dev/null | grep -o '"id": *[0-9]*' | grep -o '[0-9]*$')
+has "only the keeper removes a line" "$(post $J/president.jar /tosov -d action=remove -d id=$BID)" "err=denied"
+has "the keeper removes it" "$(post $J/dotood2.jar /tosov -d action=remove -d id=$BID --data-urlencode "reason=Давхар орсон")" "ok=budget_removed"
+hasnt "…it leaves the public table" "$(curl -s -H "$P" $B/tosov)" "Цаас, A4 багц"
+pg=$(get $J/gadaad.jar /tosov)
+has "…but the staff page keeps it, with who and why" "$pg" "Давхар орсон"
+has "…under removed lines" "$pg" "Хассан мөрүүд"
+has "removing twice is refused" "$(post $J/dotood2.jar /tosov -d action=remove -d id=$BID)" "err=denied"
+has "the audit log records it" "$(get $J/president.jar '/burtgel?cat=budget')" "Төсвөөс мөр хассан"
+has "a bought line can't be dated in the future" "$(curl -s -b $J/dotood2.jar -H "$S" -H "$O" -X POST -d action=add -d kind=spent -d date=$LATER -d item=x -d qty=1 -d unit=1 $B/tosov)" "Ирээдүйн огноо"
+has "the keeper lists a purchase to make, dated ahead" "$(post $J/dotood2.jar /tosov -d action=add -d kind=planned -d state=can -d date=$LATER --data-urlencode "item=Шагналын медаль" --data-urlencode "purpose=Спортын өдөр" -d qty=12 -d unit=12)" "ok=budget_planned"
+pb=$(curl -s -H "$P" $B/tosov)
+has "…it is public as planned" "$pb" "Шагналын медаль"
+has "…with its total (12 × 12)" "$pb" "¥144.00"
+has "…but not spent: the sum hasn't moved" "$pb" "¥775.10"
+PID=$(npx wrangler d1 execute mnsa-db --local --json --command "SELECT id FROM budget_items WHERE item='Шагналын медаль'" 2>/dev/null | grep -o '"id": *[0-9]*' | grep -o '[0-9]*$')
+has "only the keeper changes its state" "$(post $J/board.jar /tosov -d action=state -d id=$PID -d state=cannot)" "err=denied"
+has "the keeper postpones it" "$(post $J/dotood2.jar /tosov -d action=state -d id=$PID -d state=postponed)" "ok=budget_state"
+has "…in the audit log" "$(get $J/president.jar '/burtgel?cat=budget')" "Төлөвлөсний байдлыг өөрчилсөн"
+has "the state menu saves in the background, without reloading the page" "$(curl -s -b $J/dotood2.jar -H "$S" -H "$O" -H "Accept: application/json" -X POST -d action=state -d id=$PID -d state=can $B/tosov)" '{"ok":true}'
+check "…and refuses someone else with a 403" "$(curl -s -o /dev/null -w '%{http_code}' -b $J/board.jar -H "$S" -H "$O" -H "Accept: application/json" -X POST -d action=state -d id=$PID -d state=can $B/tosov)" 403
+has "a made-up state is refused" "$(post $J/dotood2.jar /tosov -d action=state -d id=$PID -d state=maybe)" "err=denied"
+has "only the keeper marks it bought" "$(post $J/president.jar /tosov -d action=confirm -d id=$PID -d qty=10 -d unit=11 -d date=$TODAY)" "err=denied"
+has "marking it bought needs a real date" "$(post $J/dotood2.jar /tosov -d action=confirm -d id=$PID -d qty=10 -d unit=11 -d date=$LATER)" "err=budget_confirm_invalid"
+has "the keeper marks it bought, at the real price" "$(post $J/dotood2.jar /tosov -d action=confirm -d id=$PID -d qty=10 --data-urlencode "unit=11.50" -d date=$TODAY)" "ok=budget_bought"
+pb=$(curl -s -H "$P" $B/tosov)
+has "…now it counts as spent (10 × 11.50)" "$pb" "¥115.00"
+has "…and the spent sum moves" "$pb" "¥890.10"
+has "a bought line can't be marked bought again" "$(post $J/dotood2.jar /tosov -d action=confirm -d id=$PID -d qty=1 -d unit=1 -d date=$TODAY)" "err=denied"
+has "the audit log keeps plan and purchase" "$(get $J/president.jar '/burtgel?cat=budget')" "Худалдаж авсан гэж тэмдэглэсэн"
+has "the old «Байгаа / Хандиваар» kinds are gone: such a post is a plain bought line" "$(post $J/dotood2.jar /tosov -d action=add -d kind=donated -d date=$TODAY --data-urlencode "item=Аарц" -d qty=2 -d unit=3)" "ok=budget_added"
+has "the President relieves the keeper" "$(post $J/president.jar /gishuud -d action=budget_off -d user=4 -d back=/gishuud/4)" "ok=budget_keeper_off"
+has "…who can no longer add" "$(post $J/dotood2.jar /tosov -d action=add -d date=$TODAY -d item=x -d qty=1 -d unit=1)" "err=denied"
+check "the staff budget page doesn't exist on the public host" "$(curl -s -o /dev/null -w '%{http_code}' -H "$P" $B/dep/tosov)" 404
+
 echo "── safety"
 J4=$(mktemp -d); login president@demo.test $J4/p.jar
 loc=$(curl -s -o /dev/null -w '%{redirect_url}' -b $J4/p.jar -H "$S" "$B/nevtreh?next=/%09/evil.example")

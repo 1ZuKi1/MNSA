@@ -1,0 +1,169 @@
+---
+/**
+ * «Төсөв» — the association's budget, open to everyone. Read only: it is kept on the staff site
+ * (team.pkumongolia.com/tosov) by the «Төсвийн хариуцагч». Rendered per request so a new line shows at once.
+ */
+export const prerender = false;
+import Public from '../layouts/Public.astro';
+import Band from '../components/Band.astro';
+import BudgetFigures from '../components/BudgetFigures.astro';
+import { PLAN_STATE_LABEL, budgetKeepers, budgetYears, loadBudget, yearLabel } from '../lib/budget';
+import { fmtQty, fmtYuan, percentOf } from '../lib/money';
+import { academicYear, fmtDate, fmtLong } from '../lib/time';
+
+const years = await budgetYears();
+const asked = Astro.url.searchParams.get('on') ?? '';
+const year = years.includes(asked) ? asked : academicYear();
+const [b, keepers] = await Promise.all([loadBudget(year), budgetKeepers(true)]);
+const yearHref = (y: string) => (y === academicYear() ? '/tosov' : `/tosov?on=${y}`);
+
+// «Юунд хэдийг» — the same lines summed by what they were for, largest first.
+const OTHER = 'Бусад';
+const byPurpose = [...b.items.reduce((m, i) => m.set(i.purpose ?? OTHER, (m.get(i.purpose ?? OTHER) ?? 0) + i.total_fen), new Map<string, number>())]
+  .map(([name, fen]) => ({ name, fen }))
+  .sort((x, y) => (x.name === OTHER ? 1 : y.name === OTHER ? -1 : y.fen - x.fen));
+---
+<Public title="Төсөв" description="Бээжингийн Их Сургуулийн Монгол Оюутны Холбооны төсөв: төлөвлөсөн дүн, байгаа хөрөнгө, юунд хэдийг зарцуулсан нь.">
+  <Band
+    kicker="Ил тод байдал"
+    title="Төсөв"
+    lede="Холбооны мөнгийг юунд, хэдийг зарцуулж байгааг бүгд харах боломжтой. Зарлага бүрийг гарсан даруйд нь энд бүртгэнэ."
+  />
+
+  {years.length > 1 && (
+    <nav class="toc" aria-label="Хичээлийн жил">
+      <div class="wrap">
+        <ul>
+          {years.map((y) => <li><a href={yearHref(y)} aria-current={y === year ? 'page' : undefined}>{yearLabel(y)}</a></li>)}
+        </ul>
+      </div>
+    </nav>
+  )}
+
+  <section class="sec" aria-labelledby="sum-h">
+    <div class="wrap">
+      <span class="sec-label">{yearLabel(year)} оны хичээлийн жил</span>
+      <h2 id="sum-h">Товч дүн</h2>
+      <BudgetFigures b={b} />
+    </div>
+  </section>
+
+  <section class="sec" aria-labelledby="lines-h" id="zarlaga">
+    <div class="wrap">
+      <span class="sec-label">Зарцуулалт</span>
+      <h2 id="lines-h">Зарлага бүрээр</h2>
+      {b.items.length === 0 ? (
+        <p class="empty">{yearLabel(year)} оны хичээлийн жилд одоогоор худалдан авалт хийгээгүй байна.</p>
+      ) : (
+        <div class="ledger-wrap" role="region" aria-labelledby="lines-h" tabindex="0">
+          <table class="ledger">
+            <caption class="sr-only">{yearLabel(year)} оны зарлага, огноогоор. Нийт үнэ = тоо ширхэг × нэгжийн үнэ.</caption>
+            <thead>
+              <tr>
+                <th scope="col" class="n">№</th>
+                <th scope="col">Огноо</th>
+                <th scope="col">Зүйл</th>
+                <th scope="col" class="r">Тоо ширхэг</th>
+                <th scope="col" class="r">Нэгжийн үнэ</th>
+                <th scope="col" class="r">Нийт үнэ</th>
+              </tr>
+            </thead>
+            <tbody>
+              {b.items.map((i, n) => (
+                <tr>
+                  <td class="n num">{n + 1}</td>
+                  <td class="d num">{fmtDate(i.spent_on)}</td>
+                  <th scope="row" class="what">
+                    {i.item}
+                    {i.purpose && <small>{i.purpose}</small>}
+                    <small class="m-calc num">{fmtQty(i.qty_c)} × {fmtYuan(i.unit_fen)} · {fmtDate(i.spent_on)}</small>
+                  </th>
+                  <td class="r q num">{fmtQty(i.qty_c)}</td>
+                  <td class="r u num">{fmtYuan(i.unit_fen, 'always')}</td>
+                  <td class="r t num">{fmtYuan(i.total_fen, 'always')}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr>
+                <th scope="row" colspan="5">Нийт зарцуулсан</th>
+                <td class="r t num">{fmtYuan(b.spentFen, 'always')}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      )}
+      <p class="note">
+        {keepers.length > 0 && <>Төсвийн хариуцагч: {keepers.map((k) => k.name_mn).join(', ')}. </>}
+        {b.updatedAt && <>Сүүлд шинэчилсэн: {fmtLong(b.updatedAt)}. </>}
+      </p>
+    </div>
+  </section>
+
+  {b.toBuy.length > 0 && (
+    <section class="sec alt" aria-labelledby="buy-h" id="tolovlosn">
+      <div class="wrap">
+        <span class="sec-label">Хараахан аваагүй</span>
+        <h2 id="buy-h">Авахаар төлөвлөсөн</h2>
+        <div class="ledger-wrap plan" role="region" aria-labelledby="buy-h" tabindex="0">
+          <table class="ledger">
+            <caption class="sr-only">Авахаар төлөвлөсөн зүйлс. Тооцоот нийт = тоо ширхэг × нэгжийн үнэ.</caption>
+            <thead>
+              <tr>
+                <th scope="col" class="n">№</th>
+                <th scope="col">Хэзээ</th>
+                <th scope="col">Зүйл</th>
+                <th scope="col" class="r">Тоо ширхэг</th>
+                <th scope="col" class="r">Нэгжийн үнэ</th>
+                <th scope="col" class="r">Тооцоот нийт</th>
+                <th scope="col" class="s">Одоогийн байдлаар</th>
+              </tr>
+            </thead>
+            <tbody>
+              {b.toBuy.map((i, n) => (
+                <tr>
+                  <td class="n num">{n + 1}</td>
+                  <td class="d num">{fmtDate(i.spent_on)}</td>
+                  <th scope="row" class="what">
+                    {i.item}
+                    {i.purpose && <small>{i.purpose}</small>}
+                    <small class="m-calc num">{fmtQty(i.qty_c)} × {fmtYuan(i.unit_fen)} · {fmtDate(i.spent_on)}</small>
+                  </th>
+                  <td class="r q num">{fmtQty(i.qty_c)}</td>
+                  <td class="r u num">{fmtYuan(i.unit_fen, 'always')}</td>
+                  <td class="r t num">{fmtYuan(i.total_fen, 'always')}</td>
+                  <td class="s"><span class={`pstate ps-${i.plan_state ?? 'can'}`}>{PLAN_STATE_LABEL[i.plan_state ?? 'can']}</span></td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr>
+                <th scope="row" colspan="5">Нийт хэрэгтэй</th>
+                <td class="r t num">{fmtYuan(b.toBuyFen, 'always')}</td>
+                <td class="s"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </section>
+  )}
+
+  {byPurpose.length > 1 && (
+    <section class="sec" aria-labelledby="what-h">
+      <div class="wrap">
+        <span class="sec-label">Зориулалтаар</span>
+        <h2 id="what-h">Юунд хэдийг</h2>
+        <ul class="spend-by">
+          {byPurpose.map((p) => (
+            <li>
+              <span class="sb-name">{p.name}</span>
+              <span class="sb-val num">{fmtYuan(p.fen)}<small>{percentOf(p.fen, b.spentFen)}%</small></span>
+              <span class="sb-bar" aria-hidden="true"><span style={`width:${Math.max(1, percentOf(p.fen, b.spentFen))}%`}></span></span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  )}
+</Public>

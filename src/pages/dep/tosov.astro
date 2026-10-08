@@ -1,0 +1,482 @@
+---
+/**
+ * «Төсөв» on the staff site. Everyone in the workspace reads it (it is public anyway); only a
+ * «Төсвийн хариуцагч» adds and removes lines and sets the planned / in-hand numbers. A line can be listed
+ * before buying («Авахаар төлөвлөсөн») and marked bought later, with what it really cost. The same tables,
+ * read only, are on pkumongolia.com/tosov. Removed lines stay here under «Хассан мөрүүд».
+ */
+export const prerender = false;
+import Staff from '../../layouts/Staff.astro';
+import PageHead from '../../components/PageHead.astro';
+import Icon from '../../components/Icon.astro';
+import {
+  PLAN_STATE_LABEL, PLAN_STATES, addItem, budgetActor, confirmItem, setPlanState, type PlanState, budgetKeepers, budgetYears, isValidYear, loadBudget, removeItem, removedItems, setYearNumbers, yearLabel,
+} from '../../lib/budget';
+import { many } from '../../lib/db';
+import { readBudgetConfirmForm, readBudgetItemForm, readBudgetYearForm, type BudgetItemValues } from '../../lib/forms';
+import { clientIp, int, str, withFlash } from '../../lib/http';
+import { fmtQty, fmtYuan, hundredthsInput, percentOf } from '../../lib/money';
+import * as P from '../../lib/permissions';
+import { Denied } from '../../lib/records';
+import { publicOrigin } from '../../lib/site';
+import { academicYear, fmtDate, fmtDateTime, now, toDateInput } from '../../lib/time';
+
+const user = Astro.locals.user!;
+const actor = await budgetActor(user);
+const keeps = P.canKeepBudget(actor);
+const asked = Astro.url.searchParams.get('on') ?? '';
+const year = isValidYear(asked) ? asked : academicYear();
+const here = year === academicYear() ? '/tosov' : `/tosov?on=${year}`;
+const today = toDateInput(now());
+
+let item: BudgetItemValues = { kind: 'spent', state: 'can', date: today, item: '', purpose: '', qty: '1', unit: '' };
+let itemErrors: Record<string, string> = {};
+let yearValues: { planned: string; funds: string } | null = null;
+let yearErrors: Record<string, string> = {};
+
+if (Astro.request.method === 'POST') {
+  const fd = await Astro.request.formData();
+  const action = str(fd, 'action', 20);
+  const ip = clientIp(Astro.request);
+  // The state menu on a planned line saves in the background and asks for a short JSON answer, so the page
+  // stays where it is; without JavaScript it posts normally and comes back to the table.
+  const json = (Astro.request.headers.get('accept') ?? '').includes('application/json');
+  const reply = (ok: boolean) => new Response(JSON.stringify({ ok }), { status: ok ? 200 : 403, headers: { 'content-type': 'application/json' } });
+  if (!keeps) return json ? reply(false) : Astro.redirect(withFlash(here, 'denied', 'err'));
+  try {
+    if (action === 'add') {
+      const form = readBudgetItemForm(fd, today);
+      ({ values: item, errors: itemErrors } = form);
+      if (form.ok) {
+        await addItem(user, form.input!, ip);
+        // the line may belong to another year than the one on screen (a late-August receipt): go to its year
+        const y = academicYear(form.input!.spentOn);
+        const k = form.input!.status;
+        const to = `${y === academicYear() ? '/tosov' : `/tosov?on=${y}`}${k === 'planned' ? '#to-buy' : '#lines'}`;
+        return Astro.redirect(withFlash(to, k === 'planned' ? 'budget_planned' : 'budget_added'));
+      }
+    } else if (action === 'state') {
+      await setPlanState(user, int(str(fd, 'id', 12)) ?? 0, str(fd, 'state', 12) as PlanState, ip);
+      return json ? reply(true) : Astro.redirect(withFlash(`${here}#to-buy`, 'budget_state'));
+    } else if (action === 'confirm') {
+      const form = readBudgetConfirmForm(fd, today);
+      if (!form.ok) return Astro.redirect(withFlash(`${here}#to-buy`, 'budget_confirm_invalid', 'err'));
+      const y = await confirmItem(user, int(str(fd, 'id', 12)) ?? 0, form.input!, ip);
+      return Astro.redirect(withFlash(`${y === academicYear() ? '/tosov' : `/tosov?on=${y}`}#lines`, 'budget_bought'));
+    } else if (action === 'remove') {
+      await removeItem(user, int(str(fd, 'id', 12)) ?? 0, str(fd, 'reason', 200) || null, ip);
+      return Astro.redirect(withFlash(`${here}#lines`, 'budget_removed'));
+    } else if (action === 'year') {
+      const form = readBudgetYearForm(fd);
+      yearValues = form.values;
+      yearErrors = form.errors;
+      if (form.ok) {
+        await setYearNumbers(user, year, form.input!, ip);
+        return Astro.redirect(withFlash(here, 'budget_year'));
+      }
+    }
+  } catch (e) {
+    if (e instanceof Denied) return json ? reply(false) : Astro.redirect(withFlash(here, 'denied', 'err'));
+    throw e;
+  }
+}
+
+const [b, years, removed, keepers, purposes] = await Promise.all([
+  loadBudget(year),
+  budgetYears(),
+  removedItems(year),
+  budgetKeepers(),
+  keeps
+    ? many<{ p: string }>(
+        `SELECT p FROM (SELECT purpose AS p, MAX(created_at) AS t FROM budget_items WHERE purpose IS NOT NULL GROUP BY purpose
+                        UNION ALL SELECT title, created_at FROM events WHERE academic_year = ? AND status <> 'cancelled')
+          GROUP BY p ORDER BY MAX(t) DESC LIMIT 30`,
+        year,
+      )
+    : Promise.resolve([]),
+]);
+yearValues ??= { planned: b.hasHeader ? hundredthsInput(b.plannedFen) : '', funds: b.hasHeader ? hundredthsInput(b.fundsFen) : '' };
+const over = b.hasHeader && b.remainingFen < 0;
+const usedPct = percentOf(b.spentFen, b.plannedFen);
+const publicUrl = `${publicOrigin(Astro.url)}/tosov${year === academicYear() ? '' : `?on=${year}`}`;
+const ITEM_LABEL: Record<string, string> = { date: 'Огноо', item: 'Зүйл', qty: 'Тоо ширхэг', unit: 'Нэгжийн үнэ' };
+const KINDS = [
+  { v: 'spent', b: 'Худалдаж авсан', t: 'Мөнгө зарцуулагдсан. Зарцуулалтад шууд тооцогдоно.' },
+  { v: 'planned', b: 'Авахаар төлөвлөж байна', t: 'Мөнгө хараахан гараагүй. Авмагцаа «Авсан» дарна.' },
+] as const;
+const itemProblems = Object.keys(ITEM_LABEL).filter((k) => itemErrors[k]);
+const keeperNames = keepers.map((k) => k.name_mn).join(', ');
+---
+<Staff title="Төсөв">
+  <PageHead title="Төсөв" sub={`${yearLabel(year)} оны хичээлийн жилийн төсөв, зарцуулалт. Энэ хүснэгт нийтийн сайтад бүгдэд ил харагдана.`}>
+    <Fragment slot="actions">
+      <a class="btn" href={publicUrl} target="_blank" rel="noopener"><Icon name="globe" /> Нийтийн хуудсыг харах<span class="sr-only"> (шинэ цонхонд)</span></a>
+    </Fragment>
+  </PageHead>
+
+  {years.length > 1 && (
+    <nav class="tabs" aria-label="Хичээлийн жил">
+      {years.map((y) => <a href={y === academicYear() ? '/tosov' : `/tosov?on=${y}`} aria-current={y === year ? 'page' : undefined}>{yearLabel(y)}</a>)}
+    </nav>
+  )}
+
+  <div class="stats budget-stats" role="group" aria-label="Төсвийн дүн">
+    <div class="stat"><b class="num">{b.hasHeader && b.plannedFen > 0 ? fmtYuan(b.plannedFen) : '—'}</b><span>Төлөвлөсөн төсөв</span></div>
+    <div class="stat"><b class="num">{b.hasHeader ? fmtYuan(b.fundsFen) : '—'}</b><span>Одоо байгаа хөрөнгө</span></div>
+    <div class="stat"><b class="num">{fmtYuan(b.spentFen)}</b><span>Зарцуулсан{b.plannedFen > 0 && <> · төлөвлөснөөс {usedPct}%</>}</span></div>
+    <div class:list={['stat', { 'stat-bad': over }]}><b class="num">{b.hasHeader ? fmtYuan(b.remainingFen) : '—'}</b><span>{over ? 'Байгаа хөрөнгөөс илүү зарцуулсан' : 'Үлдэгдэл'}</span></div>
+    {b.toBuy.length > 0 && (
+      <a class:list={['stat stat-plan', { 'stat-bad': b.hasHeader && b.afterToBuyFen < 0 }]} href="#to-buy">
+        <b class="num">{fmtYuan(b.toBuyFen)}</b>
+        <span>Авахаар төлөвлөсөн{b.hasHeader && <> · авсны дараа {fmtYuan(b.afterToBuyFen)}</>}</span>
+      </a>
+    )}
+  </div>
+
+  {!keeps && (
+    <p class="form-note budget-who">
+      <Icon name="wallet" class="inline-ic muted-ic" />
+      {keepers.length
+        ? <>Төсвийг <b>{keeperNames}</b> хөтөлдөг. Засах зүйл байвал түүнд хэлнэ үү.</>
+        : <>Төсвийн хариуцагч томилогдоогүй байна. Тэргүүн «Гишүүд» хэсэгт тухайн хүний хуудсанд томилно.</>}
+    </p>
+  )}
+
+  {keeps && (
+    <div class="cols budget-forms">
+      <form method="post" class="panel" id="add" aria-labelledby="add-h" data-guard>
+        <input type="hidden" name="action" value="add" />
+        <div class="panel-head"><h2 id="add-h"><Icon name="plus" /> Мөр нэмэх</h2></div>
+        <div class="panel-body" style="display:grid;gap:14px">
+          <fieldset class="field">
+            <legend class="label">Худалдаж авсан уу?</legend>
+            <div class="choice-cards budget-kind">
+              {KINDS.map((k) => (
+                <label class="choice">
+                  <input type="radio" name="kind" value={k.v} checked={item.kind === k.v} />
+                  <span><b>{k.b}</b><span>{k.t}</span></span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+          <div class="field" data-for="planned" style="max-width:280px">
+            <label for="b_state">Одоогийн байдлаар</label>
+            <select id="b_state" name="state">
+              {PLAN_STATES.map((st) => <option value={st} selected={item.state === st}>{PLAN_STATE_LABEL[st]}</option>)}
+            </select>
+          </div>
+          {itemProblems.length > 0 && (
+            <div class="error-summary" role="alert" tabindex="-1" id="errors">
+              <h2><Icon name="alert" /> Дараах зүйлсийг засна уу</h2>
+              <ul>{itemProblems.map((k) => <li><a href={`#b_${k}`}>{ITEM_LABEL[k]}: {itemErrors[k]}</a></li>)}</ul>
+            </div>
+          )}
+          <div class="two">
+            <div class="field">
+              <label for="b_item">Зүйл</label>
+              <input id="b_item" name="item" type="text" required maxlength="200" value={item.item} placeholder="Жишээ нь: Ус, 1.5 л" autocomplete="off"
+                aria-invalid={itemErrors.item ? 'true' : undefined} aria-describedby={itemErrors.item ? 'b_item-err' : undefined} />
+              {itemErrors.item && <span class="error" id="b_item-err"><Icon name="alert" /> {itemErrors.item}</span>}
+            </div>
+            <div class="field">
+              <label for="b_purpose">Зориулалт <span class="opt">(заавал биш)</span></label>
+              <input id="b_purpose" name="purpose" type="text" maxlength="200" value={item.purpose} list="b_purposes" autocomplete="off"
+                placeholder="Жишээ нь: Шинэ оюутныг угтах арга хэмжээ" aria-describedby="b_purpose-hint" />
+              <datalist id="b_purposes">{purposes.map((p) => <option value={p.p} />)}</datalist>
+              <span class="hint" id="b_purpose-hint">Ямар арга хэмжээ, ажилд. Өмнө бичсэн, энэ жилийн арга хэмжээнүүд санал болгогдоно.</span>
+            </div>
+          </div>
+          <div class="budget-nums">
+            <div class="field">
+              <label for="b_qty">Тоо ширхэг</label>
+              <input id="b_qty" name="qty" type="text" inputmode="numeric" pattern="[0-9]*" required value={item.qty} autocomplete="off"
+                aria-invalid={itemErrors.qty ? 'true' : undefined} aria-describedby={itemErrors.qty ? 'b_qty-err' : undefined} />
+              {itemErrors.qty && <span class="error" id="b_qty-err"><Icon name="alert" /> {itemErrors.qty}</span>}
+            </div>
+            <span class="op" aria-hidden="true">×</span>
+            <div class="field">
+              <label for="b_unit">Нэгжийн үнэ, ¥</label>
+              <input id="b_unit" name="unit" type="text" inputmode="decimal" required value={item.unit} placeholder="0.00" autocomplete="off"
+                aria-invalid={itemErrors.unit ? 'true' : undefined} aria-describedby={itemErrors.unit ? 'b_unit-err' : undefined} />
+              {itemErrors.unit && <span class="error" id="b_unit-err"><Icon name="alert" /> {itemErrors.unit}</span>}
+            </div>
+            <span class="op" aria-hidden="true">=</span>
+            <div class="field">
+              <span class="label" id="b_total-l">Нийт үнэ</span>
+              <output class="budget-total num" id="b_total" for="b_qty b_unit" aria-labelledby="b_total-l" aria-live="polite">—</output>
+            </div>
+          </div>
+          <div class="field" style="max-width:280px">
+            <label for="b_date">Огноо</label>
+            <input id="b_date" name="date" type="date" required max={item.kind === 'spent' ? today : undefined} value={item.date} data-today={today}
+              aria-invalid={itemErrors.date ? 'true' : undefined} aria-describedby={itemErrors.date ? 'b_date-err b_date-hint' : 'b_date-hint'} />
+            <span class="hint" id="b_date-hint">Худалдаж авсан өдөр. Төлөвлөж буй бол авах гэж буй өдөр — ирээдүйд байж болно.</span>
+            {itemErrors.date && <span class="error" id="b_date-err"><Icon name="alert" /> {itemErrors.date}</span>}
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-primary" type="submit"><Icon name="plus" /> Нэмэх</button>
+            <span class="form-note">Нийт үнийг систем өөрөө тооцно. Нэмсэн мөр нийтийн сайтад шууд гарна.</span>
+          </div>
+        </div>
+      </form>
+
+      <form method="post" class="panel" id="numbers" aria-labelledby="num-h">
+        <input type="hidden" name="action" value="year" />
+        <div class="panel-head"><h2 id="num-h"><Icon name="wallet" /> {yearLabel(year)} оны дүн</h2></div>
+        <div class="panel-body" style="display:grid;gap:14px">
+          <div class="field">
+            <label for="y_planned">Төлөвлөсөн төсөв, ¥</label>
+            <input id="y_planned" name="planned" type="text" inputmode="decimal" value={yearValues.planned} placeholder="0" autocomplete="off"
+              aria-invalid={yearErrors.planned ? 'true' : undefined} aria-describedby="y_planned-hint" />
+            <span class="hint" id="y_planned-hint">Жилийн эхэнд төлөвлөсөн нийт дүн.</span>
+            {yearErrors.planned && <span class="error"><Icon name="alert" /> {yearErrors.planned}</span>}
+          </div>
+          <div class="field">
+            <label for="y_funds">Одоо байгаа хөрөнгө, ¥</label>
+            <input id="y_funds" name="funds" type="text" inputmode="decimal" value={yearValues.funds} placeholder="0" autocomplete="off"
+              aria-invalid={yearErrors.funds ? 'true' : undefined} aria-describedby="y_funds-hint" />
+            <span class="hint" id="y_funds-hint">Бодитоор хүлээн авсан мөнгө. Үлдэгдэл = байгаа хөрөнгө − зарцуулсан.</span>
+            {yearErrors.funds && <span class="error"><Icon name="alert" /> {yearErrors.funds}</span>}
+          </div>
+          <div><button class="btn" type="submit" data-confirm="Төсвийн дүнг шинэчлэх үү? Нийтийн сайтад шууд харагдана.">Хадгалах</button></div>
+        </div>
+      </form>
+    </div>
+  )}
+
+
+  {b.toBuy.length > 0 && (
+    <section aria-labelledby="buy-h" id="to-buy" class="budget-lines budget-plan">
+      <h2 class="sec-title" id="buy-h">Авахаар төлөвлөсөн <span class="badge plain b-gold">{b.toBuy.length} мөр · {fmtYuan(b.toBuyFen)}</span></h2>
+      <p class="form-note" style="margin:-4px 0 12px">Мөнгө хараахан гараагүй, зарцуулалтад тооцогдоогүй. Худалдаж авмагц «Авсан» дарж бодит үнийг оруулна.</p>
+      <div class="table-wrap budget-wrap">
+        <table class="t budget-t">
+          <caption class="sr-only">{yearLabel(year)} онд авахаар төлөвлөсөн зүйлс</caption>
+          <thead>
+            <tr>
+              <th scope="col" class="num">№</th>
+              <th scope="col">Зүйл</th>
+              <th scope="col" class="num">Тоо</th>
+              <th scope="col" class="num">Нэгжийн үнэ</th>
+              <th scope="col" class="num">Тооцоот нийт</th>
+              <th scope="col">Одоогийн байдлаар</th>
+              {keeps && <th scope="col"><span class="sr-only">Үйлдэл</span></th>}
+            </tr>
+          </thead>
+          <tbody>
+            {b.toBuy.map((i, n) => (
+              <tr>
+                <td class="num muted">{n + 1}</td>
+                <th scope="row" class="item-cell">
+                  {i.item}
+                  <span class="sub">{i.purpose && <>{i.purpose} · </>}{fmtDate(i.spent_on)}</span>
+                  <span class="sub m-only num">{fmtQty(i.qty_c)} × {fmtYuan(i.unit_fen)}</span>
+                </th>
+                <td class="num nowrap">{fmtQty(i.qty_c)}</td>
+                <td class="num nowrap">{fmtYuan(i.unit_fen, 'always')}</td>
+                <td class="num nowrap strong total">{fmtYuan(i.total_fen, 'always')}</td>
+                <td class="state">
+                  {keeps ? (
+                    <form method="post" class="state-form">
+                      <input type="hidden" name="action" value="state" />
+                      <input type="hidden" name="id" value={i.id} />
+                      <label class="sr-only" for={`s_${i.id}`}>«{i.item}» — одоогийн байдлаар</label>
+                      <select id={`s_${i.id}`} name="state" class:list={['state-select', `ps-${i.plan_state ?? 'can'}`]} data-autosubmit>
+                        {PLAN_STATES.map((st) => <option value={st} selected={(i.plan_state ?? 'can') === st}>{PLAN_STATE_LABEL[st]}</option>)}
+                      </select>
+                      <noscript><button class="btn btn-sm" type="submit">Хадгалах</button></noscript>
+                      <span class="state-saved" aria-live="polite"></span>
+                    </form>
+                  ) : (
+                    <span class:list={['badge plain', `ps-${i.plan_state ?? 'can'}`]}>{PLAN_STATE_LABEL[i.plan_state ?? 'can']}</span>
+                  )}
+                </td>
+                {keeps && (
+                  <td class="actions">
+                    <details class="row-remove row-confirm">
+                      <summary class="btn btn-sm btn-ok"><Icon name="check" /> Авсан<span class="sr-only"> — «{i.item}»</span></summary>
+                      <form method="post" class="row-remove-form row-confirm-form">
+                        <input type="hidden" name="action" value="confirm" />
+                        <input type="hidden" name="id" value={i.id} />
+                        <p class="form-note">Бодитоор хэдийг, хэдээр авсан бэ?</p>
+                        <label><span>Тоо</span><input name="qty" type="text" inputmode="numeric" pattern="[0-9]*" required value={hundredthsInput(i.qty_c)} autocomplete="off" /></label>
+                        <label><span>Нэгжийн үнэ, ¥</span><input name="unit" type="text" inputmode="decimal" required value={hundredthsInput(i.unit_fen)} autocomplete="off" /></label>
+                        <label><span>Огноо</span><input name="date" type="date" required max={today} value={i.spent_on > now() ? today : toDateInput(i.spent_on)} /></label>
+                        <button class="btn btn-sm btn-ok" type="submit"><Icon name="check" /> Худалдаж авсан</button>
+                      </form>
+                    </details>
+                    <details class="row-remove">
+                      <summary class="btn btn-sm btn-quiet" aria-label={`«${i.item}» төлөвлөгөөг хасах`}><Icon name="trash" /></summary>
+                      <form method="post" class="row-remove-form">
+                        <input type="hidden" name="action" value="remove" />
+                        <input type="hidden" name="id" value={i.id} />
+                        <label class="sr-only" for={`r_${i.id}`}>Хассан шалтгаан</label>
+                        <input id={`r_${i.id}`} name="reason" type="text" maxlength="200" placeholder="Шалтгаан (заавал биш)" />
+                        <button class="btn btn-sm btn-danger" type="submit" data-confirm={`«${i.item}»-ийг авахаар төлөвлөснөөс хасах уу?`}>Хасах</button>
+                      </form>
+                    </details>
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr>
+              <th scope="row" colspan="4">Нийт төлөвлөсөн</th>
+              <td class="num nowrap strong total">{fmtYuan(b.toBuyFen, 'always')}</td>
+              <td></td>
+              {keeps && <td></td>}
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </section>
+  )}
+
+  <section aria-labelledby="lines-h" id="lines" class="budget-lines">
+    <h2 class="sec-title" id="lines-h">Зарцуулалт <span class="badge plain b-muted">{b.items.length} мөр</span></h2>
+    {b.items.length === 0 ? (
+      <div class="empty"><Icon name="wallet" /><p><b>Одоогоор зарлага бүртгэгдээгүй.</b>{keeps && ' Дээрх маягтаар эхний мөрийг нэмнэ үү.'}</p></div>
+    ) : (
+      <div class="table-wrap budget-wrap">
+        <table class="t budget-t">
+          <caption class="sr-only">{yearLabel(year)} оны зарцуулалт, огноогоор</caption>
+          <thead>
+            <tr>
+              <th scope="col" class="num">№</th>
+              <th scope="col">Огноо</th>
+              <th scope="col">Зүйл</th>
+              <th scope="col" class="num">Тоо</th>
+              <th scope="col" class="num">Нэгжийн үнэ</th>
+              <th scope="col" class="num">Нийт</th>
+              {keeps && <th scope="col"><span class="sr-only">Үйлдэл</span></th>}
+            </tr>
+          </thead>
+          <tbody>
+            {b.items.map((i, n) => (
+              <tr>
+                <td class="num muted">{n + 1}</td>
+                <td class="nowrap num start">{fmtDate(i.spent_on)}</td>
+                <th scope="row" class="item-cell">
+                  {i.item}
+                  {i.purpose && <span class="sub">{i.purpose}</span>}
+                  <span class="sub m-only num">{fmtQty(i.qty_c)} × {fmtYuan(i.unit_fen)} · {fmtDate(i.spent_on)}</span>
+                </th>
+                <td class="num">{fmtQty(i.qty_c)}</td>
+                <td class="num nowrap">{fmtYuan(i.unit_fen, 'always')}</td>
+                <td class="num nowrap strong total">{fmtYuan(i.total_fen, 'always')}</td>
+                {keeps && (
+                  <td class="actions">
+                    <details class="row-remove">
+                      <summary class="btn btn-sm btn-quiet" aria-label={`«${i.item}» мөрийг хасах`}><Icon name="trash" /></summary>
+                      <form method="post" class="row-remove-form">
+                        <input type="hidden" name="action" value="remove" />
+                        <input type="hidden" name="id" value={i.id} />
+                        <label class="sr-only" for={`r_${i.id}`}>Хассан шалтгаан</label>
+                        <input id={`r_${i.id}`} name="reason" type="text" maxlength="200" placeholder="Шалтгаан (заавал биш)" />
+                        <button class="btn btn-sm btn-danger" type="submit" data-confirm={`«${i.item}» (${fmtYuan(i.total_fen)}) мөрийг нийтийн хүснэгтээс хасах уу?`}>Хасах</button>
+                      </form>
+                    </details>
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr>
+              <th scope="row" colspan="5">Нийт зарцуулсан</th>
+              <td class="num nowrap strong total">{fmtYuan(b.spentFen, 'always')}</td>
+              {keeps && <td></td>}
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    )}
+    {b.updatedAt && <p class="form-note" style="margin-top:10px">Сүүлд шинэчилсэн: {fmtDateTime(b.updatedAt)}</p>}
+  </section>
+
+  {removed.length > 0 && (
+    <details class="panel removed-panel">
+      <summary class="panel-head"><h2><Icon name="trash" /> Хассан мөрүүд <span class="badge plain b-muted">{removed.length}</span></h2></summary>
+      <div class="panel-body">
+        <p class="form-note">Нийтийн сайтад харагдахгүй, нийлбэрт орохгүй. Хэн, хэзээ хассан нь энд үлдэнэ.</p>
+        <ul class="items">
+          {removed.map((i) => (
+            <li class="item" style="grid-template-columns:minmax(0,1fr) auto">
+              <span class="item-title"><s>{i.item}</s>{i.purpose && <span class="muted"> · {i.purpose}</span>}{i.status === 'planned' && <span class="badge plain b-gold" style="margin-left:6px">төлөвлөсөн</span>}</span>
+              <span class="num nowrap" style="grid-column:2;grid-row:1"><s>{fmtYuan(i.total_fen)}</s></span>
+              <span class="item-meta" style="grid-column:1 / -1">
+                <span>{fmtQty(i.qty_c)} × {fmtYuan(i.unit_fen)}, {fmtDate(i.spent_on)}</span>
+                <span>нэмсэн {i.creator_name}</span>
+                <span>хассан {i.deleter_name}, {fmtDateTime(i.deleted_at)}</span>
+                {i.delete_reason && <span>«{i.delete_reason}»</span>}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </details>
+  )}
+</Staff>
+
+{keeps && (
+  <script is:inline>
+    (function () {
+      // The total, live, as the two numbers are typed — the same rules as the server (lib/money.ts).
+      var qty = document.getElementById('b_qty'), unit = document.getElementById('b_unit'), out = document.getElementById('b_total');
+      if (!qty || !unit || !out) return;
+      function cents(raw) {
+        var s = String(raw).trim().replace(/^¥\s*/, '').replace(/[\s  ]/g, '');
+        if (/^\d{1,3}(,\d{3})+(\.\d{1,2})?$/.test(s)) s = s.replace(/,/g, '');
+        else if (/^\d+,\d{1,2}$/.test(s)) s = s.replace(',', '.');
+        var m = /^(\d+)(?:\.(\d{1,2}))?$/.exec(s);
+        return m ? Number(m[1]) * 100 + Number((m[2] || '').padEnd(2, '0')) : null;
+      }
+      function yuan(f) { return '¥' + String(Math.floor(f / 100)).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + '.' + String(f % 100).padStart(2, '0'); }
+      function show() {
+        var q = /^\s*\d+\s*$/.test(qty.value) ? Number(qty.value) * 100 : null, u = cents(unit.value);
+        if (q === null || u === null || q <= 0) { out.textContent = '—'; return; }
+        out.textContent = yuan(Math.round((q * u) / 100));
+      }
+      qty.addEventListener('input', show); unit.addEventListener('input', show);
+      // changing a planned line's state saves at once, in the background: the colour changes straight away, a
+      // small tick confirms it, and the page stays where it is. If it fails, the old state comes back.
+      document.querySelectorAll('select[data-autosubmit]').forEach(function (sel) {
+        var was = sel.value;
+        var note = sel.form.querySelector('.state-saved');
+        function paint(v) { sel.className = sel.className.replace(/\bps-\w+/, 'ps-' + v); }
+        sel.addEventListener('change', function () {
+          var v = sel.value;
+          paint(v);
+          if (note) { note.textContent = ''; note.className = 'state-saved'; }
+          fetch(sel.form.getAttribute('action') || location.pathname + location.search, {
+            method: 'POST', body: new FormData(sel.form), credentials: 'same-origin', headers: { Accept: 'application/json' },
+          })
+            .then(function (r) { return r.json().then(function (d) { if (!r.ok || !d.ok) throw new Error(); }); })
+            .then(function () {
+              was = v;
+              if (note) { note.textContent = '✓ Хадгаллаа'; note.className = 'state-saved ok'; setTimeout(function () { note.textContent = ''; }, 2500); }
+            })
+            .catch(function () {
+              sel.value = was; paint(was);
+              if (note) { note.textContent = 'Хадгалагдсангүй'; note.className = 'state-saved err'; }
+            });
+        });
+      });
+      // what the form asks follows the kind of line: a bought line can't be dated in the future, a planned one
+      // can (and gets a state and may take a range), lines that cost nothing take no price, a donation names the giver
+      var date = document.getElementById('b_date');
+      function kind() { var c = document.querySelector('input[name=kind]:checked'); return c ? c.value : 'spent'; }
+      function apply() {
+        var k = kind();
+        if (k === 'spent') date.max = date.dataset.today; else date.removeAttribute('max');
+        document.querySelectorAll('#add [data-for]').forEach(function (el) {
+          el.hidden = el.dataset.for.split(' ').indexOf(k) < 0;
+        });
+        show();
+      }
+      document.querySelectorAll('input[name=kind]').forEach(function (r) { r.addEventListener('change', apply); });
+      apply();
+    })();
+  </script>
+)}

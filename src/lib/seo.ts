@@ -1,7 +1,7 @@
 /** robots.txt + sitemap.xml. Pure string builders, so they can be tested without a Worker. */
 
 /** Public pages that exist whatever is in the database. Events are added from the DB. */
-export const STATIC_PATHS = ['/', '/taniltsuulga', '/udirdlaga', '/uil-ajillagaa', '/shine-oyutan', '/holboo-barih'];
+export const STATIC_PATHS = ['/', '/taniltsuulga', '/udirdlaga', '/uil-ajillagaa', '/tosov', '/shine-oyutan', '/holboo-barih'];
 
 /** Search engines may index only the real public domain (pkumongolia.com, with or without www) — never workers.dev, staff or localhost. */
 export function isIndexableHost(hostname: string, publicHost: string): boolean {

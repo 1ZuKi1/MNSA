@@ -14,6 +14,8 @@
  *   document and the stamp stay the President's alone. The maintainer is not on the team either: they take
  *   no tasks or jobs and never appear publicly.
  *   The official stamp is the President's alone.
+ *   The budget («Төсөв») is kept only by a «Төсвийн хариуцагч», a permission the President grants: whoever
+ *   approves spending doesn't also keep the books, so the President and the maintainer can't be one.
  */
 import type { DeptSlug, RecordStatus, Role, SessionUser, Step, Visibility } from './types';
 
@@ -233,6 +235,22 @@ export function canSetDeputy(a: Actor): boolean {
 
 export function canSeeAudit(a: Actor): boolean {
   return hasPresidentPowers(a) || isBoard(a);
+}
+
+// ------------------------------------------------------------------ budget («Төсөв»)
+
+/**
+ * Adding and removing budget lines and changing the planned / in-hand numbers: only a «Төсвийн хариуцагч».
+ * Not the President and not the maintainer — they grant the permission, they don't use it. Everyone on
+ * the staff site may read the budget (it is public anyway).
+ */
+export function canKeepBudget(a: Actor & { isBudgetKeeper: boolean }): boolean {
+  return governs(a) && a.role !== 'president' && a.isBudgetKeeper;
+}
+
+/** The President (or the maintainer, with the President's powers) names a «Төсвийн хариуцагч» — never themselves. */
+export function canSetBudgetKeeper(a: Actor, target: MemberLike): boolean {
+  return hasPresidentPowers(a) && target.id !== a.id && target.role !== 'president' && target.role !== 'maintainer';
 }
 
 // ------------------------------------------------------------------ settings

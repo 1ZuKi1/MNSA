@@ -13,6 +13,8 @@ export const ICONS = {
   handshake: '<path d="M2.5 12l4-4 3.2 1.2L13 7l3 1 5.5 4.5"/><path d="M6.5 8L4 15.5l3 2.5M21.5 12.5L18 16l-3 2-4.5-3"/><path d="M9.8 16.5l1.8 1.5M12.6 14.6l2.2 1.8"/>',
   doc: '<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h6"/>',
   copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5.5A1.5 1.5 0 0 0 14.5 4h-9A1.5 1.5 0 0 0 4 5.5v9A1.5 1.5 0 0 0 5.5 16H8"/>',
+  // a wallet with its clasp (the budget)
+  wallet: '<path d="M19 8V5.5A1.5 1.5 0 0 0 17.5 4H6a2.5 2.5 0 0 0 0 5h13.5A1.5 1.5 0 0 1 21 10.5v8a1.5 1.5 0 0 1-1.5 1.5h-14A2.5 2.5 0 0 1 3 17.5v-11"/><path d="M16.5 14.5h1"/>',
   // workspace
   // a question mark in a circle
   help: '<circle cx="12" cy="12" r="8.5"/><path d="M9.7 9.4a2.4 2.4 0 0 1 4.6.9c0 1.7-2.3 2.1-2.3 3.7"/><path d="M12 17v.3"/>',

@@ -273,3 +273,29 @@ describe('jobs («Ажлууд»)', () => {
     expect(P.canTakeJob(mediaMember, job({ ownerId: null, helperIds: [mediaMember.id] }))).toBe(true);
   });
 });
+
+describe('the budget is kept only by a «Төсвийн хариуцагч»', () => {
+  const keeper = { ...dotoodMember, isBudgetKeeper: true };
+  it('the keeper may change it; nobody else, the President and the maintainer included', () => {
+    expect(P.canKeepBudget(keeper)).toBe(true);
+    expect(P.canKeepBudget({ ...dotoodMember, isBudgetKeeper: false })).toBe(false);
+    expect(P.canKeepBudget({ ...president, isBudgetKeeper: false })).toBe(false);
+    expect(P.canKeepBudget({ ...board, isBudgetKeeper: false })).toBe(false);
+    expect(P.canKeepBudget({ ...maintainer, isBudgetKeeper: false })).toBe(false);
+  });
+  it('a stale flag on a President or the maintainer grants nothing', () => {
+    expect(P.canKeepBudget({ ...president, isBudgetKeeper: true })).toBe(false);
+    expect(P.canKeepBudget({ ...maintainer, isBudgetKeeper: true })).toBe(false);
+  });
+  it('the President (or the maintainer) names the keeper — never themselves, never the President', () => {
+    const target = { id: dotoodMember.id, role: dotoodMember.role, isDeputy: false };
+    expect(P.canSetBudgetKeeper(president, target)).toBe(true);
+    expect(P.canSetBudgetKeeper(maintainer, target)).toBe(true);
+    expect(P.canSetBudgetKeeper(legalHead, target)).toBe(false); // the deputy adds members, not the keeper
+    expect(P.canSetBudgetKeeper(board, target)).toBe(false);
+    expect(P.canSetBudgetKeeper(dotoodHead, target)).toBe(false);
+    expect(P.canSetBudgetKeeper(president, { id: president.id, role: 'president', isDeputy: false })).toBe(false);
+    expect(P.canSetBudgetKeeper(maintainer, { id: president.id, role: 'president', isDeputy: false })).toBe(false);
+    expect(P.canSetBudgetKeeper(president, { id: maintainer.id, role: 'maintainer', isDeputy: false })).toBe(false);
+  });
+});
