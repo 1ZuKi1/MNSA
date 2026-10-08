@@ -8,7 +8,7 @@ import Public from '../layouts/Public.astro';
 import Band from '../components/Band.astro';
 import BudgetFigures from '../components/BudgetFigures.astro';
 import { PLAN_STATE_LABEL, budgetKeepers, budgetYears, loadBudget, yearLabel } from '../lib/budget';
-import { fmtQty, fmtQtyRange, fmtYuan, fmtYuanRange, percentOf } from '../lib/money';
+import { fmtQty, fmtYuan, percentOf } from '../lib/money';
 import { academicYear, fmtDate, fmtLong } from '../lib/time';
 
 const years = await budgetYears();
@@ -128,11 +128,11 @@ const byPurpose = [...b.items.reduce((m, i) => m.set(i.purpose ?? OTHER, (m.get(
                   <th scope="row" class="what">
                     {i.item}
                     {i.purpose && <small>{i.purpose}</small>}
-                    <small class="m-calc num">{fmtQtyRange(i.qty_c, i.qty_max_c)} × {fmtYuan(i.unit_fen)} · {fmtDate(i.spent_on)}</small>
+                    <small class="m-calc num">{fmtQty(i.qty_c)} × {fmtYuan(i.unit_fen)} · {fmtDate(i.spent_on)}</small>
                   </th>
-                  <td class="r q num">{fmtQtyRange(i.qty_c, i.qty_max_c)}</td>
+                  <td class="r q num">{fmtQty(i.qty_c)}</td>
                   <td class="r u num">{fmtYuan(i.unit_fen, 'always')}</td>
-                  <td class="r t num">{fmtYuanRange(i.total_fen, i.total_max_fen, 'always')}</td>
+                  <td class="r t num">{fmtYuan(i.total_fen, 'always')}</td>
                   <td class="s"><span class={`pstate ps-${i.plan_state ?? 'can'}`}>{PLAN_STATE_LABEL[i.plan_state ?? 'can']}</span></td>
                 </tr>
               ))}
@@ -140,7 +140,7 @@ const byPurpose = [...b.items.reduce((m, i) => m.set(i.purpose ?? OTHER, (m.get(
             <tfoot>
               <tr>
                 <th scope="row" colspan="5">Нийт хэрэгтэй</th>
-                <td class="r t num">{fmtYuanRange(b.toBuyFen, b.toBuyMaxFen, 'always')}</td>
+                <td class="r t num">{fmtYuan(b.toBuyFen, 'always')}</td>
                 <td class="s"></td>
               </tr>
             </tfoot>

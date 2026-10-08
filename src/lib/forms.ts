@@ -1,5 +1,5 @@
 import { fromLocal } from './time';
-import { lineTotal, parseMoney, parseQty, parseQtyRange } from './money';
+import { lineTotal, parseMoney, parseQty } from './money';
 import type { DeptSlug } from './types';
 import { getRecordType, isRange, joinRange, validateFields, type RecordType } from './record-types';
 import { str } from './http';
@@ -172,8 +172,8 @@ export interface BudgetItemValues {
 
 /**
  * One line. A bought line's date can't be in the future (counted in Beijing time; `today` is "YYYY-MM-DD");
- * a planned one's may — it's when we mean to buy. A planned quantity may be a range ("300–450"). The total
- * is computed here, never typed.
+ * a planned one's may — it's when we mean to buy. The quantity is one whole number. The total is computed
+ * here, never typed.
  */
 export function readBudgetItemForm(fd: FormData, today: string) {
   const asked = str(fd, 'kind', 10) as BudgetKind;
@@ -198,11 +198,8 @@ export function readBudgetItemForm(fd: FormData, today: string) {
       errors.date = 'Огноо буруу байна.';
     }
   if (!values.item) errors.item = 'Юу болохыг бичнэ үү.';
-  const range = kind === 'planned' ? parseQtyRange(values.qty) : (() => { const v = parseQty(values.qty); return v === null ? null : { min: v, max: null }; })();
-  if (range === null && kind === 'spent' && parseQtyRange(values.qty)?.max)
-    errors.qty = 'Хүрээ (жишээ нь 300–450) зөвхөн «Авахаар төлөвлөж байна»-д бичнэ. Худалдаж авсан бол яг хэдийг авснаа бичнэ үү.';
-  else if (range === null)
-    errors.qty = kind === 'planned' ? 'Тоо ширхэгийг тоогоор бичнэ үү, жишээ нь 3, 2.5 эсвэл 300–450.' : 'Тоо ширхэгийг тоогоор бичнэ үү, жишээ нь 3 эсвэл 2.5.';
+  const qtyC = parseQty(values.qty);
+  if (qtyC === null) errors.qty = 'Тоо ширхэгийг нэг бүхэл тоогоор бичнэ үү, жишээ нь 3.';
   const unitFen = parseMoney(values.unit);
   if (unitFen === null) errors.unit = 'Нэгжийн үнийг юаниар бичнэ үү, жишээ нь 45 эсвэл 12.50.';
   const ok = Object.keys(errors).length === 0;
@@ -217,11 +214,9 @@ export function readBudgetItemForm(fd: FormData, today: string) {
           spentOn,
           item: values.item,
           purpose: values.purpose || null,
-          qtyC: range!.min,
-          qtyMaxC: range!.max,
+          qtyC: qtyC!,
           unitFen: unitFen!,
-          totalFen: lineTotal(range!.min, unitFen!),
-          totalMaxFen: range!.max === null ? null : lineTotal(range!.max, unitFen!),
+          totalFen: lineTotal(qtyC!, unitFen!),
         }
       : null,
   };
@@ -241,7 +236,7 @@ export function readBudgetConfirmForm(fd: FormData, today: string) {
       errors.date = 'Огноо буруу байна.';
     }
   const qtyC = parseQty(values.qty);
-  if (qtyC === null) errors.qty = 'Тоо ширхэгийг тоогоор бичнэ үү.';
+  if (qtyC === null) errors.qty = 'Тоо ширхэгийг нэг бүхэл тоогоор бичнэ үү.';
   const unitFen = parseMoney(values.unit);
   if (unitFen === null) errors.unit = 'Нэгжийн үнийг юаниар бичнэ үү.';
   const ok = Object.keys(errors).length === 0;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fmtQty, fmtQtyRange, fmtYuan, fmtYuanRange, hundredthsInput, lineTotal, parseMoney, parseQty, parseQtyRange, percentOf } from '../src/lib/money';
+import { fmtQty, fmtYuan, hundredthsInput, lineTotal, parseMoney, parseQty, percentOf } from '../src/lib/money';
 import { readBudgetConfirmForm, readBudgetItemForm, readBudgetYearForm } from '../src/lib/forms';
 
 describe('typed amounts', () => {
@@ -17,11 +17,11 @@ describe('typed amounts', () => {
   it('refuses anything that is not a plain amount with at most two decimals', () => {
     for (const bad of ['', 'abc', '-5', '1.234', '1,2,3', '12.', '1e5', '١٢', '5¥', '99999999999']) expect(parseMoney(bad)).toBeNull();
   });
-  it('a quantity must be more than zero', () => {
+  it('a quantity is one whole number, more than zero', () => {
     expect(parseQty('3')).toBe(300);
-    expect(parseQty('2.5')).toBe(250);
-    expect(parseQty('0')).toBeNull();
-    expect(parseQty('0.00')).toBeNull();
+    expect(parseQty(' 450 ')).toBe(45000);
+    expect(parseQty('1,200')).toBe(120000);
+    for (const bad of ['0', '2.5', '300-450', '300–450', '', 'гурав', '-3']) expect(parseQty(bad)).toBeNull();
     expect(parseQty('20000')).toBeNull(); // above 10,000 of one thing
   });
 });
@@ -113,25 +113,14 @@ describe('planned purchases', () => {
   });
 });
 
-describe('quantity ranges and plan states', () => {
+describe('plan states', () => {
   const today = '2026-10-08';
-  it('reads a range for a planned line', () => {
-    expect(parseQtyRange('300-450')).toEqual({ min: 30000, max: 45000 });
-    expect(parseQtyRange('300 – 450')).toEqual({ min: 30000, max: 45000 });
-    expect(parseQtyRange('3~4')).toEqual({ min: 300, max: 400 });
-    expect(parseQtyRange('450')).toEqual({ min: 45000, max: null });
-    expect(parseQtyRange('450-300')).toBeNull();
-    expect(parseQtyRange('1-2-3')).toBeNull();
-    expect(fmtYuanRange(150000, 225000)).toBe('¥1,500–¥2,250');
-    expect(fmtQtyRange(30000, 45000)).toBe('300–450');
-    expect(fmtQtyRange(30000, null)).toBe('300');
+  it('a planned хуушуур, 450 at ¥5, postponed', () => {
+    const r = readBudgetItemForm(fd({ kind: 'planned', state: 'postponed', date: '2026-10-17', item: 'Хуушуур', qty: '450', unit: '5' }), today);
+    expect(r.input).toMatchObject({ status: 'planned', planState: 'postponed', qtyC: 45000, totalFen: 225000 });
   });
-  it('a planned хуушуур, 300–450 at ¥5', () => {
-    const r = readBudgetItemForm(fd({ kind: 'planned', state: 'postponed', date: '2026-10-17', item: 'Хуушуур', qty: '300–450', unit: '5' }), today);
-    expect(r.input).toMatchObject({ status: 'planned', planState: 'postponed', qtyC: 30000, qtyMaxC: 45000, totalFen: 150000, totalMaxFen: 225000 });
-  });
-  it('a range is only for planned lines', () => {
-    expect(readBudgetItemForm(fd({ kind: 'spent', date: today, item: 'x', qty: '2-3', unit: '1' }), today).ok).toBe(false);
+  it('a range is not a quantity any more', () => {
+    expect(readBudgetItemForm(fd({ kind: 'planned', date: today, item: 'x', qty: '300-450', unit: '5' }), today).errors.qty).toMatch(/бүхэл/);
   });
   it('an unknown state falls back to «Авах боломжтой»', () => {
     expect(readBudgetItemForm(fd({ kind: 'planned', state: 'maybe', date: today, item: 'x', qty: '1', unit: '1' }), today).input?.planState).toBe('can');

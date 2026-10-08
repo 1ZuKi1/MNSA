@@ -15,7 +15,7 @@ import {
 import { many } from '../../lib/db';
 import { readBudgetConfirmForm, readBudgetItemForm, readBudgetYearForm, type BudgetItemValues } from '../../lib/forms';
 import { clientIp, int, str, withFlash } from '../../lib/http';
-import { fmtQty, fmtQtyRange, fmtYuan, fmtYuanRange, hundredthsInput, percentOf } from '../../lib/money';
+import { fmtQty, fmtYuan, hundredthsInput, percentOf } from '../../lib/money';
 import * as P from '../../lib/permissions';
 import { Denied } from '../../lib/records';
 import { publicOrigin } from '../../lib/site';
@@ -127,8 +127,8 @@ const keeperNames = keepers.map((k) => k.name_mn).join(', ');
     <div class:list={['stat', { 'stat-bad': over }]}><b class="num">{b.hasHeader ? fmtYuan(b.remainingFen) : '—'}</b><span>{over ? 'Байгаа хөрөнгөөс илүү зарцуулсан' : 'Үлдэгдэл'}</span></div>
     {b.toBuy.length > 0 && (
       <a class:list={['stat stat-plan', { 'stat-bad': b.hasHeader && b.afterToBuyFen < 0 }]} href="#to-buy">
-        <b class="num">{fmtYuanRange(b.toBuyFen, b.toBuyMaxFen)}</b>
-        <span>Авахаар төлөвлөсөн{b.hasHeader && <> · авсны дараа {fmtYuanRange(b.afterToBuyMinFen, b.afterToBuyFen)}</>}</span>
+        <b class="num">{fmtYuan(b.toBuyFen)}</b>
+        <span>Авахаар төлөвлөсөн{b.hasHeader && <> · авсны дараа {fmtYuan(b.afterToBuyFen)}</>}</span>
       </a>
     )}
   </div>
@@ -189,10 +189,8 @@ const keeperNames = keepers.map((k) => k.name_mn).join(', ');
           <div class="budget-nums">
             <div class="field">
               <label for="b_qty">Тоо ширхэг</label>
-              <input id="b_qty" name="qty" type="text" required value={item.qty} autocomplete="off"
-                aria-invalid={itemErrors.qty ? 'true' : undefined} aria-describedby={itemErrors.qty ? 'b_qty-err b_qty-hint' : 'b_qty-hint'} />
-              <span class="hint" id="b_qty-hint">Төлөвлөж буй, тоо нь тодорхойгүй бол: 300–450</span>
-              <span class="hint qty-switched" id="b_qty-switched" hidden role="status">Хүрээ бичсэн тул «Авахаар төлөвлөж байна» сонгогдлоо.</span>
+              <input id="b_qty" name="qty" type="text" inputmode="numeric" pattern="[0-9]*" required value={item.qty} autocomplete="off"
+                aria-invalid={itemErrors.qty ? 'true' : undefined} aria-describedby={itemErrors.qty ? 'b_qty-err' : undefined} />
               {itemErrors.qty && <span class="error" id="b_qty-err"><Icon name="alert" /> {itemErrors.qty}</span>}
             </div>
             <span class="op" aria-hidden="true">×</span>
@@ -249,7 +247,7 @@ const keeperNames = keepers.map((k) => k.name_mn).join(', ');
 
   {b.toBuy.length > 0 && (
     <section aria-labelledby="buy-h" id="to-buy" class="budget-lines budget-plan">
-      <h2 class="sec-title" id="buy-h">Авахаар төлөвлөсөн <span class="badge plain b-gold">{b.toBuy.length} мөр · {fmtYuanRange(b.toBuyFen, b.toBuyMaxFen)}</span></h2>
+      <h2 class="sec-title" id="buy-h">Авахаар төлөвлөсөн <span class="badge plain b-gold">{b.toBuy.length} мөр · {fmtYuan(b.toBuyFen)}</span></h2>
       <p class="form-note" style="margin:-4px 0 12px">Мөнгө хараахан гараагүй, зарцуулалтад тооцогдоогүй. Худалдаж авмагц «Авсан» дарж бодит үнийг оруулна.</p>
       <div class="table-wrap budget-wrap">
         <table class="t budget-t">
@@ -272,11 +270,11 @@ const keeperNames = keepers.map((k) => k.name_mn).join(', ');
                 <th scope="row" class="item-cell">
                   {i.item}
                   <span class="sub">{i.purpose && <>{i.purpose} · </>}{fmtDate(i.spent_on)}</span>
-                  <span class="sub m-only num">{fmtQtyRange(i.qty_c, i.qty_max_c)} × {fmtYuan(i.unit_fen)}</span>
+                  <span class="sub m-only num">{fmtQty(i.qty_c)} × {fmtYuan(i.unit_fen)}</span>
                 </th>
-                <td class="num nowrap">{fmtQtyRange(i.qty_c, i.qty_max_c)}</td>
+                <td class="num nowrap">{fmtQty(i.qty_c)}</td>
                 <td class="num nowrap">{fmtYuan(i.unit_fen, 'always')}</td>
-                <td class="num nowrap strong total">{fmtYuanRange(i.total_fen, i.total_max_fen, 'always')}</td>
+                <td class="num nowrap strong total">{fmtYuan(i.total_fen, 'always')}</td>
                 <td class="state">
                   {keeps ? (
                     <form method="post" class="state-form">
@@ -301,7 +299,7 @@ const keeperNames = keepers.map((k) => k.name_mn).join(', ');
                         <input type="hidden" name="action" value="confirm" />
                         <input type="hidden" name="id" value={i.id} />
                         <p class="form-note">Бодитоор хэдийг, хэдээр авсан бэ?</p>
-                        <label><span>Тоо</span><input name="qty" type="text" inputmode="decimal" required value={hundredthsInput(i.qty_max_c ?? i.qty_c)} autocomplete="off" /></label>
+                        <label><span>Тоо</span><input name="qty" type="text" inputmode="numeric" pattern="[0-9]*" required value={hundredthsInput(i.qty_c)} autocomplete="off" /></label>
                         <label><span>Нэгжийн үнэ, ¥</span><input name="unit" type="text" inputmode="decimal" required value={hundredthsInput(i.unit_fen)} autocomplete="off" /></label>
                         <label><span>Огноо</span><input name="date" type="date" required max={today} value={i.spent_on > now() ? today : toDateInput(i.spent_on)} /></label>
                         <button class="btn btn-sm btn-ok" type="submit"><Icon name="check" /> Худалдаж авсан</button>
@@ -325,7 +323,7 @@ const keeperNames = keepers.map((k) => k.name_mn).join(', ');
           <tfoot>
             <tr>
               <th scope="row" colspan="4">Нийт төлөвлөсөн</th>
-              <td class="num nowrap strong total">{fmtYuanRange(b.toBuyFen, b.toBuyMaxFen, 'always')}</td>
+              <td class="num nowrap strong total">{fmtYuan(b.toBuyFen, 'always')}</td>
               <td></td>
               {keeps && <td></td>}
             </tr>
@@ -436,22 +434,11 @@ const keeperNames = keepers.map((k) => k.name_mn).join(', ');
       }
       function yuan(f) { return '¥' + String(Math.floor(f / 100)).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + '.' + String(f % 100).padStart(2, '0'); }
       function show() {
-        var parts = qty.value.split(/\s*[-–~]\s*/), u = cents(unit.value);
-        var lo = cents(parts[0]), hi = parts.length === 2 ? cents(parts[1]) : null;
-        if (lo === null || u === null || lo <= 0 || parts.length > 2 || (parts.length === 2 && (hi === null || hi <= lo))) { out.textContent = '—'; return; }
-        out.textContent = yuan(Math.round((lo * u) / 100)) + (hi !== null ? '–' + yuan(Math.round((hi * u) / 100)) : '');
+        var q = /^\s*\d+\s*$/.test(qty.value) ? Number(qty.value) * 100 : null, u = cents(unit.value);
+        if (q === null || u === null || q <= 0) { out.textContent = '—'; return; }
+        out.textContent = yuan(Math.round((q * u) / 100));
       }
       qty.addEventListener('input', show); unit.addEventListener('input', show);
-      // a range only makes sense for something not bought yet: typing one switches the line to «Авахаар төлөвлөж байна»
-      var switched = document.getElementById('b_qty-switched');
-      qty.addEventListener('input', function () {
-        if (!/\d\s*[-–~]\s*\d/.test(qty.value) || kind() !== 'spent') return;
-        var plan = document.querySelector('input[name=kind][value=planned]');
-        if (!plan) return;
-        plan.checked = true;
-        apply();
-        if (switched) switched.hidden = false;
-      });
       // changing a planned line's state saves at once, in the background: the colour changes straight away, a
       // small tick confirms it, and the page stays where it is. If it fails, the old state comes back.
       document.querySelectorAll('select[data-autosubmit]').forEach(function (sel) {

@@ -4,7 +4,7 @@
  * much of the plan is spent. Used on /tosov and, smaller, on the home page.
  */
 import type { Budget } from '../lib/budget';
-import { fmtYuan, fmtYuanRange, percentOf } from '../lib/money';
+import { fmtYuan, percentOf } from '../lib/money';
 
 interface Props {
   b: Budget;
@@ -19,16 +19,9 @@ const base = b.plannedFen > 0 ? b.plannedFen : b.fundsFen;
 const pct = percentOf(b.spentFen, base);
 const planned = b.plannedFen > 0;
 // Purchases listed but not made yet: a lighter stretch of the bar after what is spent.
-const toBuyPct = Math.max(0, Math.min(percentOf(b.spentFen + b.toBuyMaxFen, base), 100) - Math.min(pct, 100));
-// What is left once everything planned is bought — a range when some quantity is. Both ends short: «дутна»;
-// both enough: «үлдэнэ»; in between: it may run short by up to the worst case.
-const lo = b.afterToBuyMinFen;
-const hi = b.afterToBuyFen;
-const after = lo >= 0
-  ? { text: fmtYuanRange(lo, hi), word: 'үлдэнэ', neg: false }
-  : hi < 0
-    ? { text: fmtYuanRange(-hi, -lo), word: 'дутна', neg: true }
-    : { text: `${fmtYuan(-lo)} хүртэл`, word: 'дутаж магадгүй', neg: true };
+const toBuyPct = Math.max(0, Math.min(percentOf(b.spentFen + b.toBuyFen, base), 100) - Math.min(pct, 100));
+// What is left once everything planned is bought — or how much would be missing.
+const after = b.afterToBuyFen >= 0 ? { text: fmtYuan(b.afterToBuyFen), word: 'үлдэнэ', neg: false } : { text: fmtYuan(-b.afterToBuyFen), word: 'дутна', neg: true };
 // «Төлөвлөсөн төсвийн 42% зарцуулсан» / «Төлөвлөсөн төсвөөс 12% илүү зарцуулсан»
 const caption = pct > 100
   ? { pre: planned ? 'Төлөвлөсөн төсвөөс' : 'Байгаа хөрөнгөөс', n: `${pct - 100}%`, post: 'илүү зарцуулсан' }
@@ -62,7 +55,7 @@ const caption = pct > 100
       {/* one line under the bar: a key for each part, side by side (they wrap on a phone) */}
       <ul class="bar-legend">
         <li><span class:list={['key k-spent', { over: pct > 100 }]} aria-hidden="true"></span>{caption.pre} <b class="num">{caption.n}</b> {caption.post}</li>
-        {b.toBuyFen > 0 && <li><span class="key k-buy" aria-hidden="true"></span>Авахаар төлөвлөсөн <b class="num">{fmtYuanRange(b.toBuyFen, b.toBuyMaxFen)}</b></li>}
+        {b.toBuyFen > 0 && <li><span class="key k-buy" aria-hidden="true"></span>Авахаар төлөвлөсөн <b class="num">{fmtYuan(b.toBuyFen)}</b></li>}
         {b.toBuyFen > 0 && known && (
           <li>Бүгдийг авахад <b class:list={['num', { neg: after.neg }]}>{after.text}</b> {after.word}</li>
         )}

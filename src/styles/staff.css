@@ -896,4 +896,3 @@ a.stat.stat-plan.stat-bad::before { background: var(--bad); }
   .budget-t tfoot td:empty { display: none; }
 }
 
-.field .hint.qty-switched { color: var(--blue-deep); font-weight: 600; }

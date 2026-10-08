@@ -33,10 +33,12 @@ export function parseMoney(raw: string): number | null {
   return v === null || v > MAX_FEN ? null : v;
 }
 
-/** A quantity: more than zero, at most MAX_QTY_C. */
+/** A quantity: one whole number, at least 1, at most 10,000 — in hundredths like everything else here. */
 export function parseQty(raw: string): number | null {
-  const v = parseHundredths(raw);
-  return v === null || v <= 0 || v > MAX_QTY_C ? null : v;
+  const s = raw.trim().replace(/[\s\u00a0\u202f,]/g, '');
+  if (!/^\d+$/.test(s)) return null;
+  const v = Number(s) * 100;
+  return v <= 0 || v > MAX_QTY_C ? null : v;
 }
 
 /** quantity × price of one, rounded to the nearest fen. */
@@ -77,27 +79,3 @@ export function percentOf(part: number, total: number): number {
   if (total <= 0) return part > 0 ? 100 : 0;
   return Math.round((part / total) * 100);
 }
-
-/**
- * A quantity that may be a range, for planned purchases: "450", "300-450", "300–450", "300 ~ 450".
- * Returns { min, max } in hundredths; max is null for an exact quantity. A range must go up.
- */
-export function parseQtyRange(raw: string): { min: number; max: number | null } | null {
-  const parts = raw.split(/\s*[-–~]\s*/);
-  if (parts.length === 1) {
-    const v = parseQty(parts[0]);
-    return v === null ? null : { min: v, max: null };
-  }
-  if (parts.length !== 2) return null;
-  const a = parseQty(parts[0]);
-  const b = parseQty(parts[1]);
-  if (a === null || b === null || b <= a) return null;
-  return { min: a, max: b };
-}
-
-/** 300–450, or just 450 */
-export const fmtQtyRange = (min: number, max: number | null) => (max !== null && max !== min ? `${fmtQty(min)}–${fmtQty(max)}` : fmtQty(min));
-
-/** ¥1,500–¥2,250, or just ¥1,500 */
-export const fmtYuanRange = (min: number, max: number | null, cents: 'auto' | 'always' = 'auto') =>
-  max !== null && max !== min ? `${fmtYuan(min, cents)}–${fmtYuan(max, cents)}` : fmtYuan(min, cents);
