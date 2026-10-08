@@ -50,14 +50,14 @@ const caption = pct > 100
         <span style={`width:${Math.min(pct, 100)}%`} class:list={{ over: pct > 100 }}></span>
         {toBuyPct > 0 && <span class="to-buy" style={`width:${toBuyPct}%`}></span>}
       </div>
-      <p class="bar-cap">{caption.pre} <b class="num">{caption.n}</b> {caption.post}</p>
+      {/* one line under the bar: a key for each part, side by side (they wrap on a phone) */}
+      <ul class="bar-legend">
+        <li><span class:list={['key k-spent', { over: pct > 100 }]} aria-hidden="true"></span>{caption.pre} <b class="num">{caption.n}</b> {caption.post}</li>
+        {b.toBuyFen > 0 && <li><span class="key k-buy" aria-hidden="true"></span>Авахаар төлөвлөсөн <b class="num">{fmtYuan(b.toBuyFen)}</b></li>}
+        {b.toBuyFen > 0 && known && (
+          <li>Бүгдийг авсны дараа <b class:list={['num', { neg: b.afterToBuyFen < 0 }]}>{fmtYuan(Math.abs(b.afterToBuyFen))}</b> {b.afterToBuyFen < 0 ? 'дутна' : 'үлдэнэ'}</li>
+        )}
+      </ul>
     </div>
-  )}
-  {b.toBuyFen > 0 && (
-    <p class="to-buy-cap">
-      <span class="key" aria-hidden="true"></span>
-      Авахаар төлөвлөсөн: <b class="num">{fmtYuan(b.toBuyFen)}</b>
-      {known && <> — бүгдийг авсны дараа <b class:list={['num', { neg: b.afterToBuyFen < 0 }]}>{fmtYuan(b.afterToBuyFen)}</b> {b.afterToBuyFen < 0 ? 'дутна' : 'үлдэнэ'}</>}
-    </p>
   )}
 </div>

@@ -436,7 +436,7 @@ has "removing twice is refused" "$(post $J/dotood2.jar /tosov -d action=remove -
 has "the audit log records it" "$(get $J/president.jar '/burtgel?cat=budget')" "Төсвөөс мөр хассан"
 has "planned purchases are public, apart from the spending" "$(curl -s -H "$P" $B/tosov)" "Авахаар төлөвлөсөн"
 has "…with what they will cost" "$(curl -s -H "$P" $B/tosov)" "Монгол хоолны орц"
-has "…and what will be left after" "$(curl -s -H "$P" $B/tosov)" "бүгдийг авсны дараа"
+has "…and what will be left after" "$(curl -s -H "$P" $B/tosov)" "Бүгдийг авсны дараа"
 LATER=$(TZ=Asia/Shanghai date -d '+10 day' +%Y-%m-%d)
 has "a bought line can't be dated in the future" "$(curl -s -b $J/dotood2.jar -H "$S" -H "$O" -X POST -d action=add -d kind=spent -d date=$LATER -d item=x -d qty=1 -d unit=1 $B/tosov)" "Ирээдүйн огноо"
 has "the keeper lists a purchase to make (dated ahead)" "$(post $J/dotood2.jar /tosov -d action=add -d kind=planned -d date=$LATER --data-urlencode "item=Шагналын медаль" --data-urlencode "purpose=Спортын өдөр" -d qty=10 -d unit=12)" "ok=budget_planned"

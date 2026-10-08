@@ -535,23 +535,26 @@ a.row-in h3 { transition: color var(--t); }
 .f-left dd { color: var(--ok); }
 .f-left.over { --rule: var(--bad); }
 .f-left.over dd { color: var(--bad); }
-.figs-bar { margin-top: clamp(24px, 3vw, 32px); max-width: 44rem; }
-.bar { height: 12px; border-radius: 999px; background: var(--ivory-2); box-shadow: inset 0 0 0 1px var(--line); overflow: hidden; }
-.bar { display: flex; }
+.figs-bar { margin-top: clamp(24px, 3vw, 32px); }
+.bar { display: flex; height: 12px; border-radius: 999px; background: var(--ivory-2); box-shadow: inset 0 0 0 1px var(--line); overflow: hidden; }
 .bar span { display: block; height: 100%; background: var(--maroon); }
 .bar span:first-child { border-radius: 999px 0 0 999px; }
 .bar span:last-child { border-top-right-radius: 999px; border-bottom-right-radius: 999px; }
 .bar span.over { background: var(--bad); }
-/* planned purchases: the same colour, striped and lighter — money promised, not gone */
-.bar span.to-buy, .to-buy-cap .key { background: repeating-linear-gradient(-45deg, color-mix(in srgb, var(--gold-deep) 55%, #fff), color-mix(in srgb, var(--gold-deep) 55%, #fff) 3px, color-mix(in srgb, var(--gold) 45%, #fff) 3px, color-mix(in srgb, var(--gold) 45%, #fff) 6px); }
-.to-buy-cap { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin: 6px 0 0; color: var(--ink-2); font-size: 0.97rem; }
-.to-buy-cap .key { width: 18px; height: 10px; border-radius: 3px; margin-right: 4px; }
-.to-buy-cap b { color: var(--ink); }
-.to-buy-cap b.neg { color: var(--bad); }
+/* planned purchases: striped and lighter — money promised, not gone */
+.bar span.to-buy, .bar-legend .k-buy { background: repeating-linear-gradient(-45deg, color-mix(in srgb, var(--gold-deep) 55%, #fff), color-mix(in srgb, var(--gold-deep) 55%, #fff) 3px, color-mix(in srgb, var(--gold) 45%, #fff) 3px, color-mix(in srgb, var(--gold) 45%, #fff) 6px); }
+/* one line of keys under the bar, side by side; they wrap on a phone */
+.bar-legend { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px 32px; color: var(--ink-2); font-size: 0.97rem; }
+.bar-legend li { display: block; }
+.bar-legend b { color: var(--ink); }
+.bar-legend b.neg { color: var(--bad); }
+.bar-legend .key { display: inline-block; width: 18px; height: 10px; border-radius: 3px; margin-right: 8px; vertical-align: 0; }
+.bar-legend .k-spent { background: var(--maroon); }
+.bar-legend .k-spent.over { background: var(--bad); }
+/* what is left after buying everything sits at the right end, under the end of the bar */
+@media (min-width: 861px) { .bar-legend li:nth-child(3) { margin-left: auto; } }
 .ledger-wrap.plan { border-style: dashed; border-color: var(--gold-deep); }
 .ledger-wrap.plan .ledger tfoot td.t { color: var(--warn); }
-.bar-cap { margin: 10px 0 0; color: var(--ink-2); font-size: 0.97rem; }
-.bar-cap b { color: var(--ink); }
 .figs.compact .fig dd { font-size: clamp(1.35rem, 1rem + 1.2vw, 1.85rem); }
 .figs.compact .figs-bar { margin-top: 22px; }
 
