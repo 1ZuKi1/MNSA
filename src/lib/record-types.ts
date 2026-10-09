@@ -108,6 +108,11 @@ export interface RecordType {
   print: PrintDef;
   /** An approved record of this type can spawn an event draft. */
   createsEvent?: boolean;
+  /**
+   * Only for papers entered into the archive from before the website (migration 0012): such a type is
+   * listed and filtered like any other, but is never offered for a new document.
+   */
+  archiveOnly?: boolean;
 }
 
 const PRESIDENT: Signer = { title: 'Холбооны Тэргүүн', step: 'president' };
@@ -345,9 +350,26 @@ export const RECORD_TYPES: Record<string, RecordType> = {
       ],
     },
   },
+
+  // ---- A kind the association used on paper that the site doesn't write. Only in the archive.
+  zarlal: {
+    slug: 'zarlal',
+    label: 'Зарлал',
+    code: 'З',
+    group: 'work',
+    icon: 'send',
+    archiveOnly: true,
+    description: 'Холбооны нэрийн өмнөөс гишүүдэд зарласан зарлал (З-0001, З-0002). Өмнөх жилүүдийн цаасан баримтад л байна.',
+    chain: ['legal', 'president'],
+    fields: [{ name: 'body', label: 'Агуулга', type: 'textarea', required: true }],
+    print: { kind: 'ЗАРЛАЛ', plain: ['body'], signers: [PRESIDENT, LEGAL] },
+  },
 };
 
+/** Every type, including those only found in the archive — for reading, filtering and labels. */
 export const RECORD_TYPE_LIST = Object.values(RECORD_TYPES);
+/** The types a new document can be written as. */
+export const NEW_RECORD_TYPES = RECORD_TYPE_LIST.filter((t) => !t.archiveOnly);
 
 export const TYPE_GROUPS: { key: RecordType['group']; label: string }[] = [
   { key: 'work', label: 'Өдөр тутмын ажил' },

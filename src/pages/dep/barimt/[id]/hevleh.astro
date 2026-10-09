@@ -10,7 +10,7 @@ import OfficialDoc, { type SignerBlock } from '../../../../components/OfficialDo
 import { int } from '../../../../lib/http';
 import * as P from '../../../../lib/permissions';
 import { getRecordType, printKind, showField } from '../../../../lib/record-types';
-import { asRecordLike, fieldsOf, getRecord, recordChain, recordHistory } from '../../../../lib/records';
+import { asRecordLike, fieldsOf, getRecord, paperOf, recordChain, recordHistory } from '../../../../lib/records';
 import { stampId } from '../../../../lib/settings';
 import { staffTeam } from '../../../../lib/team';
 import { fmtDate, fmtOfficial, fmtOfficialDate } from '../../../../lib/time';
@@ -19,7 +19,10 @@ import { STATUS_LABEL, STEP_LABEL, type Step } from '../../../../lib/types';
 const user = Astro.locals.user!;
 const id = int(Astro.params.id);
 const rec = id ? await getRecord(id) : null;
-if (!rec || !rec.number || !P.canReadRecord(user, asRecordLike(rec))) return new Response(null, { status: 404 });
+if (!rec || !P.canReadRecord(user, asRecordLike(rec))) return new Response(null, { status: 404 });
+// A paper document from before the website prints as the paper was: its own heading, date and signers.
+const paper = paperOf(rec);
+if (!rec.number && !paper) return new Response(null, { status: 404 });
 const type = getRecordType(rec.type)!;
 const pr = type.print;
 const f = fieldsOf(rec);
@@ -72,7 +75,7 @@ let n = 0;
 const blocks = type.fields
   .filter((x) => f[x.name] && !skip.has(x.name))
   .map((x) => ((pr.plain ?? []).includes(x.name) ? { n: 0, label: '', text: f[x.name] } : { n: ++n, label: x.label, text: show(x.name) }));
-const kind = printKind(type, f);
+const kind = paper ? paper.kind : printKind(type, f);
 
 // A one-line record of the electronic approval, under the page — the full history stays online.
 const trail = [
@@ -80,6 +83,14 @@ const trail = [
   ...approvals.filter((a) => a.by).map((a) => `${stepTitle(a.step)} — ${a.by!.actor_name} (${fmtDate(a.by!.created_at)})`),
   `team.pkumongolia.com/barimt/${rec.id}`,
 ].join(' · ');
+const paperTrail = paper
+  ? [
+      `Цаасан эх хувиас цахим архивт оруулсан (${fmtDate(paper.imported_at ?? rec.created_at)}${paper.source ? `, ${paper.source.replace(/#\d+$/, '')}` : ''})`,
+      paper.paper_number ? `цаасан дээрх дугаар: ${paper.paper_number}` : '',
+      `team.pkumongolia.com/barimt/${rec.id}`,
+    ].filter(Boolean).join(' · ')
+  : '';
+const paperSigners: SignerBlock[] = (paper?.signers ?? []).map((s) => ({ title: s.title, names: s.names }));
 ---
 <!doctype html>
 <html lang="mn">
@@ -92,22 +103,25 @@ const trail = [
     <div class="toolbar">
       <button onclick="window.print()">Хэвлэх / PDF хадгалах</button>
       <a href={`/barimt/${rec.id}`}>← Буцах</a>
+      {paper && <span>Цаасан эх хувийн бичвэр — гарын үсэг, тамга эх хувь дээр байна.</span>}
       {!final && <span class="warn">Энэ баримт бичиг хараахан батлагдаагүй ({STATUS_LABEL[rec.status]}).</span>}
     </div>
 
     <OfficialDoc
       kind={kind}
-      subtitle={pr.template ? undefined : rec.title}
-      recipient={f.recipient || undefined}
-      meta={meta}
-      signers={signers}
+      subtitle={paper ? (paper.subject ?? rec.title) : pr.template ? undefined : rec.title}
+      recipient={paper ? undefined : f.recipient || undefined}
+      meta={paper ? [] : meta}
+      signers={paper ? paperSigners : signers}
       number={rec.number}
-      date={fmtOfficial(rec.decided_at ?? rec.submitted_at)}
-      draft={!final}
-      trail={trail}
+      date={paper ? (paper.date ? fmtOfficialDate(paper.date) : '________________') : fmtOfficial(rec.decided_at ?? rec.submitted_at)}
+      draft={paper ? false : !final}
+      trail={paper ? paperTrail : trail}
     >
       {
-        pr.template ? (
+        paper ? (
+          <p class="para paper">{f.text}</p>
+        ) : pr.template ? (
           pr.template.map((t) => (
             <section class="tsec">
               <h3>{t.heading}</h3>
@@ -143,6 +157,8 @@ const trail = [
   .toolbar { position: sticky; top: 0; z-index: 5; display: flex; gap: 16px; align-items: center; padding: 10px 20px; background: #fff; border-bottom: 1px solid #ddd; font: 14px 'Golos Text Variable', system-ui, sans-serif; }
   .toolbar button { font: inherit; font-weight: 600; padding: 7px 14px; border-radius: 6px; border: 1px solid #8e0000; background: #8e0000; color: #fff; cursor: pointer; }
   .toolbar .warn { color: #8a5a00; }
+  .toolbar span { color: #555; }
+  .sheet .para.paper { text-align: left; tab-size: 4; }
   @media print {
     body { background: #fff; }
     .toolbar { display: none; }

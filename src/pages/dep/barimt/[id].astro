@@ -7,7 +7,7 @@ import { clientIp, int, str, withFlash } from '../../../lib/http';
 import * as P from '../../../lib/permissions';
 import { getRecordType, showField } from '../../../lib/record-types';
 import {
-  asRecordLike, Conflict, decideRecord, Denied, fieldsOf, getRecord, recordChain, recordHistory, submitRecord, voidRecord, withdrawRecord,
+  asRecordLike, Conflict, decideRecord, Denied, fieldsOf, getRecord, paperOf, recordChain, recordHistory, submitRecord, voidRecord, withdrawRecord,
 } from '../../../lib/records';
 import { fmtDate, fmtDateTime, relDay } from '../../../lib/time';
 import { STATUS_LABEL, STEP_GEN, STEP_LABEL, ROLE_LABEL, type Step } from '../../../lib/types';
@@ -17,6 +17,8 @@ const id = int(Astro.params.id);
 const rec = id ? await getRecord(id) : null;
 if (!rec || !P.canReadRecord(user, asRecordLike(rec))) return new Response(null, { status: 404 });
 const type = getRecordType(rec.type)!;
+// A paper document from before the website: approved on paper, shown as the paper says (migration 0012).
+const paper = paperOf(rec);
 const here = `/barimt/${rec.id}`;
 
 if (Astro.request.method === 'POST') {
@@ -46,7 +48,7 @@ const can = {
   decide: P.canDecideStep(user, like),
   withdraw: P.canWithdrawRecord(user, like),
   void: P.canVoidRecord(user, like),
-  makeEvent: type.createsEvent && rec.status === 'approved' && P.canEditEvents(user),
+  makeEvent: !paper && type.createsEvent && rec.status === 'approved' && P.canEditEvents(user),
 };
 const standIn = can.decide && rec.awaiting ? !P.isStepOwner(user, rec.awaiting, rec.dept_slug, rec.co_dept_slug) : false;
 // The second department's дарга is named by department, so the two дарга steps can't be mixed up.
@@ -76,16 +78,18 @@ const chain = steps
   });
 
 const ACTION_LABEL: Record<string, string> = {
-  create: 'Үүсгэсэн', edit: 'Зассан', submit: 'Хянуулахаар илгээсэн', auto: 'Автоматаар дамжсан',
+  create: 'Үүсгэсэн', import: 'Цаасан эхээс архивт оруулсан', edit: 'Зассан', submit: 'Хянуулахаар илгээсэн', auto: 'Автоматаар дамжсан',
   approve: 'Баталсан', reject: 'Буцаасан', withdraw: 'Эргүүлэн татсан', void: 'Хүчингүй болгосон',
 };
-const headline = {
+let headline = {
   draft: 'Ноорог — хянуулахаар илгээгээгүй байна.',
   in_review: rec.awaiting ? `${stepGen(rec.awaiting)} шийдвэрийг хүлээж байна.` : 'Хянагдаж байна.',
   approved: lastDecision ? `${fmtDate(lastDecision.created_at)}-нд батлагдсан.` : 'Батлагдсан.',
   rejected: 'Буцаагдсан. Засаад дахин илгээж болно.',
   void: 'Хүчингүй болсон.',
 }[rec.status];
+const paperDay = (d: string | null | undefined) => (d ? d.replaceAll('-', '.') : '');
+if (paper) headline = rec.status === 'void' ? 'Хүчингүй болсон.' : `Цаасан хэлбэрээр батлагдсан${paper.date ? ` — ${paperDay(paper.date)}` : ''}.`;
 const hasActions = can.decide || can.submit || can.withdraw || can.makeEvent || can.void;
 ---
 <Staff title={rec.title}>
@@ -95,11 +99,12 @@ const hasActions = can.decide || can.submit || can.withdraw || can.makeEvent || 
   >
     <Fragment slot="actions">
       {can.edit && <a class="btn" href={`${here}/zasah`}><Icon name="edit" /> Засах</a>}
-      {rec.number && <a class="btn" href={`${here}/hevleh`} target="_blank" rel="noopener"><Icon name="print" /> Хэвлэх / PDF<span class="sr-only"> (шинэ цонхонд)</span></a>}
+      {(rec.number || paper) && <a class="btn" href={`${here}/hevleh`} target="_blank" rel="noopener"><Icon name="print" /> Хэвлэх / PDF<span class="sr-only"> (шинэ цонхонд)</span></a>}
     </Fragment>
     <span class={`badge b-${rec.status}`}>{STATUS_LABEL[rec.status]}</span>
     <span>{type.label}</span>
     {rec.number && <span class="num">{rec.number}</span>}
+    {paper && <span class="tag"><Icon name="folder" /> Цаасан эх</span>}
     {rec.co_dept_name && <span class="tag"><Icon name="folder" /> {rec.dept_name}, {rec.co_dept_name}</span>}
     {rec.visibility === 'dept' && <span class="tag"><Icon name="lock" /> Зөвхөн хэлтэс ба удирдлага</span>}
   </PageHead>
@@ -107,6 +112,24 @@ const hasActions = can.decide || can.submit || can.withdraw || can.makeEvent || 
   <section class:list={['panel', 'status-panel', `s-${rec.status}`, { attention: can.decide }]} id="decide" aria-labelledby="status-h">
     <div class="panel-body">
       <h2 id="status-h" class="sr-only">Батлах явц</h2>
+      {paper ? (
+        <div class="paper-status">
+          <p><strong>{headline}</strong> Вэбсайт ашиглахаас өмнө цаасан дээр гарын үсэг зурж баталсан баримт. Цахим архивт {fmtDate(paper.imported_at ?? rec.created_at)}-нд оруулсан.</p>
+          {paper.signers.length > 0 ? (
+            <dl class="kv">
+              {paper.signers.map((s) => (
+                <>
+                  <dt>{s.title}</dt>
+                  <dd>{s.names.filter(Boolean).join(', ') || <span class="muted">нэр бичээгүй</span>}</dd>
+                </>
+              ))}
+            </dl>
+          ) : (
+            <p class="muted">Цаасан эх дээр гарын үсэг байхгүй.</p>
+          )}
+          {paper.note && <p class="form-note">{paper.note}</p>}
+        </div>
+      ) : (
       <ol class="stepper" aria-label="Батлах дараалал">
         <li class="done"><span class="dot"><Icon name="check" /></span>Боловсруулсан</li>
         {chain.map((c, n) => (
@@ -117,9 +140,12 @@ const hasActions = can.decide || can.submit || can.withdraw || can.makeEvent || 
           </li>
         ))}
       </ol>
+      )}
+      {!paper && (
       <div class="status-line">
         <p><strong>{headline}</strong>{rec.status === 'in_review' && rec.submitted_at && <span class="muted"> Илгээсэн: {relDay(rec.submitted_at)}.</span>}</p>
       </div>
+      )}
       {lastRejection && (
         <div class="reject-note">
           <b>{lastRejection.actor_name} буцаасан шалтгаан:</b>
@@ -185,7 +211,7 @@ const hasActions = can.decide || can.submit || can.withdraw || can.makeEvent || 
     <article class="panel" aria-labelledby="doc-h">
       <div class="panel-head"><h2 id="doc-h"><Icon name="doc" /> Агуулга</h2></div>
       <div class="panel-body">
-        {type.fields.map((f) =>
+        {paper ? <div class="paper-text">{fields.text}</div> : type.fields.map((f) =>
           fields[f.name] ? (
             <section class="doc-field">
               <h3>{f.label}</h3>
@@ -201,12 +227,20 @@ const hasActions = can.decide || can.submit || can.withdraw || can.makeEvent || 
         <div class="panel-head"><h2 id="info-h">Мэдээлэл</h2></div>
         <div class="panel-body">
           <dl class="kv">
-            <dt>Дугаар</dt><dd class="num">{rec.number ?? '—'}</dd>
+            <dt>Дугаар</dt><dd class="num">{rec.number ?? '—'}{paper?.paper_number && <span class="sub">цаасан дээр: {paper.paper_number}</span>}</dd>
             <dt>Хэлтэс</dt><dd>{rec.dept_name}</dd>
             {rec.co_dept_name && <><dt>Хамтран хариуцах</dt><dd><a href={`/heltes/${rec.co_dept_slug}`}>{rec.co_dept_name}</a></dd></>}
-            <dt>Боловсруулсан</dt><dd>{rec.author_name}</dd>
+            {paper ? (
+              <>
+                <dt>Огноо</dt><dd>{paper.date ? paperDay(paper.date) : '—'}</dd>
+                <dt>Эх файл</dt><dd>{paper.source.replace(/#\d+$/, '')}</dd>
+                <dt>Архивт оруулсан</dt><dd>{rec.author_name}</dd>
+              </>
+            ) : (
+              <><dt>Боловсруулсан</dt><dd>{rec.author_name}</dd></>
+            )}
             <dt>Хичээлийн жил</dt><dd>{rec.academic_year}</dd>
-            <dt>Хувилбар</dt><dd>{rec.version}</dd>
+            {!paper && <><dt>Хувилбар</dt><dd>{rec.version}</dd></>}
           </dl>
         </div>
       </section>

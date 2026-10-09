@@ -11,7 +11,7 @@ import Icon from '../../components/Icon.astro';
 import { budgetActor } from '../../lib/budget';
 import { many } from '../../lib/db';
 import * as P from '../../lib/permissions';
-import { RECORD_TYPE_LIST, TYPE_GROUPS } from '../../lib/record-types';
+import { NEW_RECORD_TYPES, TYPE_GROUPS } from '../../lib/record-types';
 import { isTestMode } from '../../lib/site';
 import { STEP_LABEL, ROLE_LABEL } from '../../lib/types';
 
@@ -139,7 +139,7 @@ const TOC = [
             {TYPE_GROUPS.map((g) => (
               <tbody>
                 <tr class="group-row"><th colspan="3" scope="rowgroup">{g.label}</th></tr>
-                {RECORD_TYPE_LIST.filter((t) => t.group === g.key).map((t) => (
+                {NEW_RECORD_TYPES.filter((t) => t.group === g.key).map((t) => (
                   <tr>
                     <td class="main-cell"><b>{t.label}</b><span class="sub m-only">{chainText(t.chain)}</span></td>
                     <td class="side-cell"><span class="badge plain">{t.code}</span></td>
@@ -151,6 +151,13 @@ const TOC = [
           </table>
         </div>
         <p class="form-note" style="margin-top:10px">Баримтыг Хэлтсийн дарга эсвэл Тэргүүн өөрөө бичсэн бол тэдний шат автоматаар алгасагдана. Удирдлагын баримтад хэлтсийн даргын шат байхгүй.</p>
+
+        <h3 class="help-h3">Өмнөх жилүүдийн цаасан баримт</h3>
+        <p>
+          Вэбсайтаас өмнө Word-оор бичиж, цаасан дээр гарын үсэг зурсан баримтууд — журам, мэдэгдэл, зарлал, протокол, тайлан —
+          мөн энд байна. Тэд <b>«Цаасан эх»</b> гэсэн тэмдэгтэй, дугаар нь цаасан дээрхээрээ (Ж-0001, М-0004 …).
+          Засах боломжгүй; хэвлэхэд цаасан дээрх огноо, гарын үсэг зурсан хүмүүс гарна. Өмнөх жилийнхийг харахдаа жилээр шүүнэ.
+        </p>
       </div>
     </section>
 

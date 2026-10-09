@@ -6,8 +6,8 @@ import Icon from '../../../components/Icon.astro';
 import { departments } from '../../../lib/db';
 import { canCreateRecordIn } from '../../../lib/permissions';
 import { getRecordType, RECORD_TYPE_LIST } from '../../../lib/record-types';
-import { awaitingMe, listRecords } from '../../../lib/records';
-import { academicYear, fmtDate, relDay } from '../../../lib/time';
+import { awaitingMe, listRecords, recordYears } from '../../../lib/records';
+import { fmtDate, relDay } from '../../../lib/time';
 import { STATUS_LABEL, STEP_LABEL, type DeptSlug, type RecordStatus } from '../../../lib/types';
 
 const user = Astro.locals.user!;
@@ -28,8 +28,7 @@ const [rows, waiting, depts] = await Promise.all([
   departments(),
 ]);
 const canCreate = depts.some((d) => canCreateRecordIn(user, d.slug as DeptSlug));
-const cur = academicYear();
-const years = [cur, `${Number(cur.slice(0, 4)) - 1}-${cur.slice(0, 4)}`];
+const years = await recordYears();
 const filtered = Object.values(filter).some(Boolean);
 
 const statuses: (RecordStatus | '')[] = ['', 'draft', 'in_review', 'approved', 'rejected', 'void'];
@@ -114,12 +113,13 @@ const statuses: (RecordStatus | '')[] = ['', 'draft', 'in_review', 'approved', '
                   <span class="sub">
                     {getRecordType(r.type)?.label ?? r.type}
                     {r.number && <> · <span class="num">{r.number}</span></>}
+                    {r.paper_json && <> · <span class="tag"><Icon name="folder" /> цаасан эх</span></>}
                     {r.visibility === 'dept' && <> · <span class="tag"><Icon name="lock" /> зөвхөн хэлтэс</span></>}
                   </span>
-                  <span class="sub m-only">{r.dept_name}{r.co_dept_name && `, ${r.co_dept_name}`} · {r.author_name} · <span class="nowrap">{relDay(r.updated_at)}</span></span>
+                  <span class="sub m-only">{r.dept_name}{r.co_dept_name && `, ${r.co_dept_name}`} · {r.paper_json ? 'цаасан эх' : r.author_name} · <span class="nowrap">{relDay(r.updated_at)}</span></span>
                 </td>
                 <td class="nowrap hide-sm">{r.dept_name}{r.co_dept_name && <span class="sub">+ {r.co_dept_name}</span>}</td>
-                <td class="nowrap hide-sm">{r.author_name}</td>
+                <td class="nowrap hide-sm">{r.paper_json ? <span class="muted">Цаасан эх</span> : r.author_name}</td>
                 <td class="side-cell">
                   <span class={`badge b-${r.status}`}>{STATUS_LABEL[r.status]}</span>
                   {r.status === 'in_review' && r.awaiting && <span class="sub hide-sm">{STEP_LABEL[r.awaiting]}</span>}
