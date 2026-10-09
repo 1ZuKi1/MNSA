@@ -79,3 +79,14 @@ export function percentOf(part: number, total: number): number {
   if (total <= 0) return part > 0 ? 100 : 0;
   return Math.round((part / total) * 100);
 }
+
+/** Money in its own currency, for «Санхүү»: ¥1,250.50 · ₮120,000 · 35.00 USD. Hundredths, like everything here. */
+const SIGN: Record<string, string> = { CNY: '¥', MNT: '₮' };
+export function fmtMoney(minor: number, currency: string): string {
+  const neg = minor < 0;
+  const abs = Math.abs(Math.round(minor));
+  const part = abs % 100;
+  const n = `${group(Math.floor(abs / 100))}${part ? `.${String(part).padStart(2, '0')}` : ''}`;
+  const sign = SIGN[currency];
+  return `${neg ? '−' : ''}${sign ? `${sign}${n}` : `${n} ${currency}`}`;
+}

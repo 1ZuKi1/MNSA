@@ -7,13 +7,15 @@ export const prerender = false;
 import '@fontsource-variable/source-serif-4';
 import '@fontsource-variable/golos-text';
 import OfficialDoc, { type SignerBlock } from '../../../../components/OfficialDoc.astro';
+import OfficialLetter from '../../../../components/OfficialLetter.astro';
+import { latinName, letterDateLine, ZH, zhDate, zhStepTitle } from '../../../../lib/letterhead';
 import { int } from '../../../../lib/http';
 import * as P from '../../../../lib/permissions';
 import { getRecordType, printKind, showField } from '../../../../lib/record-types';
 import { asRecordLike, fieldsOf, getRecord, paperOf, recordChain, recordHistory } from '../../../../lib/records';
-import { stampId } from '../../../../lib/settings';
+import { stampId, stampUrl } from '../../../../lib/settings';
 import { staffTeam } from '../../../../lib/team';
-import { fmtDate, fmtOfficial, fmtOfficialDate } from '../../../../lib/time';
+import { fmtDate, fmtOfficial, fmtOfficialDate, toDateInput } from '../../../../lib/time';
 import { STATUS_LABEL, STEP_LABEL, type Step } from '../../../../lib/types';
 
 const user = Astro.locals.user!;
@@ -45,12 +47,19 @@ const holder: Record<Step, string | undefined> = {
 const deptGen = rec.dept_name.replace(/хэлтэс$/, 'хэлтсийн');
 const coGen = rec.co_dept_name?.replace(/хэлтэс$/, 'хэлтсийн') ?? '';
 const stepTitle = (s: Step) => (s === 'head' ? `${deptGen} дарга` : s === 'cohead' ? `${coGen} дарга` : STEP_LABEL[s]);
+// The President's signature carries a stamp once they approved: the square one on the official blank
+// (Албан бичиг, Хамтын ажиллагаа), the round one on everything else.
+const stampKind = pr.stamp ?? 'round';
 const presidentApproved = final && approvals.some((a) => a.step === 'president' && a.by);
-const stamp = presidentApproved ? await stampId() : null;
+const stampMedia = presidentApproved ? await stampId(stampKind) : null;
+const stamp = stampMedia ? stampUrl(stampKind, stampMedia) : null;
+// A document written in Chinese prints every fixed label in Chinese and names in Latin letters.
+const zh = !!pr.langField && f[pr.langField] === '中文';
+const signerName = (name: string) => (zh ? latinName(name) : name);
 const stepSigner = (step: Step, title: string): SignerBlock => ({
-  title,
-  names: [approvals.find((a) => a.step === step)?.by?.actor_name ?? holder[step] ?? ''],
-  stamp: step === 'president' && stamp ? `/tamga?v=${stamp}` : null,
+  title: zh ? zhStepTitle(step, rec.dept_slug, rec.co_dept_slug) : title,
+  names: [signerName(approvals.find((a) => a.step === step)?.by?.actor_name ?? holder[step] ?? '')],
+  stamp: step === 'president' ? stamp : null,
 });
 // A second department's дарга signs beside the main дарга, wherever the main дарга signs. Where no дарга
 // signs (an outgoing letter carries the President's and Legal's signatures), the approval is in the trail line.
@@ -65,17 +74,40 @@ const signers: SignerBlock[] = pr.signers.flatMap((s): SignerBlock[] => {
   if ('field' in s) return [{ title: s.title, names: [f[s.field] ?? ''] }];
   return [{ title: s.title, names: team.filter((p) => p.dept === rec.dept_slug && (p.role === 'head' || p.role === 'member')).map((p) => p.name) }];
 });
+// The other side of an agreement signs too, when the form names who signs for them.
+if (f.partner_signer) signers.push({ title: zh ? ZH.onBehalf(f.partner ?? '') : `Хамтрагч тал: ${f.partner ?? ''}`, names: [f.partner_signer] });
 
 const fieldDef = (name: string) => type.fields.find((x) => x.name === name)!;
 const show = (name: string) => showField(fieldDef(name), f[name] ?? '', true);
 const meta = (pr.meta ?? []).filter((n) => f[n]).map((n) => ({ label: fieldDef(n).label, value: show(n) }));
 // Fields in the order the form has them: running text as it was typed, everything else as numbered sections.
-const skip = new Set([...(pr.meta ?? []), pr.closing, 'recipient', 'attachments_note'].filter(Boolean) as string[]);
+const skip = new Set(
+  [...(pr.meta ?? []), pr.closing, pr.langField, 'recipient', 'greeting', 'attachments_note', 'annex', 'doc_kind', 'partner', 'partner_signer', 'heading'].filter(Boolean) as string[],
+);
 let n = 0;
 const blocks = type.fields
   .filter((x) => f[x.name] && !skip.has(x.name))
   .map((x) => ((pr.plain ?? []).includes(x.name) ? { n: 0, label: '', text: f[x.name] } : { n: ++n, label: x.label, text: show(x.name) }));
 const kind = paper ? paper.kind : printKind(type, f);
+
+// The date the document carries: the paper's own, or the day it was approved (else sent for review).
+const ymd = (v: string | null | undefined) => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v ?? '');
+  return m ? { y: +m[1], m: +m[2], d: +m[3] } : null;
+};
+const docDay = paper ? ymd(paper.date) : ymd(toDateInput(rec.decided_at ?? rec.submitted_at));
+const dateText = zh
+  ? docDay ? zhDate(docDay) : '________________'
+  : paper
+    ? paper.date ? fmtOfficialDate(paper.date) : '________________'
+    : fmtOfficial(rec.decided_at ?? rec.submitted_at);
+const annexHeading = zh ? ZH.annex : 'ХАВСРАЛТ';
+// The subject line under the heading: typed on the form, else in Chinese the memoranda's own wording.
+const subject = f.heading?.trim() || (zh && f.partner ? `${ZH.org}与${f.partner}关于开展合作事宜` : rec.title);
+// Documents that leave the association (square stamp) carry no internal approval line.
+const outgoing = pr.stamp === 'square';
+const letter = pr.layout === 'letter';
+const president = signers.find((x) => x.title === 'Холбооны Тэргүүн') ?? signers[0];
 
 // A one-line record of the electronic approval, under the page — the full history stays online.
 const trail = [
@@ -107,47 +139,72 @@ const paperSigners: SignerBlock[] = (paper?.signers ?? []).map((s) => ({ title: 
       {!final && <span class="warn">Энэ баримт бичиг хараахан батлагдаагүй ({STATUS_LABEL[rec.status]}).</span>}
     </div>
 
-    <OfficialDoc
-      kind={kind}
-      subtitle={paper ? (paper.subject ?? rec.title) : pr.template ? undefined : rec.title}
-      recipient={paper ? undefined : f.recipient || undefined}
-      meta={paper ? [] : meta}
-      signers={paper ? paperSigners : signers}
-      number={rec.number}
-      date={paper ? (paper.date ? fmtOfficialDate(paper.date) : '________________') : fmtOfficial(rec.decided_at ?? rec.submitted_at)}
-      draft={paper ? false : !final}
-      trail={paper ? paperTrail : trail}
-    >
-      {
-        paper ? (
-          <p class="para paper">{f.text}</p>
-        ) : pr.template ? (
-          pr.template.map((t) => (
-            <section class="tsec">
-              <h3>{t.heading}</h3>
-              {t.paragraphs?.map((p) => <p>{p}</p>)}
-              {t.facts && <ul>{t.facts.map((x) => <li>{x.label}: {x.date ? fmtOfficialDate(f[x.field] ?? '') : f[x.field]}</li>)}</ul>}
-              {t.items && <ol>{t.items.map((x) => <li>{x}</li>)}</ol>}
-            </section>
-          ))
-        ) : (
-          <>
-            {blocks.map((b) =>
-              b.n ? (
-                <section class="sec">
-                  <h3>{b.n}. {b.label}</h3>
-                  <p class="para">{b.text}</p>
+    {
+      letter ? (
+        <OfficialLetter
+          recipient={f.recipient ?? ''}
+          title={paper ? (paper.subject ?? rec.title) : rec.title}
+          greeting={f.greeting}
+          body={paper ? (f.text ?? '') : (f.body ?? '')}
+          attachments={f.attachments_note || undefined}
+          dateLine={docDay ? letterDateLine(docDay) : '20__ оны __ дугаар сарын __-ны өдрийн'}
+          number={rec.number}
+          signerTitle="Тэргүүн"
+          signerName={(paper ? paperSigners[0]?.names[0] : president?.names[0]) ?? ''}
+          stamp={paper ? null : (president?.stamp ?? null)}
+          draft={paper ? false : !final}
+        />
+      ) : (
+        <OfficialDoc
+          kind={kind}
+          subtitle={paper ? (paper.subject ?? rec.title) : pr.template ? undefined : subject}
+          recipient={paper ? undefined : f.recipient || undefined}
+          meta={paper ? [] : meta}
+          signers={paper ? paperSigners : signers}
+          number={rec.number}
+          date={dateText}
+          draft={paper ? false : !final}
+          trail={paper ? paperTrail : outgoing ? null : trail}
+          lang={zh ? 'zh' : 'mn'}
+        >
+          {
+            paper ? (
+              <p class="para paper">{f.text}</p>
+            ) : pr.template ? (
+              pr.template.map((t) => (
+                <section class="tsec">
+                  <h3>{t.heading}</h3>
+                  {t.paragraphs?.map((p) => <p>{p}</p>)}
+                  {t.facts && <ul>{t.facts.map((x) => <li>{x.label}: {x.date ? fmtOfficialDate(f[x.field] ?? '') : f[x.field]}</li>)}</ul>}
+                  {t.items && <ol>{t.items.map((x) => <li>{x}</li>)}</ol>}
                 </section>
-              ) : (
-                <p class="para">{b.text}</p>
-              ),
-            )}
-            {pr.closing && f[pr.closing] && <p class="closing">{f[pr.closing]}</p>}
-            {f.attachments_note && <p class="attach"><strong>Хавсралт:</strong> {f.attachments_note}</p>}
-          </>
-        )
-      }
-    </OfficialDoc>
+              ))
+            ) : (
+              <>
+                {blocks.map((b) =>
+                  b.n ? (
+                    <section class="sec">
+                      <h3>{b.n}. {b.label}</h3>
+                      <p class="para">{b.text}</p>
+                    </section>
+                  ) : (
+                    <p class="para">{b.text}</p>
+                  ),
+                )}
+                {pr.closing && f[pr.closing] && <p class="closing">{f[pr.closing]}</p>}
+                {f.attachments_note && <p class="attach"><strong>Хавсралт:</strong> {f.attachments_note}</p>}
+              </>
+            )
+          }
+          {!paper && f.annex && (
+            <section class="annex" slot="after">
+              <h3>{annexHeading}</h3>
+              <p class="para">{f.annex}</p>
+            </section>
+          )}
+        </OfficialDoc>
+      )
+    }
   </body>
 </html>
 

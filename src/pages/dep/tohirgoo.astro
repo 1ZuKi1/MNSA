@@ -1,7 +1,8 @@
 ---
 /**
- * The President's settings. One thing for now: the official stamp printed on documents they approved.
- * The image is stored private (never served on the public site) and every change is in the audit log.
+ * The President's settings: the two official stamps. The round one prints on documents the President
+ * approved; the square one only on the official blank (Албан бичиг, Хамтын ажиллагаа). The images are stored
+ * private (never served on the public site) and every change is in the audit log.
  */
 export const prerender = false;
 import Staff from '../../layouts/Staff.astro';
@@ -10,7 +11,7 @@ import Icon from '../../components/Icon.astro';
 import { clientIp, str, withFlash } from '../../lib/http';
 import { BadImage, storeImage } from '../../lib/media';
 import { canManageSettings } from '../../lib/permissions';
-import { clearStamp, setStamp, stampId } from '../../lib/settings';
+import { clearStamp, setStamp, STAMP_KINDS, STAMP_LABEL, stampId, stampKind, stampUrl, type StampKind } from '../../lib/settings';
 
 const user = Astro.locals.user!;
 if (!canManageSettings(user)) return new Response(null, { status: 404 });
@@ -18,17 +19,18 @@ if (!canManageSettings(user)) return new Response(null, { status: 404 });
 if (Astro.request.method === 'POST') {
   const fd = await Astro.request.formData();
   const action = str(fd, 'action', 20);
+  const kind = stampKind(str(fd, 'kind', 10));
   const ip = clientIp(Astro.request);
   try {
     if (action === 'stamp') {
       const file = fd.get('file');
       if (!(file instanceof File) || file.size === 0) throw new BadImage('empty');
-      await setStamp(user.id, await storeImage(file, user.id, undefined, undefined, { private: true }), ip);
-      return Astro.redirect(withFlash('/tohirgoo', 'stamp'));
+      await setStamp(user.id, await storeImage(file, user.id, undefined, undefined, { private: true }), ip, kind);
+      return Astro.redirect(withFlash(`/tohirgoo`, 'stamp'));
     }
     if (action === 'remove_stamp') {
-      await clearStamp(user.id, ip);
-      return Astro.redirect(withFlash('/tohirgoo', 'removed'));
+      await clearStamp(user.id, ip, kind);
+      return Astro.redirect(withFlash(`/tohirgoo`, 'removed'));
     }
   } catch (e) {
     if (e instanceof BadImage) return Astro.redirect(withFlash('/tohirgoo', 'image', 'err'));
@@ -37,66 +39,74 @@ if (Astro.request.method === 'POST') {
   return Astro.redirect(withFlash('/tohirgoo', 'invalid', 'err'));
 }
 
-const stamp = await stampId();
+const stamps = Object.fromEntries(await Promise.all(STAMP_KINDS.map(async (k) => [k, await stampId(k)] as const))) as Record<StampKind, string | null>;
+const WHERE: Record<StampKind, string> = {
+  round: 'Тэргүүний баталсан бүх баримтыг хэвлэхэд гарын үсгийн мөрөн дээр гарна — албан бланкнаас бусад.',
+  square: 'Зөвхөн албан бланк дээр: гадагш явуулах «Албан бичиг», «Хамтын ажиллагаа»-ны баримтыг Тэргүүн баталсан бол.',
+};
 ---
 <Staff title="Тохиргоо">
   <PageHead title="Тохиргоо" sub="Зөвхөн Тэргүүн харж, өөрчилнө. Өөрчлөлт бүр үйлдлийн бүртгэлд үлдэнэ." />
 
-  <section class="panel" aria-labelledby="stamp-h" style="max-width:760px">
-    <div class="panel-head"><h2 id="stamp-h"><Icon name="stamp" /> Албан тамга</h2></div>
-    <div class="panel-body stack" style="--stack:16px">
-      <p style="margin:0">
-        Тамга нь <strong>Тэргүүний баталсан</strong> баримтыг хэвлэхэд гарын үсгийн мөрөн дээр гарна.
-        Ноорог, хянагдаж буй, буцаагдсан баримт дээр хэзээ ч гарахгүй.
-      </p>
+  {STAMP_KINDS.map((kind) => {
+    const stamp = stamps[kind];
+    return (
+      <section class="panel stamp-panel" id={kind} aria-labelledby={`stamp-h-${kind}`}>
+        <div class="panel-head"><h2 id={`stamp-h-${kind}`}><Icon name="stamp" /> {STAMP_LABEL[kind]}</h2></div>
+        <div class="panel-body stack" style="--stack:16px">
+          <p style="margin:0">{WHERE[kind]} Ноорог, хянагдаж буй, буцаагдсан баримт дээр хэзээ ч гарахгүй.</p>
 
-      {
-        stamp ? (
-          <div class="sign-sample" aria-label="Хэвлэхэд ийм харагдана">
-            <span class="role">Тэргүүн</span>
-            <span class="line"><img src={`/tamga?v=${stamp}`} alt="Одоогийн тамга" /></span>
-            <span class="role">{user.name}</span>
-          </div>
-        ) : (
-          <p class="empty-note"><Icon name="alert" /> Тамга оруулаагүй байна. Хэвлэсэн баримт дээр зөвхөн гарын үсгийн мөр гарна.</p>
-        )
-      }
+          {
+            stamp ? (
+              <div class:list={['sign-sample', { square: kind === 'square' }]} aria-label="Хэвлэхэд ийм харагдана">
+                <span class="role">Тэргүүн</span>
+                <span class="line"><img src={stampUrl(kind, stamp)} alt={`Одоогийн ${STAMP_LABEL[kind].toLowerCase()}`} /></span>
+                <span class="role">{user.name}</span>
+              </div>
+            ) : (
+              <p class="empty-note"><Icon name="alert" /> {STAMP_LABEL[kind]} оруулаагүй байна. Хэвлэсэн баримт дээр зөвхөн гарын үсгийн мөр гарна.</p>
+            )
+          }
 
-      <form method="post" enctype="multipart/form-data" class="stack" style="--stack:12px">
-        <input type="hidden" name="action" value="stamp" />
-        <div class="field">
-          <label class="drop">
-            <Icon name="stamp" />
-            <b>{stamp ? 'Шинэ тамганы зураг сонгох' : 'Тамганы зураг сонгох'}</b>
-            <span data-file-name>PNG, WebP эсвэл JPG</span>
-            <input id="file" name="file" type="file" accept="image/png,image/webp,image/jpeg" required aria-describedby="file-hint" />
-          </label>
-          <span class="hint" id="file-hint">
-            Цагаан цаасан дээр дарсан тамгыг сканердаж эсвэл шулуун дээрээс нь зураг авна. Цаасны цагаан хэсгийг илгээхээс өмнө автоматаар арилгаж, тамгыг тайрна. 1.8 МБ-аас бага.
-          </span>
-        </div>
-        <div class="stamp-prep" hidden data-prep>
-          <img alt="Бэлтгэсэн тамга" data-prep-img />
-          <span role="status" data-prep-status></span>
-        </div>
-        <div class="btn-row">
-          <button class="btn btn-primary" type="submit"><Icon name="plus" /> {stamp ? 'Тамга солих' : 'Тамга оруулах'}</button>
-        </div>
-      </form>
-
-      {
-        stamp && (
-          <form method="post" data-confirm="Тамгыг устгах уу? Дараагийн хэвлэлтээс эхлэн баримт дээр гарахгүй.">
-            <button class="linkish danger" name="action" value="remove_stamp">Тамгыг устгах</button>
+          <form method="post" enctype="multipart/form-data" class="stack" style="--stack:12px">
+            <input type="hidden" name="action" value="stamp" />
+            <input type="hidden" name="kind" value={kind} />
+            <div class="field">
+              <label class="drop">
+                <Icon name="stamp" />
+                <b>{stamp ? 'Шинэ зураг сонгох' : 'Тамганы зураг сонгох'}</b>
+                <span data-file-name>PNG, WebP эсвэл JPG</span>
+                <input id={`file-${kind}`} name="file" type="file" accept="image/png,image/webp,image/jpeg" required aria-describedby={`file-hint-${kind}`} data-stamp-file />
+              </label>
+              <span class="hint" id={`file-hint-${kind}`}>
+                Цагаан цаасан дээр дарсан тамгыг сканердаж эсвэл шулуун дээрээс нь зураг авна. Цаасны цагаан хэсгийг илгээхээс өмнө автоматаар арилгаж, тамгыг тайрна. 1.8 МБ-аас бага.
+              </span>
+            </div>
+            <div class="stamp-prep" hidden data-prep>
+              <img alt="Бэлтгэсэн тамга" data-prep-img />
+              <span role="status" data-prep-status></span>
+            </div>
+            <div class="btn-row">
+              <button class="btn btn-primary" type="submit"><Icon name="plus" /> {stamp ? 'Тамга солих' : 'Тамга оруулах'}</button>
+            </div>
           </form>
-        )
-      }
 
-      <p class="form-note">
-        <Icon name="lock" /> Тамганы зураг зөвхөн ажлын орчинд нэвтэрсэн хүнд харагдана. Нийтийн сайтад хэзээ ч гарахгүй.
-      </p>
-    </div>
-  </section>
+          {
+            stamp && (
+              <form method="post" data-confirm={`${STAMP_LABEL[kind]}-г устгах уу? Дараагийн хэвлэлтээс эхлэн баримт дээр гарахгүй.`}>
+                <input type="hidden" name="kind" value={kind} />
+                <button class="linkish danger" name="action" value="remove_stamp">Тамгыг устгах</button>
+              </form>
+            )
+          }
+        </div>
+      </section>
+    );
+  })}
+
+  <p class="form-note" style="max-width:760px">
+    <Icon name="lock" /> Тамганы зураг зөвхөн ажлын орчинд нэвтэрсэн хүнд харагдана. Нийтийн сайтад хэзээ ч гарахгүй.
+  </p>
 </Staff>
 
 <style>
@@ -107,6 +117,9 @@ const stamp = await stampId();
   }
   .sign-sample .line { position: relative; height: 2.2em; border-bottom: 1px solid var(--ink); }
   .sign-sample img { position: absolute; left: 50%; top: 50%; width: 120px; height: auto; transform: translate(-50%, -50%); mix-blend-mode: multiply; }
+  .sign-sample.square img { width: 96px; }
+  .stamp-panel { max-width: 760px; }
+  .stamp-panel + .stamp-panel { margin-top: 18px; }
   .empty-note { display: flex; gap: 8px; align-items: center; margin: 0; color: var(--ink-2); }
   .form-note { display: flex; gap: 8px; align-items: center; }
   .empty-note :global(.icon), .form-note :global(.icon) { width: 18px; height: 18px; flex: none; }
@@ -127,10 +140,9 @@ const stamp = await stampId();
   // A scan of the stamp has white paper round it. Before upload: make the paper transparent (softly, so
   // the ink edge stays smooth) and crop to the stamp, so 38 mm on paper is 38 mm of stamp, not of margin.
   // If anything here fails, the original file is sent unchanged.
-  (function () {
-    var input = document.getElementById('file');
-    var box = document.querySelector('[data-prep]');
-    if (!input || !box || !window.DataTransfer || !window.HTMLCanvasElement) return;
+  document.querySelectorAll('[data-stamp-file]').forEach(function (input) {
+    var box = input.form && input.form.querySelector('[data-prep]');
+    if (!box || !window.DataTransfer || !window.HTMLCanvasElement) return;
     var out = box.querySelector('[data-prep-img]');
     var status = box.querySelector('[data-prep-status]');
     var drop = input.closest('.drop');
@@ -179,5 +191,5 @@ const stamp = await stampId();
       };
       img.src = url;
     });
-  })();
+  });
 </script>

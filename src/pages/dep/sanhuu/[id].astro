@@ -1,0 +1,274 @@
+---
+/**
+ * One money request: what was asked (sections 1–5 of the paper form), the decisions (section 6), the money
+ * given or received (section 7), and photos of the receipts. Staff only.
+ */
+export const prerender = false;
+import Staff from '../../../layouts/Staff.astro';
+import PageHead from '../../../components/PageHead.astro';
+import Icon from '../../../components/Icon.astro';
+import PhotoShrink from '../../../components/PhotoShrink.astro';
+import {
+  addReceipt, asFinanceLike, cancelFinance, decideFinance, financeActor, financeLines, financeReceipts, fmtMoney, fmtQty, getFinance, isIncome,
+  KIND_LABEL, recordFinance, removeReceipt, STATUS_LABEL, STEP_LABEL,
+} from '../../../lib/finance';
+import { clientIp, int, str, withFlash } from '../../../lib/http';
+import { BadImage, storeImage } from '../../../lib/media';
+import { parseMoney } from '../../../lib/money';
+import * as P from '../../../lib/permissions';
+import { Conflict, Denied } from '../../../lib/records';
+import { fmtDate, fmtDateTime, fromLocal, now, toDateInput } from '../../../lib/time';
+
+const user = Astro.locals.user!;
+const id = int(Astro.params.id);
+const r = id ? await getFinance(id) : null;
+const actor = await financeActor(user);
+if (!r || !P.canReadMoney(actor, asFinanceLike(r))) return new Response(null, { status: 404 });
+const here = `/sanhuu/${r.id}`;
+const like = asFinanceLike(r);
+
+let recordErrors: Record<string, string> = {};
+if (Astro.request.method === 'POST') {
+  const fd = await Astro.request.formData();
+  const action = str(fd, 'action', 20);
+  const ip = clientIp(Astro.request);
+  try {
+    if (action === 'approve' || action === 'reject') {
+      await decideFinance(user, r, action, str(fd, 'comment', 1000), ip);
+      return Astro.redirect(withFlash(here, action === 'approve' ? 'money_approved' : 'money_rejected'));
+    }
+    if (action === 'cancel') {
+      await cancelFinance(user, r, ip);
+      return Astro.redirect(withFlash(here, 'money_cancelled'));
+    }
+    if (action === 'record') {
+      const amount = parseMoney(str(fd, 'amount', 30));
+      const day = str(fd, 'paid_on', 10);
+      if (amount === null) recordErrors.amount = 'Дүнг тоогоор бичнэ үү, жишээ нь 1250 эсвэл 12.50.';
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || day > toDateInput(now())) recordErrors.paid_on = 'Огноог оруулна уу — ирээдүйд байж болохгүй.';
+      if (!Object.keys(recordErrors).length) {
+        await recordFinance(user, r, { paidMinor: amount!, paidOn: fromLocal(day) }, ip);
+        return Astro.redirect(withFlash(here, 'money_paid'));
+      }
+    }
+    if (action === 'receipt') {
+      const file = fd.get('file');
+      if (!(file instanceof File) || file.size === 0) return Astro.redirect(withFlash(here, 'invalid', 'err'));
+      if (!P.canAddReceipt(actor, like)) throw new Denied();
+      const mediaId = await storeImage(file, user.id, int(str(fd, 'w')) ?? undefined, int(str(fd, 'h')) ?? undefined, { private: true });
+      await addReceipt(user, r, mediaId, ip);
+      return Astro.redirect(withFlash(here, 'receipt_added'));
+    }
+    if (action === 'remove_receipt') {
+      await removeReceipt(user, r, int(str(fd, 'receipt', 12)) ?? 0, ip);
+      return Astro.redirect(withFlash(here, 'receipt_removed'));
+    }
+  } catch (e) {
+    const key = e instanceof Denied ? 'denied' : e instanceof Conflict ? 'conflict' : e instanceof BadImage ? 'image' : (e as Error).message === 'comment-required' ? 'comment' : 'invalid';
+    if (key === 'invalid') console.error(e);
+    return Astro.redirect(withFlash(here, key, 'err'));
+  }
+}
+
+const [lines, receipts] = await Promise.all([financeLines(r.id), financeReceipts(r.id)]);
+const can = {
+  decide: P.canDecideMoney(actor, like),
+  record: P.canRecordMoney(actor, like),
+  cancel: P.canCancelMoney(actor, like),
+  receipt: P.canAddReceipt(actor, like),
+};
+// The account / WeChat ID: only the requester and the people who handle the money.
+const showAccount = r.requester_id === user.id || P.canKeepBudget(actor) || user.role === 'president' || user.role === 'maintainer';
+const income = isIncome(r.kind);
+const steps = [
+  { label: STEP_LABEL.keeper, by: r.keeper_name, at: r.keeper_at, key: 'keeper' as const },
+  { label: STEP_LABEL.president, by: r.president_name, at: r.president_at, key: 'president' as const },
+].filter((s) => s.by || r.awaiting === s.key || (s.key === 'president' && r.awaiting === 'keeper' && r.status === 'pending'));
+const BADGE: Record<string, string> = { pending: 'b-in_review', approved: 'b-approved', rejected: 'b-rejected', paid: 'b-approved', cancelled: 'b-void' };
+---
+<Staff title={r.event_name}>
+  <PageHead title={r.event_name} crumbs={[{ href: '/sanhuu', label: 'Санхүү' }]}>
+    <Fragment slot="actions">
+      <a class="btn" href={`${here}/hevleh`} target="_blank" rel="noopener"><Icon name="print" /> Хэвлэх<span class="sr-only"> (шинэ цонхонд)</span></a>
+    </Fragment>
+    <span class={`badge ${BADGE[r.status]}`}>{STATUS_LABEL[r.status]}</span>
+    <span>{KIND_LABEL[r.kind]}</span>
+    <span class="num">{r.number}</span>
+  </PageHead>
+
+  <section class:list={['panel', 'status-panel', `s-${r.status === 'paid' ? 'approved' : r.status === 'pending' ? 'in_review' : r.status === 'cancelled' ? 'void' : r.status}`, { attention: can.decide || can.record }]} id="decide" aria-labelledby="st-h">
+    <div class="panel-body">
+      <h2 id="st-h" class="sr-only">Шийдвэр</h2>
+      <ol class="stepper" aria-label="Шийдвэрлэх дараалал">
+        <li class="done"><span class="dot"><Icon name="check" /></span>Хүсэлт гаргасан</li>
+        {steps.map((s, n) => (
+          <li class={s.by ? 'done' : r.awaiting === s.key ? (r.status === 'rejected' ? 'stop' : r.status === 'pending' ? 'now' : '') : ''} aria-current={r.status === 'pending' && r.awaiting === s.key ? 'step' : undefined}>
+            <span class="dot">{s.by ? <Icon name="check" /> : r.status === 'rejected' && r.awaiting === s.key ? <Icon name="x" /> : n + 2}</span>{s.label}
+          </li>
+        ))}
+        <li class={r.status === 'paid' ? 'done' : r.status === 'approved' ? 'now' : ''}>
+          <span class="dot">{r.status === 'paid' ? <Icon name="check" /> : steps.length + 2}</span>{income ? 'Хүлээн авсан' : 'Олгосон'}
+        </li>
+      </ol>
+      <div class="status-line">
+        <p>
+          <strong>
+            {r.status === 'pending' && r.awaiting && `${STEP_LABEL[r.awaiting]} шийдвэрлэнэ.`}
+            {r.status === 'approved' && (income ? 'Зөвшөөрсөн. Төсвийн хариуцагч мөнгийг хүлээн авснаа бүртгэнэ.' : 'Зөвшөөрсөн. Төсвийн хариуцагч мөнгийг олгоод бүртгэнэ.')}
+            {r.status === 'paid' && `${income ? 'Хүлээн авсан' : 'Олгосон'}: ${fmtMoney(r.paid_minor ?? 0, r.currency)} · ${fmtDate(r.paid_on)} · ${r.payer_name ?? ''}`}
+            {r.status === 'rejected' && 'Татгалзсан.'}
+            {r.status === 'cancelled' && 'Хүсэлт гаргагч цуцалсан.'}
+          </strong>
+        </p>
+      </div>
+      {r.status === 'rejected' && (
+        <div class="reject-note"><b>{r.rejecter_name} татгалзсан шалтгаан:</b><p>{r.reject_reason}</p></div>
+      )}
+
+      {can.decide && (
+        <form method="post" class="stack decision" style="--stack:12px">
+          <div class="field">
+            <label for="comment">Тайлбар <span class="opt">(зөвшөөрөхөд заавал биш, татгалзахад заавал)</span></label>
+            <textarea id="comment" name="comment" rows="2"></textarea>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-ok btn-lg" name="action" value="approve"><Icon name="check" /> Зөвшөөрөх</button>
+            <button class="btn btn-danger btn-lg" name="action" value="reject" data-require="comment"><Icon name="undo" /> Татгалзах</button>
+          </div>
+        </form>
+      )}
+
+      {can.record && (
+        <form method="post" id="record" class="stack decision" style="--stack:12px">
+          <input type="hidden" name="action" value="record" />
+          <h3 style="margin:0;font-size:1rem">Санхүүгийн бүртгэлд</h3>
+          <div class="two" style="max-width:560px">
+            <div class="field">
+              <label for="amount">{income ? 'Хүлээн авсан дүн' : 'Олгосон дүн'}, {r.currency}</label>
+              <input id="amount" name="amount" type="text" inputmode="decimal" required value={(r.total_minor / 100).toFixed(2)} aria-invalid={recordErrors.amount ? 'true' : undefined} />
+              {recordErrors.amount && <span class="error"><Icon name="alert" /> {recordErrors.amount}</span>}
+            </div>
+            <div class="field">
+              <label for="paid_on">{income ? 'Хүлээн авсан огноо' : 'Олгосон огноо'}</label>
+              <input id="paid_on" name="paid_on" type="date" required max={toDateInput(now())} value={toDateInput(now())} aria-invalid={recordErrors.paid_on ? 'true' : undefined} />
+              {recordErrors.paid_on && <span class="error"><Icon name="alert" /> {recordErrors.paid_on}</span>}
+            </div>
+          </div>
+          <p class="form-note">Бүртгэлийн дугаар: <span class="num">{r.number}</span> · Олгосон хүн: {user.name}</p>
+          <div><button class="btn btn-primary" type="submit" data-confirm="Мөнгө олгосон (хүлээн авсан) гэж бүртгэх үү? Дараа нь өөрчлөх боломжгүй."><Icon name="wallet" /> Бүртгэх</button></div>
+        </form>
+      )}
+
+      {can.cancel && (
+        <form method="post" data-confirm="Хүсэлтээ цуцлах уу?" style="margin-top:12px">
+          <button class="linkish danger" name="action" value="cancel">Хүсэлтээ цуцлах</button>
+        </form>
+      )}
+    </div>
+  </section>
+
+  <div class="cols" style="margin-top:18px">
+    <div>
+      <section class="panel" aria-labelledby="lines-h">
+        <div class="panel-head"><h2 id="lines-h"><Icon name="receipt" /> {income ? 'Орлогын' : 'Зардлын'} жагсаалт</h2></div>
+        <div class="panel-body"><div class="table-wrap">
+          <table class="t money-t">
+            <caption class="sr-only">Мөрүүд</caption>
+            <thead><tr><th scope="col" class="num">№</th><th scope="col">Зүйлийн нэр, тайлбар</th><th scope="col" class="num">Тоо</th><th scope="col" class="num">Нэгж үнэ</th><th scope="col" class="num">Нийт дүн</th></tr></thead>
+            <tbody>
+              {lines.map((l, n) => (
+                <tr>
+                  <td class="num muted">{n + 1}</td>
+                  <td>{l.item}{l.note && <span class="sub">{l.note}</span>}</td>
+                  <td class="num">{fmtQty(l.qty_c)}</td>
+                  <td class="num nowrap">{fmtMoney(l.unit_minor, r.currency)}</td>
+                  <td class="num nowrap">{fmtMoney(l.total_minor, r.currency)}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot><tr><td colspan="4" class="num strong">НИЙТ ДҮН</td><td class="num strong nowrap">{fmtMoney(r.total_minor, r.currency)}</td></tr></tfoot>
+          </table>
+        </div></div>
+      </section>
+
+      <section class="panel" aria-labelledby="rc-h" style="margin-top:18px">
+        <div class="panel-head"><h2 id="rc-h"><Icon name="image" /> Баримт</h2><span class="muted small">{receipts.length}{r.receipts_stated ? ` / ${r.receipts_stated} гэж бичсэн` : ''}</span></div>
+        <div class="panel-body stack" style="--stack:14px">
+          {r.no_receipt_reason && <p style="margin:0"><b>Баримтгүй шалтгаан:</b> {r.no_receipt_reason}</p>}
+          {receipts.length === 0 ? (
+            <p class="muted" style="margin:0">Баримтын зураг нэмээгүй байна.</p>
+          ) : (
+            <ul class="receipts">
+              {receipts.map((x) => (
+                <li>
+                  <a href={`${here}/barimt/${x.id}`} target="_blank" rel="noopener"><img src={`${here}/barimt/${x.id}`} alt={`Баримт, ${x.uploader_name} ${fmtDate(x.created_at)}`} loading="lazy" /></a>
+                  {can.receipt && (
+                    <form method="post" data-confirm="Энэ баримтын зургийг хасах уу?">
+                      <input type="hidden" name="receipt" value={x.id} />
+                      <button class="linkish danger small" name="action" value="remove_receipt">Хасах</button>
+                    </form>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+          {can.receipt && (
+            <form method="post" enctype="multipart/form-data" class="upload" data-photo-form data-max="2000">
+              <input type="hidden" name="action" value="receipt" />
+              <input type="hidden" name="w" value="" />
+              <input type="hidden" name="h" value="" />
+              <label class="drop">
+                <Icon name="image" />
+                <b>Баримтын зураг сонгох</b>
+                <span data-status>Чек, QR төлбөрийн зураг, нэхэмжлэх. Утасны зураг ч болно — автоматаар жижигрүүлнэ.</span>
+                <input name="file" type="file" accept="image/jpeg,image/png,image/webp" required />
+              </label>
+              <img class="preview" alt="Сонгосон зураг" data-preview />
+              <div><button class="btn btn-primary" type="submit"><Icon name="plus" /> Нэмэх</button></div>
+            </form>
+          )}
+        </div>
+      </section>
+    </div>
+
+    <div>
+      <section class="panel" aria-labelledby="info-h">
+        <div class="panel-head"><h2 id="info-h">Мэдээлэл</h2></div>
+        <div class="panel-body">
+          <dl class="kv">
+            <dt>Дугаар</dt><dd>{r.number}</dd>
+            <dt>Хүсэлт гаргагч</dt><dd>{r.requester_name}</dd>
+            <dt>Хэлтэс</dt><dd>{r.dept_name ?? 'Бусад'}</dd>
+            {r.contact && <><dt>Холбоо барих</dt><dd>{r.contact}</dd></>}
+            <dt>Огноо</dt><dd>{fmtDate(r.spent_on)}</dd>
+            {r.purpose && <><dt>Зорилго</dt><dd class="pre">{r.purpose}</dd></>}
+            <dt>Төлбөр</dt><dd>{r.pay_method === 'cash' ? 'Бэлнээр' : r.pay_method === 'wechat' ? 'WeChat' : '—'}</dd>
+            {r.payee_name && <><dt>Хүлээн авагч</dt><dd>{r.payee_name}</dd></>}
+            {showAccount && r.payee_account && <><dt>Данс / WeChat ID</dt><dd>{r.payee_account}</dd></>}
+          </dl>
+        </div>
+      </section>
+      <section class="panel" aria-labelledby="hist-h">
+        <div class="panel-head"><h2 id="hist-h"><Icon name="clock" /> Түүх</h2></div>
+        <div class="panel-body">
+          <ol class="timeline">
+            {r.paid_on && <li class="t-approve"><div><strong>{r.payer_name}</strong> — {income ? 'хүлээн авсан' : 'олгосон'} {fmtMoney(r.paid_minor ?? 0, r.currency)}</div><div class="when">{fmtDate(r.paid_on)}</div></li>}
+            {r.rejected_at && <li class="t-reject"><div><strong>{r.rejecter_name}</strong> — татгалзсан</div><div class="when">{fmtDateTime(r.rejected_at)}</div></li>}
+            {r.president_at && <li class="t-approve"><div><strong>{r.president_name}</strong> — зөвшөөрсөн (Тэргүүн)</div><div class="when">{fmtDateTime(r.president_at)}</div></li>}
+            {r.keeper_at && <li class="t-approve"><div><strong>{r.keeper_name}</strong> — зөвшөөрсөн (Санхүү хариуцсан гишүүн)</div><div class="when">{fmtDateTime(r.keeper_at)}</div></li>}
+            <li class="t-create"><div><strong>{r.requester_name}</strong> — хүсэлт гаргасан</div><div class="when">{fmtDateTime(r.created_at)}</div></li>
+          </ol>
+        </div>
+      </section>
+    </div>
+  </div>
+</Staff>
+<PhotoShrink />
+
+<style>
+  .money-t tfoot td { border-top: 2px solid var(--line-strong); }
+  .decision { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
+  .receipts { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; }
+  .receipts img { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); display: block; }
+  .receipts form { margin-top: 4px; }
+</style>

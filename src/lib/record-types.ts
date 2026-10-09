@@ -91,6 +91,16 @@ export interface PrintDef {
   signers: Signer[];
   /** Fixed wording (release from office). When set, the record title is not printed. */
   template?: TemplateSection[];
+  /**
+   * 'letter' = the association's official blank (Official Blank - Mongolian.docx): letterhead, the recipient
+   * on the right, the reference line, the title in brackets and the President's signature. For letters that
+   * go to other organisations.
+   */
+  layout?: 'letter';
+  /** Which stamp the President's signature carries: the square one on the official blank, else the round one. */
+  stamp?: 'square';
+  /** A field holding the document's language; '中文' prints every fixed label in Chinese. */
+  langField?: string;
 }
 
 export interface RecordType {
@@ -122,6 +132,11 @@ const HEAD: Signer = { title: 'Хэлтсийн дарга', step: 'head' };
 /** Meeting kinds, from Үндсэн дүрэм 33.1. */
 export const MEETING_KINDS = ['Их Хуралдаан', 'Албан хурал', 'Албан бус хурал', 'Удирдах Зөвлөлийн хурал', 'Хэлтсийн дарга нарын хурал', 'Хэлтсийн хурал'];
 
+/** Хамтын ажиллагаа: the heading in each language (memorandum, agreement), as on the papers of 2026-09. */
+const KIND_WORDS = { mn: ['ХАМТРАН АЖИЛЛАХ САНАМЖ БИЧИГ', 'ХАМТРАН АЖИЛЛАХ ГЭРЭЭ'], zh: ['《合作谅解备忘录》', '《合作协议》'] };
+/** The language a document prints in: 'zh' when its language field says 中文. */
+export const hamtiinLang = (f: Record<string, string>): 'mn' | 'zh' => (f.lang === '中文' ? 'zh' : 'mn');
+
 export const RECORD_TYPES: Record<string, RecordType> = {
   'albn-bichig': {
     slug: 'albn-bichig',
@@ -132,11 +147,13 @@ export const RECORD_TYPES: Record<string, RecordType> = {
     description: 'Гадагш илгээх албан ёсны захидал. Хэлтсийн дарга, Эрх зүйн хэлтэс, Тэргүүн хянана.',
     chain: ['head', 'legal', 'president'],
     fields: [
-      { name: 'recipient', label: 'Хүлээн авагч', type: 'text', required: true, hint: 'Байгууллага эсвэл хүний нэр' },
-      { name: 'body', label: 'Агуулга', type: 'textarea', required: true },
+      { name: 'recipient', label: 'Хүлээн авагч', type: 'text', required: true, hint: 'Байгууллагын нэрийг өгөх тийн ялгалаар: «Монгол Улсаас БНХАУ-д суугаа Элчин сайдын яаманд»' },
+      { name: 'greeting', label: 'Хандлага', type: 'text', hint: 'Хоосон бол «Сайн байна уу!». Жишээ нь: «Хүндэт Элчин сайдын яамны хамт олонд,»' },
+      { name: 'body', label: 'Агуулга', type: 'textarea', required: true, hint: 'Догол мөр бүрийг хоосон мөрөөр тусгаарлана: бид хэн, юуны тухай; гол хүсэлт; цаашдын алхам.' },
       { name: 'attachments_note', label: 'Хавсралт', type: 'text', hint: 'Жишээ нь: «Гишүүдийн жагсаалт, 2 хуудас»' },
     ],
-    print: { kind: '', plain: ['body'], signers: [PRESIDENT, LEGAL] },
+    // On the official blank only the President signs, with the square stamp (the Embassy letter, 2026-10-08).
+    print: { kind: '', plain: ['body'], signers: [PRESIDENT], layout: 'letter', stamp: 'square' },
   },
   medegdel: {
     slug: 'medegdel',
@@ -351,7 +368,34 @@ export const RECORD_TYPES: Record<string, RecordType> = {
     },
   },
 
-  // ---- A kind the association used on paper that the site doesn't write. Only in the archive.
+  hamtiin: {
+    slug: 'hamtiin',
+    label: 'Хамтын ажиллагаа',
+    code: 'ХА',
+    group: 'work',
+    icon: 'handshake',
+    description:
+      'Өөр холбоо, байгууллагатай байгуулах санамж бичиг (合作谅解备忘录) эсвэл гэрээ. Монгол эсвэл хятад хэлээр. Хэлтсийн дарга, Эрх зүйн хэлтэс, Тэргүүн батална.',
+    chain: ['head', 'legal', 'president'],
+    fields: [
+      { name: 'lang', label: 'Хэл', type: 'select', required: true, options: ['Монгол', '中文'], hint: 'Хятад хэлээр бол хэвлэхэд бүх тогтмол бичиг хятадаар, нэрс латинаар гарна.' },
+      { name: 'doc_kind', label: 'Баримтын төрөл', type: 'select', required: true, options: ['Хамтран ажиллах санамж бичиг', 'Хамтран ажиллах гэрээ'] },
+      { name: 'partner', label: 'Хамтрагч байгууллага', type: 'text', required: true, hint: 'Сонгосон хэлээр нь: «北京大学韩国留学生会», «Хятад дахь Монгол Оюутнуудын Нэгдсэн Холбоо»' },
+      { name: 'heading', label: 'Баримт дээрх гарчиг', type: 'text', hint: 'Сонгосон хэлээр. Хоосон бол: «北京大学蒙古国留学生学生会与 [хамтрагч] 关于开展合作事宜» эсвэл баримтын нэр.' },
+      { name: 'body', label: 'Агуулга', type: 'textarea', required: true, hint: 'Бүлэг, заалтуудыг дугаарлаж, сонгосон хэлээрээ бичнэ: «一、总则», «2.1. …» эсвэл «НЭГ. НИЙТЛЭГ ҮНДЭСЛЭЛ», «1.1. …».' },
+      { name: 'annex', label: 'Хавсралт', type: 'textarea', hint: 'Хамтран хэрэгжүүлэх ажлын төлөвлөгөө, хариуцсан төлөөлөгч гэх мэт. Хэвлэхэд гэрээний дараа гарна.' },
+      { name: 'partner_signer', label: 'Хамтрагч талын гарын үсэг зурах хүн', type: 'text', hint: 'Гэрээнд хоёр тал гарын үсэг зурвал. Жишээ нь: «Тэргүүн Б. Бат». Хоосон бол зөвхөн манай тал гарна.' },
+    ],
+    print: {
+      kind: (f) => KIND_WORDS[hamtiinLang(f)][f.doc_kind === 'Хамтран ажиллах гэрээ' ? 1 : 0],
+      plain: ['body'],
+      signers: [PRESIDENT, HEAD, LEGAL],
+      stamp: 'square',
+      langField: 'lang',
+    },
+  },
+
+  // ---- Kinds the association used on paper that the site doesn't write. Only in the archive.
   zarlal: {
     slug: 'zarlal',
     label: 'Зарлал',
@@ -363,6 +407,19 @@ export const RECORD_TYPES: Record<string, RecordType> = {
     chain: ['legal', 'president'],
     fields: [{ name: 'body', label: 'Агуулга', type: 'textarea', required: true }],
     print: { kind: 'ЗАРЛАЛ', plain: ['body'], signers: [PRESIDENT, LEGAL] },
+  },
+  uureg: {
+    slug: 'uureg',
+    label: 'Үүрэг хүлээсэн бичиг',
+    code: 'ҮБ',
+    group: 'rules',
+    icon: 'hand',
+    archiveOnly: true,
+    description:
+      'Өмнөх жилүүдийн хэлтсийн дарга, гишүүдийн үүрэг, хариуцлагаа хүлээн зөвшөөрсөн бичиг. Энэ жилийнхийг «Гишүүд → Үүргийн бичиг»-ээс хэвлэнэ.',
+    chain: ['president'],
+    fields: [{ name: 'body', label: 'Агуулга', type: 'textarea', required: true }],
+    print: { kind: '', plain: ['body'], signers: [PRESIDENT] },
   },
 };
 
