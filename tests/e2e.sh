@@ -122,6 +122,24 @@ check "maintainer can create records (President's powers)" "$(code $J/dev.jar /b
 has "records list shows other dept (open read)" "$(get $J/gadaad.jar /barimt)" "Нээлтийн уулзалтын тайлан"
 hasnt "records list hides dept-only draft" "$(get $J/gadaad.jar /barimt)" "Гишүүнчлэлийн батламжийн"
 
+echo "── records: paper documents from before the website"
+pg=$(get $J/gadaad.jar /barimt/5)
+has "a paper document opens for any staff" "$pg" "Цаасан хэлбэрээр батлагдсан — 2026.03.02"
+has "…naming who signed it on paper" "$pg" "Г. Тулга"
+hasnt "…without an approval chain" "$pg" 'class="stepper"'
+has "…its text kept as written" "$pg" "1.1. Энэхүү журмын зорилго"
+has "a paper document can't be edited" "$(curl -s -o /dev/null -w '%{redirect_url}' -b $J/president.jar -H "$S" $B/barimt/5/zasah)" "err=denied"
+pr=$(get $J/legal.jar /barimt/5/hevleh)
+has "prints under the paper's own heading" "$pr" '>ЖУРАМ<'
+has "…dated as on the paper" "$pr" "Огноо: 2026 оны 3 дугаар сарын 2"
+has "…signed by the paper's signers" "$pr" 's-name">Н. Сувд'
+hasnt "…with no stamp" "$pr" 'class="stamp"'
+has "…and says where it came from" "$pr" "Цаасан эх хувиас цахим архивт оруулсан"
+has "the list marks it and keeps last year" "$(get $J/gadaad.jar '/barimt?year=2025-2026')" "цаасан эх"
+has "…the year filter offers last year" "$(get $J/gadaad.jar /barimt)" '<option value="2025-2026"'
+hasnt "a paper-only kind is never offered for writing" "$(get $J/president.jar '/barimt/shine?type=zarlal')" "Шинэ зарлал"
+check "…nor accepted from a crafted form" "$(post $J/president.jar /barimt/shine -d "type=zarlal&dept=erh-zui&visibility=staff&then=save" --data-urlencode "title=x" --data-urlencode "f_body=x")" ""
+
 echo "── events: President + Media only"
 has "dotood дарга cannot create events" "$(curl -s -o /dev/null -w '%{redirect_url}' -b $J/dotood.jar -H "$S" $B/uil-ajillagaa/shine)" "err=denied"
 loc=$(post $J/media2.jar /uil-ajillagaa/shine -d "start_date=2026-10-24&start_time=19:00&end_date=2026-10-24&end_time=22:00&dept=gadaad" \

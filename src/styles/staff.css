@@ -406,6 +406,11 @@ a.row-link:hover { color: var(--blue); text-decoration: underline; text-underlin
 .doc-field h3 { font-size: 0.86rem; font-weight: 650; color: var(--ink-3); margin: 0 0 4px; }
 .doc-field p { margin: 0; white-space: pre-wrap; font-size: 1.02rem; line-height: 1.7; }
 .pre { white-space: pre-wrap; }
+/* A paper document's text, kept as the paper laid it out: its own numbering and indents. */
+.paper-text { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 0.98rem; line-height: 1.65; tab-size: 4; }
+.paper-status > p:first-child { margin: 0 0 12px; }
+.paper-status .kv { margin-bottom: 4px; }
+.paper-status .form-note { margin: 10px 0 0; }
 
 /* ---------- history ---------- */
 .timeline { list-style: none; margin: 0; padding: 0; }

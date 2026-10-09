@@ -19,12 +19,16 @@ INSERT INTO records (id,type,department_id,author_id,academic_year,number,title,
   (2,'huselt',2,4,'2026-2027','МОХ-ДХ/2627/Х/001','Шинэ оюутныг угтах арга хэмжээ','{"event_date":"2026-10-10","venue":"Оюутны төв, 2 давхар","participants":"60","budget":"1200","purpose":"Шинээр элссэн Монгол оюутнуудыг холбоотой танилцуулж, ахлах ангийнхантай нь холбох.","needs":"Танхим, проектор, зууш ундаа"}','in_review',1,'president','staff',1,1789884000,NULL,1789819200,1789956000),
   (3,'tailan',5,8,'2026-2027','МОХ-МХ/2627/Т/001','Нээлтийн уулзалтын тайлан','{"report_kind":"Улирлын эцсийн","period":"2026 оны 9-р сар","members":"С. Хулан (Хэлтсийн дарга), Ц. Мөнхжин","work":"Шинэ хичээлийн жилийн нээлтийн уулзалтыг зохион байгууллаа. Огноо: 9-р сарын 12. Хариуцсан: С. Хулан, Ц. Мөнхжин.","results":"42 оюутан оролцож, 11 шинэ оюутан холбоонд бүртгүүлэв.","next_steps":"10-р сард угтах арга хэмжээ зохион байгуулна."}','approved',1,NULL,'staff',1,1789552800,1789614000,1789549200,1789614000),
   (4,'albn-bichig',6,9,'2026-2027',NULL,'Гишүүнчлэлийн батламжийн загвар','{"recipient":"Холбооны гишүүд","body":"Ноорог.","attachments_note":""}','draft',0,NULL,'dept',1,NULL,NULL,1790064000,1790064000);
+-- A paper document from before the website (migration 0012): approved on paper, entered into the archive.
+INSERT INTO records (id,type,department_id,author_id,academic_year,number,title,fields_json,status,step,awaiting,visibility,version,submitted_at,decided_at,created_at,updated_at,paper_json) VALUES
+  (5,'juram',6,1,'2025-2026','Ж-0009','Холбооны баримт бичиг хадгалах тухай журам','{"text": "1. Тухай\n    1.1. Энэхүү журмын зорилго нь Холбооны баримт бичгийг нэг дор, эмх цэгцтэй хадгалахад оршино.\n2. Хадгалах\n    2.1. Батлагдсан баримт бүрийг дугаартай нь Холбооны архивт хадгална.\n    2.2. Баримтыг устгахгүй."}','approved',0,NULL,'staff',1,1772424000,1772424000,1772424000,1772424000,'{"source": "Ж-0009 (жишээ).docx", "kind": "ЖУРАМ", "subject": "Холбооны баримт бичиг хадгалах тухай", "date": "2026-03-02", "signers": [{"title": "Холбооны Тэргүүн", "names": ["Г. Тулга"]}, {"title": "Эрх Зүйн Хэлтэс", "names": ["Н. Сувд"]}], "imported_at": 1790150400}');
 INSERT INTO record_versions (record_id,version,title,fields_json,author_id,created_at) SELECT id,1,title,fields_json,author_id,created_at FROM records;
 INSERT INTO record_actions (record_id,actor_id,action,step,comment,created_at) VALUES
   (1,1,'create',NULL,NULL,1789434000),(1,1,'submit',NULL,NULL,1789437600),(1,9,'approve','legal',NULL,1789518600),(1,1,'auto','president',NULL,1789520400),
   (2,4,'create',NULL,NULL,1789819200),(2,4,'submit',NULL,NULL,1789884000),(2,3,'approve','head','Төсвийг 1200 юаньд багтаая.',1789956000),
   (3,8,'create',NULL,NULL,1789549200),(3,8,'submit',NULL,NULL,1789552800),(3,7,'approve','head',NULL,1789614000),
-  (4,9,'create',NULL,NULL,1790064000);
+  (4,9,'create',NULL,NULL,1790064000),
+  (5,1,'import',NULL,NULL,1790150400);
 
 INSERT INTO events (id,slug,title,summary,body,starts_at,ends_at,location,department_id,status,academic_year,created_by,published_by,published_at,created_at,updated_at) VALUES
   (1,'shine-oyutan-ugtah','Шинэ оюутныг угтах арга хэмжээ','Шинээр элссэн Монгол оюутнуудтай танилцах үдэш.','Шинээр элссэн оюутнууд холбооны гишүүд, ахлах ангийнхантайгаа танилцаж, их сургуулийн амьдралын талаар асуух боломжтой.',1791626400,1791637200,'Оюутны төв, 2 давхар',2,'published','2026-2027',7,7,1790049600,1789963200,1790049600),

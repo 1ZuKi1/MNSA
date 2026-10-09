@@ -20,7 +20,8 @@ export function normalizeTime(raw: string): string {
 
 export function readRecordForm(fd: FormData, fixedType?: RecordType) {
   const type = fixedType ?? getRecordType(str(fd, 'type', 40));
-  if (!type) return null;
+  // archive-only kinds (Зарлал, signed duty letters) come from paper, never from this form
+  if (!type || (!fixedType && type.archiveOnly)) return null;
   const raw: Record<string, string> = {};
   // a range arrives as two boxes (f_period, f_period_to) and is kept as one value
   const part = (name: string, times: boolean) => (times ? normalizeTime(str(fd, name, 10)) : str(fd, name, 10));
