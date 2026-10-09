@@ -351,7 +351,7 @@ export const RECORD_TYPES: Record<string, RecordType> = {
     },
   },
 
-  // ---- Kinds the association used on paper that the site doesn't write. Only in the archive.
+  // ---- A kind the association used on paper that the site doesn't write. Only in the archive.
   zarlal: {
     slug: 'zarlal',
     label: 'Зарлал',
@@ -363,19 +363,6 @@ export const RECORD_TYPES: Record<string, RecordType> = {
     chain: ['legal', 'president'],
     fields: [{ name: 'body', label: 'Агуулга', type: 'textarea', required: true }],
     print: { kind: 'ЗАРЛАЛ', plain: ['body'], signers: [PRESIDENT, LEGAL] },
-  },
-  uureg: {
-    slug: 'uureg',
-    label: 'Үүрэг хүлээсэн бичиг',
-    code: 'ҮБ',
-    group: 'rules',
-    icon: 'hand',
-    archiveOnly: true,
-    description:
-      'Тэргүүн, хэлтсийн дарга, гишүүн үүрэг, хариуцлагаа хүлээн зөвшөөрч гарын үсэг зурсан бичиг. Шинийг «Гишүүд → Үүргийн бичиг»-ээс хэвлэнэ; энд гарын үсэг зурсан цаасан хувь нь хадгалагдана.',
-    chain: ['president'],
-    fields: [{ name: 'body', label: 'Агуулга', type: 'textarea', required: true }],
-    print: { kind: '', plain: ['body'], signers: [PRESIDENT] },
   },
 };
 

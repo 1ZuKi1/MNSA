@@ -168,7 +168,7 @@ Do these once, in order. Everything uses the **association's** Cloudflare accoun
     Then the President uploads the official stamp at *Тохиргоо → Албан тамга*: a scan or straight-on photo of the real stamp pressed on white paper (a transparent PNG looks cleanest). It prints on the signature line only of documents the President approved, and its image is served only behind the staff login.
 11. **Auto-deploy on push:** Cloudflare → Workers → `mnsa` → Settings → Builds → connect `github.com/1ZuKi1/MNSA`. Build command `npm run build`, deploy command `npx wrangler deploy`.
 
-**The association's paper documents** (2025–2026 and the signed 2026–2027 papers) are entered into *Баримт бичиг* as records marked «Цаасан эх»: approved on paper, never edited, printed with the paper's own heading, date and signers. The import is a SQL file kept outside the repository (`neccesary-files/paper-archive.sql` — it holds names and student IDs). Run it once, after migration `0012`:
+**The association's paper documents** (2025–2026, and Ж-0007 and М-0004 of 2026–2027) are entered into *Баримт бичиг* as records marked «Цаасан эх»: approved on paper, never edited, printed with the paper's own heading, date and signers. The import is a SQL file kept outside the repository (`neccesary-files/paper-archive.sql` — it holds members' names). Run it once, after migration `0012`:
 ```bash
 npm run db:migrate:remote
 npx wrangler d1 execute mnsa-db --remote --file=neccesary-files/paper-archive.sql

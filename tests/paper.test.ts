@@ -31,22 +31,20 @@ describe('paper documents from before the website', () => {
   });
 });
 
-describe('kinds that exist only on paper', () => {
-  it('are listed for reading and filtering', () => {
-    expect(RECORD_TYPE_LIST.map((t) => t.slug)).toEqual(expect.arrayContaining(['zarlal', 'uureg']));
+describe('a kind that exists only on paper', () => {
+  it('is listed for reading and filtering', () => {
+    expect(RECORD_TYPE_LIST.map((t) => t.slug)).toEqual(expect.arrayContaining(['zarlal']));
     expect(RECORD_TYPES.zarlal.code).toBe('З');
   });
 
-  it('are never offered for a new document', () => {
+  it('is never offered for a new document', () => {
     const slugs = NEW_RECORD_TYPES.map((t) => t.slug);
     expect(slugs).not.toContain('zarlal');
-    expect(slugs).not.toContain('uureg');
     expect(slugs).toContain('medegdel');
   });
 
-  it('are refused from a posted form', () => {
+  it('is refused from a posted form', () => {
     expect(readRecordForm(form({ type: 'zarlal', title: 'x', f_body: 'x', dept: 'erh-zui' }))).toBeNull();
-    expect(readRecordForm(form({ type: 'uureg', title: 'x', f_body: 'x', dept: 'udirdlaga' }))).toBeNull();
     expect(readRecordForm(form({ type: 'medegdel', title: 'x', f_body: 'x', dept: 'erh-zui' }))?.ok).toBe(true);
   });
 });
