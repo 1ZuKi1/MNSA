@@ -22,7 +22,7 @@ const user = Astro.locals.user;
 const here = cleanStaffPath(Astro.url.pathname);
 const flash = flashFrom(Astro.url);
 const test = isTestMode(Astro.url);
-const counts = user && !bare ? await navCounts(user) : { awaiting: 0, tasks: 0, jobs: 0 };
+const counts = user && !bare ? await navCounts(user) : { awaiting: 0, tasks: 0, jobs: 0, money: 0 };
 
 interface NavItem { href: string; label: string; icon: IconName; count?: number; hot?: boolean }
 const groups: { label: string; items: NavItem[] }[] = user
@@ -35,6 +35,7 @@ const groups: { label: string; items: NavItem[] }[] = user
           { href: '/uil-ajillagaa', label: 'Арга хэмжээ', icon: 'calendar', count: counts.tasks },
           { href: '/ajil', label: 'Ажлууд', icon: 'list', count: counts.jobs },
           { href: '/tosov', label: 'Төсөв', icon: 'wallet' },
+          { href: '/sanhuu', label: 'Санхүү', icon: 'receipt', count: counts.money, hot: true },
         ],
       },
       {
@@ -50,7 +51,7 @@ const groups: { label: string; items: NavItem[] }[] = user
     ]
   : [];
 const active = (href: string) => (href === '/' ? here === '/' : here === href || here.startsWith(href + '/'));
-const totalCount = counts.awaiting;
+const totalCount = counts.awaiting + counts.money;
 const roleText = user ? `${ROLE_LABEL[user.role]}${user.isDeputy ? ' · орлогч' : ''}` : '';
 ---
 <!doctype html>

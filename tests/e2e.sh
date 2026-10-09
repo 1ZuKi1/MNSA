@@ -522,6 +522,59 @@ has "the President relieves the keeper" "$(post $J/president.jar /gishuud -d act
 has "…who can no longer add" "$(post $J/dotood2.jar /tosov -d action=add -d date=$TODAY -d item=x -d qty=1 -d unit=1)" "err=denied"
 check "the staff budget page doesn't exist on the public host" "$(curl -s -o /dev/null -w '%{http_code}' -H "$P" $B/dep/tosov)" 404
 
+echo "── money (Санхүү) — staff only"
+check "the money page is not on the public site" "$(curl -s -o /dev/null -w '%{http_code}' -H "$P" $B/sanhuu)" 404
+has "the President names a keeper for money" "$(post $J/president.jar /gishuud -d action=budget_on -d user=8 -d back=/gishuud/8)" "ok=budget_keeper"
+TODAY=$(TZ=Asia/Shanghai date +%Y-%m-%d)
+loc=$(post $J/media.jar /sanhuu/shine -d kind=reimburse -d dept=media -d date=$TODAY -d currency=CNY -d pay_method=wechat -d receipts=yes -d receipts_count=2 \
+  --data-urlencode "event=Соёлын өдөрлөг" --data-urlencode "payee_name=С. Хулан" --data-urlencode "payee_account=wxid_hulan" \
+  --data-urlencode "line_item=Хэвлэмэл плакат" -d line_qty=2 --data-urlencode "line_unit=45.50" -d line_note= \
+  --data-urlencode "line_item=Скоч" -d line_qty=1 -d line_unit=10 -d line_note= \
+  -d line_item= -d line_qty=1 -d line_unit= -d line_note=)
+FID=$(echo "$loc" | grep -o 'sanhuu/[0-9]*' | grep -o '[0-9]*')
+has "a дарга asks to be paid back" "$loc" "ok=money_created"
+pg=$(get $J/media.jar /sanhuu/$FID)
+has "…numbered in the year's money series" "$pg" "МОХ-САН/2627/001"
+has "…the total is the server's (2 × 45.50 + 10)" "$pg" "¥101"
+has "…waiting on the keeper first" "$pg" "Санхүү хариуцсан гишүүн шийдвэрлэнэ"
+has "…the requester sees the WeChat ID" "$pg" "wxid_hulan"
+check "another member can't open it" "$(code $J/gadaad.jar /sanhuu/$FID)" 404
+check "the board can read it" "$(code $J/board.jar /sanhuu/$FID)" 200
+hasnt "…but not the WeChat ID" "$(get $J/board.jar /sanhuu/$FID)" "wxid_hulan"
+has "the board can't decide" "$(post $J/board.jar /sanhuu/$FID -d action=approve)" "err=denied"
+has "nor the President before the keeper" "$(post $J/president.jar /sanhuu/$FID -d action=approve)" "err=denied"
+has "the keeper's queue shows it" "$(get $J/media2.jar /sanhuu)" "Таны шийдвэр хүлээж буй"
+has "the keeper approves" "$(post $J/media2.jar /sanhuu/$FID -d action=approve)" "ok=money_approved"
+has "…then the President" "$(post $J/president.jar /sanhuu/$FID -d action=approve)" "ok=money_approved"
+has "nobody but the keeper records the payment" "$(post $J/president.jar /sanhuu/$FID -d action=record -d amount=101 -d paid_on=$TODAY)" "err=denied"
+has "the keeper records the money given" "$(post $J/media2.jar /sanhuu/$FID -d action=record -d amount=101 -d paid_on=$TODAY)" "ok=money_paid"
+has "…the year's money out" "$(get $J/president.jar /sanhuu)" "−¥101"
+has "the requester adds a receipt photo" "$(curl -s -o /dev/null -w "%{redirect_url}" -b $J/media.jar -H "$S" -H "$O" -F action=receipt -F "file=@$J/stamp.png;type=image/png" $B/sanhuu/$FID)" "ok=receipt_added"
+RCP=$(get $J/media.jar /sanhuu/$FID | grep -o "sanhuu/$FID/barimt/[0-9]*" | head -1)
+check "…shown to the requester" "$(curl -s -o /dev/null -w '%{http_code} %{content_type}' -b $J/media.jar -H "$S" $B/$RCP)" "200 image/png"
+check "…never to another member" "$(code $J/gadaad.jar /$RCP)" 404
+check "…nor through the public photo route" "$(curl -s -o /dev/null -w '%{http_code}' -H "$P" $B/$RCP)" 404
+pr=$(get $J/media.jar /sanhuu/$FID/hevleh)
+has "it prints on the paper form" "$pr" "САНХҮҮГИЙН ХҮСЭЛТИЙН МАЯГТ"
+has "…the kind ticked" "$pr" "☒ Гарсан зардал нөхөн авах"
+has "…and the money recorded" "$pr" "Олгосон дүн"
+loc=$(post $J/dotood2.jar /sanhuu/shine -d kind=income -d dept=dotood -d date=$TODAY -d currency=MNT -d receipts=no --data-urlencode "event=Хураамж" --data-urlencode "line_item=Гишүүдийн хураамж" -d line_qty=20 -d line_unit=5000)
+IID=$(echo "$loc" | grep -o 'sanhuu/[0-9]*' | grep -o '[0-9]*')
+has "a member records income, in tögrög" "$(get $J/dotood2.jar /sanhuu/$IID)" "₮100,000"
+has "saying no needs a reason" "$(post $J/media2.jar /sanhuu/$IID -d action=reject)" "err=comment"
+has "the keeper says no, with the reason" "$(post $J/media2.jar /sanhuu/$IID -d action=reject --data-urlencode "comment=Дансны хуулга хавсаргана уу")" "ok=money_rejected"
+has "…the requester reads why" "$(get $J/dotood2.jar /sanhuu/$IID)" "Дансны хуулга хавсаргана уу"
+loc=$(post $J/media2.jar /sanhuu/shine -d kind=advance -d dept=media -d date=$TODAY -d currency=CNY -d receipts=no --data-urlencode "event=Спортын өдөр" --data-urlencode "line_item=Ус" -d line_qty=24 -d line_unit=2)
+KID=$(echo "$loc" | grep -o 'sanhuu/[0-9]*' | grep -o '[0-9]*')
+has "the keeper's own request skips the keeper" "$(get $J/media2.jar /sanhuu/$KID)" "Тэргүүн шийдвэрлэнэ"
+has "…and the keeper can't approve it" "$(post $J/media2.jar /sanhuu/$KID -d action=approve)" "err=denied"
+loc=$(post $J/dotood2.jar /sanhuu/shine -d kind=advance -d dept=dotood -d date=$TODAY -d currency=CNY -d receipts=no --data-urlencode "event=Туршилт" --data-urlencode "line_item=x" -d line_qty=1 -d line_unit=1)
+CID2=$(echo "$loc" | grep -o 'sanhuu/[0-9]*' | grep -o '[0-9]*')
+has "the requester can withdraw a request" "$(post $J/dotood2.jar /sanhuu/$CID2 -d action=cancel)" "ok=money_cancelled"
+has "a request with no lines is refused" "$(curl -s -b $J/dotood2.jar -H "$S" -H "$O" -X POST -d kind=advance -d date=$TODAY -d currency=CNY --data-urlencode "event=x" $B/sanhuu/shine)" "Дор хаяж нэг мөр"
+has "the audit log keeps it" "$(get $J/president.jar '/burtgel?cat=finance')" "Мөнгө олгосныг бүртгэсэн"
+has "the President relieves the money keeper" "$(post $J/president.jar /gishuud -d action=budget_off -d user=8 -d back=/gishuud/8)" "ok=budget_keeper_off"
+
 echo "── safety"
 J4=$(mktemp -d); login president@demo.test $J4/p.jar
 loc=$(curl -s -o /dev/null -w '%{redirect_url}' -b $J4/p.jar -H "$S" "$B/nevtreh?next=/%09/evil.example")

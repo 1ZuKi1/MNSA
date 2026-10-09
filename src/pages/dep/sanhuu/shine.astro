@@ -1,0 +1,233 @@
+---
+/**
+ * A new money request — the paper form «САНХҮҮГИЙН ХҮСЭЛТИЙН МАЯГТ», sections 1–5, on one page. Totals are
+ * computed by the server; receipts are added as photos on the request's page once it exists.
+ */
+export const prerender = false;
+import Staff from '../../../layouts/Staff.astro';
+import PageHead from '../../../components/PageHead.astro';
+import Icon from '../../../components/Icon.astro';
+import { createFinance, financeActor, FINANCE_KINDS, KIND_LABEL } from '../../../lib/finance';
+import { FINANCE_MAX_LINES, readFinanceForm, type FinanceValues } from '../../../lib/forms';
+import { clientIp, withFlash } from '../../../lib/http';
+import * as P from '../../../lib/permissions';
+import { now, toDateInput } from '../../../lib/time';
+
+const user = Astro.locals.user!;
+const actor = await financeActor(user);
+if (!P.canRequestMoney(actor)) return Astro.redirect(withFlash('/sanhuu', 'denied', 'err'));
+
+const blankLine = { item: '', qty: '1', unit: '', note: '' };
+let v: FinanceValues = {
+  kind: 'reimburse', dept: user.dept && user.dept !== 'udirdlaga' ? user.dept : 'other', contact: '', event: Astro.url.searchParams.get('event') ?? '',
+  date: toDateInput(now()), purpose: '', currency: 'CNY', currencyOther: '', lines: [],
+  payMethod: 'wechat', payeeName: user.name, payeeAccount: '', receipts: 'yes', receiptsCount: '', noReceiptReason: '',
+};
+let errors: Record<string, string> = {};
+
+if (Astro.request.method === 'POST') {
+  const form = readFinanceForm(await Astro.request.formData());
+  ({ values: v, errors } = form);
+  if (form.ok) {
+    const id = await createFinance(user, form.input!, clientIp(Astro.request));
+    return Astro.redirect(withFlash(`/sanhuu/${id}`, 'money_created'));
+  }
+}
+const lines = [...v.lines, ...Array(Math.max(0, 6 - v.lines.length)).fill(blankLine)];
+const problems = Object.entries(errors);
+const KIND_HINT: Record<string, string> = {
+  advance: 'Арга хэмжээний өмнө мөнгө авна. Дараа нь баримтаа хавсаргана.',
+  reimburse: 'Өөрөө төлсөн зардлаа буцааж авна. Баримт заавал.',
+  income: 'Холбоонд орсон мөнгө: хураамж, ивээн тэтгэлэг, хандив.',
+};
+const DEPTS = [
+  ['gadaad', 'Гадаад'], ['dotood', 'Дотоод'], ['surgalt', 'Сургалт'], ['media', 'Медиа'], ['erh-zui', 'Эрх зүй'], ['other', 'Бусад'],
+];
+---
+<Staff title="Шинэ санхүүгийн хүсэлт">
+  <PageHead title="Санхүүгийн хүсэлт" crumbs={[{ href: '/sanhuu', label: 'Санхүү' }]} sub="Нэг арга хэмжээ тутамд нэг хүсэлт. Батлагдсан төсвөөс хэтрэх зардлыг гаргахаас өмнө зөвшөөрүүлнэ." />
+
+  <form method="post" class="stack money-form" style="--stack:18px;max-width:900px" data-guard>
+    {problems.length > 0 && (
+      <div class="error-summary" role="alert" tabindex="-1" id="errors">
+        <h2><Icon name="alert" /> Дараах зүйлсийг засна уу</h2>
+        <ul>{problems.map(([, m]) => <li>{m}</li>)}</ul>
+      </div>
+    )}
+
+    <section class="panel" aria-labelledby="s1"><div class="panel-body stack" style="--stack:14px">
+      <h2 class="form-sec" id="s1"><span>1</span> Хүсэлтийн төрөл</h2>
+      <div class="choice-cards">
+        {FINANCE_KINDS.map((k) => (
+          <label class="choice">
+            <input type="radio" name="kind" value={k} checked={v.kind === k} required />
+            <span><b>{KIND_LABEL[k]}</b><span>{KIND_HINT[k]}</span></span>
+          </label>
+        ))}
+      </div>
+    </div></section>
+
+    <section class="panel" aria-labelledby="s2"><div class="panel-body stack" style="--stack:14px">
+      <h2 class="form-sec" id="s2"><span>2</span> Хүсэлт гаргагч</h2>
+      <p class="muted" style="margin:0">{user.name}</p>
+      <fieldset class="field">
+        <legend class="label">Хэлтэс</legend>
+        <div class="seg">
+          {DEPTS.map(([slug, label]) => (
+            <label><input type="radio" name="dept" value={slug} checked={v.dept === slug} /> {label}</label>
+          ))}
+        </div>
+      </fieldset>
+      <div class="field" style="max-width:420px">
+        <label for="contact">Холбоо барих <span class="opt">(утас, WeChat)</span></label>
+        <input id="contact" name="contact" type="text" maxlength="120" value={v.contact} autocomplete="tel" />
+      </div>
+    </div></section>
+
+    <section class="panel" aria-labelledby="s3"><div class="panel-body stack" style="--stack:14px">
+      <h2 class="form-sec" id="s3"><span>3</span> Арга хэмжээ</h2>
+      <div class="two">
+        <div class="field">
+          <label for="event">Арга хэмжээний нэр</label>
+          <input id="event" name="event" type="text" required maxlength="200" value={v.event} aria-invalid={errors.event ? 'true' : undefined} />
+          {errors.event && <span class="error"><Icon name="alert" /> {errors.event}</span>}
+        </div>
+        <div class="field">
+          <label for="date">Зардал гарах (орлого орсон) огноо</label>
+          <input id="date" name="date" type="date" required value={v.date} aria-invalid={errors.date ? 'true' : undefined} />
+          {errors.date && <span class="error"><Icon name="alert" /> {errors.date}</span>}
+        </div>
+      </div>
+      <div class="field">
+        <label for="purpose">Зорилго, тайлбар</label>
+        <textarea id="purpose" name="purpose" rows="3" maxlength="2000">{v.purpose}</textarea>
+      </div>
+    </div></section>
+
+    <section class="panel" aria-labelledby="s4"><div class="panel-body stack" style="--stack:14px">
+      <h2 class="form-sec" id="s4"><span>4</span> Зардал, орлогын жагсаалт</h2>
+      <fieldset class="field">
+        <legend class="label">Валют</legend>
+        <div class="seg">
+          <label><input type="radio" name="currency" value="CNY" checked={v.currency === 'CNY'} /> CNY (¥)</label>
+          <label><input type="radio" name="currency" value="MNT" checked={v.currency === 'MNT'} /> MNT (₮)</label>
+          <label><input type="radio" name="currency" value="other" checked={v.currency === 'other'} /> Бусад:</label>
+          <input name="currency_other" type="text" maxlength="6" value={v.currencyOther} aria-label="Бусад валют, товчилж" placeholder="USD" style="width:6em" />
+        </div>
+        {errors.currency && <span class="error"><Icon name="alert" /> {errors.currency}</span>}
+      </fieldset>
+      <div class="table-wrap">
+        <table class="t money-lines" data-lines>
+          <caption class="sr-only">Зардал, орлогын мөрүүд</caption>
+          <thead><tr><th scope="col" class="num">№</th><th scope="col">Зүйлийн нэр, тайлбар</th><th scope="col">Тоо</th><th scope="col">Нэгж үнэ</th><th scope="col" class="num">Нийт дүн</th><th scope="col">Тэмдэглэл</th></tr></thead>
+          <tbody>
+            {lines.map((l, i) => (
+              <tr data-line>
+                <td class="num muted" data-n>{i + 1}</td>
+                <td><input name="line_item" type="text" maxlength="200" value={l.item} aria-label={`${i + 1}-р мөр: зүйлийн нэр`} /></td>
+                <td><input name="line_qty" type="text" inputmode="numeric" value={l.qty} aria-label="Тоо" class="qty" /></td>
+                <td><input name="line_unit" type="text" inputmode="decimal" value={l.unit} aria-label="Нэгж үнэ" class="unit" placeholder="0.00" /></td>
+                <td class="num nowrap" data-total>—</td>
+                <td><input name="line_note" type="text" maxlength="200" value={l.note} aria-label="Тэмдэглэл" /></td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot><tr><th scope="row" colspan="4" class="num">НИЙТ ДҮН</th><td class="num strong nowrap" data-sum>—</td><td></td></tr></tfoot>
+        </table>
+      </div>
+      <div><button class="btn btn-sm" type="button" data-add-line><Icon name="plus" /> Мөр нэмэх</button> <span class="form-note">Хоосон мөрийг тооцохгүй. Нийт дүнг систем өөрөө бодно. {FINANCE_MAX_LINES} мөр хүртэл.</span></div>
+      {Object.entries(errors).filter(([k]) => k.startsWith('line') ).map(([, m]) => <span class="error"><Icon name="alert" /> {m}</span>)}
+    </div></section>
+
+    <section class="panel" aria-labelledby="s5"><div class="panel-body stack" style="--stack:14px">
+      <h2 class="form-sec" id="s5"><span>5</span> Төлбөр, баримт</h2>
+      <fieldset class="field">
+        <legend class="label">Төлбөрийн хэлбэр</legend>
+        <div class="seg">
+          <label><input type="radio" name="pay_method" value="cash" checked={v.payMethod === 'cash'} /> Бэлнээр</label>
+          <label><input type="radio" name="pay_method" value="wechat" checked={v.payMethod === 'wechat'} /> WeChat</label>
+        </div>
+      </fieldset>
+      <div class="two">
+        <div class="field">
+          <label for="payee_name">Хүлээн авагчийн нэр</label>
+          <input id="payee_name" name="payee_name" type="text" maxlength="120" value={v.payeeName} />
+        </div>
+        <div class="field">
+          <label for="payee_account">Данс / WeChat ID</label>
+          <input id="payee_account" name="payee_account" type="text" maxlength="120" value={v.payeeAccount} aria-describedby="acc-hint" />
+          <span class="hint" id="acc-hint">Зөвхөн та, Төсвийн хариуцагч, Тэргүүн харна.</span>
+        </div>
+      </div>
+      <fieldset class="field">
+        <legend class="label">Баримт хавсаргасан</legend>
+        <div class="seg">
+          <label><input type="radio" name="receipts" value="yes" checked={v.receipts === 'yes'} /> Тийм</label>
+          <input name="receipts_count" type="text" inputmode="numeric" maxlength="2" value={v.receiptsCount} aria-label="Баримтын тоо, ширхэг" placeholder="ширхэг" style="width:6em" />
+          <label><input type="radio" name="receipts" value="no" checked={v.receipts === 'no'} /> Үгүй</label>
+        </div>
+        {errors.receipts_count && <span class="error"><Icon name="alert" /> {errors.receipts_count}</span>}
+      </fieldset>
+      <div class="field">
+        <label for="no_receipt_reason">Баримтгүй бол шалтгаан</label>
+        <input id="no_receipt_reason" name="no_receipt_reason" type="text" maxlength="500" value={v.noReceiptReason} aria-invalid={errors.no_receipt_reason ? 'true' : undefined} />
+        {errors.no_receipt_reason && <span class="error"><Icon name="alert" /> {errors.no_receipt_reason}</span>}
+      </div>
+      <p class="form-note">Баримтын зургийг (чек, QR төлбөрийн зураг, нэхэмжлэх) хүсэлт илгээсний дараа түүний хуудсанд нэмнэ.</p>
+    </div></section>
+
+    <div class="btn-row">
+      <button class="btn btn-primary btn-lg" type="submit"><Icon name="send" /> Хүсэлт илгээх</button>
+      <a class="btn" href="/sanhuu">Болих</a>
+    </div>
+  </form>
+</Staff>
+
+<style>
+  .form-sec { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 1.05rem; }
+  .form-sec span { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--maroon); color: #fff; font-size: 0.85rem; }
+  .seg { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; }
+  .seg label { display: inline-flex; align-items: center; gap: 6px; font-weight: 500; }
+  .money-lines input { width: 100%; min-width: 0; }
+  .money-lines .qty { width: 4.5em; }
+  .money-lines .unit { width: 7em; }
+  .money-lines td { padding: 6px 8px; vertical-align: middle; }
+</style>
+
+<script is:inline>
+  (function () {
+    var table = document.querySelector('[data-lines]');
+    if (!table) return;
+    var body = table.tBodies[0];
+    var max = 20;
+    function num(s) {
+      s = (s || '').trim().replace(/[\s¥₮]/g, '');
+      if (/^\d{1,3}(,\d{3})+(\.\d{1,2})?$/.test(s)) s = s.replace(/,/g, '');
+      else s = s.replace(',', '.');
+      return /^\d+(\.\d{1,2})?$/.test(s) ? Number(s) : null;
+    }
+    function fmt(n) { return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+    function sum() {
+      var total = 0, any = false;
+      body.querySelectorAll('[data-line]').forEach(function (tr, i) {
+        tr.querySelector('[data-n]').textContent = i + 1;
+        var q = num(tr.querySelector('.qty').value || '1'), u = num(tr.querySelector('.unit').value);
+        var cell = tr.querySelector('[data-total]');
+        if (q !== null && u !== null && tr.querySelector('[name=line_item]').value.trim()) { var t = Math.round(q * u * 100) / 100; total += t; any = true; cell.textContent = fmt(t); }
+        else cell.textContent = '—';
+      });
+      table.querySelector('[data-sum]').textContent = any ? fmt(total) : '—';
+    }
+    table.addEventListener('input', sum);
+    document.querySelector('[data-add-line]').addEventListener('click', function () {
+      var rows = body.querySelectorAll('[data-line]');
+      if (rows.length >= max) return;
+      var tr = rows[rows.length - 1].cloneNode(true);
+      tr.querySelectorAll('input').forEach(function (i) { i.value = i.name === 'line_qty' ? '1' : ''; });
+      body.appendChild(tr);
+      sum();
+      tr.querySelector('[name=line_item]').focus();
+    });
+    sum();
+  })();
+</script>
