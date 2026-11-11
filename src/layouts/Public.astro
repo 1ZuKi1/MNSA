@@ -139,30 +139,98 @@ const ogImage = new URL(image ?? '/brand/logo-512.png', Astro.url).href;
         // Sections rise in as they scroll into view. Only armed when the browser can do it and the
         // visitor hasn't asked for less motion, so nothing is ever left hidden.
         if ('IntersectionObserver' in window && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
-          var groups = document.querySelectorAll('.band-text, main .sec > .wrap');
+          // The title band plays its own sequence in CSS from the first paint (see public.css), so it is not
+          // armed here. Everything below it is written in from the left edge, top to bottom: a list arrives item
+          // by item, anything else as one block. `--i` is the stagger step (capped so nothing waits long).
           var io = new IntersectionObserver(function (entries) {
-            entries.forEach(function (e) {
-              if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
-            });
+            entries.forEach(function (e) { if (e.isIntersecting) show(e.target); });
           }, { rootMargin: '0px 0px -8% 0px' });
-          groups.forEach(function (g) {
-            Array.prototype.forEach.call(g.children, function (el, i) {
-              el.classList.add('rv');
-              el.style.setProperty('--i', String(Math.min(i, 6)));
-              io.observe(el);
-            });
+          // Once an element has arrived its entrance class is dropped, so its own hover and press transitions
+          // (cards lifting, tiles) are not held back by the entrance ones.
+          function show(el) {
+            if (el.classList.contains('in')) return;
+            el.classList.add('in');
+            io.unobserve(el);
+            setTimeout(function () { el.classList.remove('rv'); }, 2600);
+          }
+          function arm(el, i) {
+            el.classList.add('rv');
+            el.style.setProperty('--i', String(Math.min(i, 8)));
+            io.observe(el);
+          }
+          var LISTS = '.rows, .tiles, .triad, .pairs, .numbered, .members, .depts, .cards, .sos, .gallery-p, .spend-by, .timeline-steps, .faq, .nf-links';
+          function collect(el, i) {
+            if (getComputedStyle(el).display === 'contents') {
+              Array.prototype.forEach.call(el.children, function (c, j) { collect(c, i + j); });
+            } else if (el.matches(LISTS)) {
+              Array.prototype.forEach.call(el.children, function (c, j) { arm(c, i + j); });
+            } else if (el.classList.contains('figs')) {
+              // the four budget figures arrive one by one, then the bar grows under them
+              Array.prototype.forEach.call(el.children, function (c) {
+                if (c.classList.contains('figs-grid')) Array.prototype.forEach.call(c.children, function (f, k) { arm(f, i + k); });
+                else arm(c, i + 4);
+              });
+            } else {
+              arm(el, i);
+            }
+          }
+          document.querySelectorAll('main .sec > .wrap').forEach(function (g) {
+            Array.prototype.forEach.call(g.children, function (el, i) { collect(el, i); });
           });
           document.documentElement.classList.add('reveal-on');
           // A fast jump (End key, a link to #durem, printing) can skip past a section between two frames, and
           // the observer never sees it: anything already above the bottom of the screen shows at once.
           var sweep = function () {
             document.querySelectorAll('.rv:not(.in)').forEach(function (el) {
-              if (el.getBoundingClientRect().top < innerHeight) { el.classList.add('in'); io.unobserve(el); }
+              if (el.getBoundingClientRect().top < innerHeight) show(el);
             });
           };
           var queued = false;
           addEventListener('scroll', function () { if (!queued) { queued = true; setTimeout(function () { queued = false; sweep(); }, 150); } }, { passive: true });
           addEventListener('beforeprint', function () { document.querySelectorAll('.rv').forEach(function (el) { el.classList.add('in'); }); });
+        }
+        // Long guide pages: the section menu stays under the header. Its height is shared with the CSS so that
+        // anchors and the pinned headings sit below both bars, and the link of the section being read is marked.
+        var toc = document.querySelector('.toc.sticky');
+        if (toc) {
+          var hdr = document.querySelector('.ph-header');
+          var row = toc.querySelector('ul');
+          var setBars = function () { document.documentElement.style.setProperty('--toc-h', toc.offsetHeight + 'px'); };
+          setBars();
+          addEventListener('resize', setBars);
+          if ('ResizeObserver' in window) new ResizeObserver(setBars).observe(toc);
+          if ('IntersectionObserver' in window) {
+            var byId = {};
+            Array.prototype.forEach.call(toc.querySelectorAll('a[href^="#"]'), function (a) { byId[a.getAttribute('href').slice(1)] = a; });
+            var parts = [];
+            Object.keys(byId).forEach(function (id) { var el = document.getElementById(id); if (el) parts.push(el); });
+            Array.prototype.forEach.call(document.querySelectorAll('[data-toc-for]'), function (el) { parts.push(el); });
+            var inBand = [];
+            var now = null;
+            var reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+            var top = (hdr ? hdr.offsetHeight : 72) + toc.offsetHeight + 8;
+            var watch = new IntersectionObserver(function (entries) {
+              entries.forEach(function (e) {
+                var at = inBand.indexOf(e.target);
+                if (e.isIntersecting && at < 0) inBand.push(e.target);
+                if (!e.isIntersecting && at >= 0) inBand.splice(at, 1);
+              });
+              if (!inBand.length) return;
+              // the lowest section that reaches into the reading band is the one being read
+              inBand.sort(function (a, b) { return a.compareDocumentPosition(b) & 4 ? -1 : 1; });
+              var cur = inBand[inBand.length - 1];
+              var link = byId[cur.getAttribute('data-toc-for') || cur.id];
+              if (!link || link === now) return;
+              if (now) now.removeAttribute('aria-current');
+              link.setAttribute('aria-current', 'location');
+              now = link;
+              // only the menu row moves, never the page (scrollIntoView could move both)
+              if (row && row.scrollWidth > row.clientWidth) {
+                row.scrollTo({ left: link.offsetLeft - (row.clientWidth - link.offsetWidth) / 2, behavior: reduced ? 'auto' : 'smooth' });
+              }
+            }, { rootMargin: '-' + top + 'px 0px -55% 0px' });
+            parts.forEach(function (el) { watch.observe(el); });
+          }
         }
         // A soft shadow under the header once the page has scrolled: a 4 px marker at the very top of the
         // page is watched instead of listening to every scroll event.

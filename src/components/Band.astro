@@ -20,11 +20,11 @@ const { kicker, title, lede, home = false, back } = Astro.props;
       {
         home ? (
           <h1>
-            <span class="pre">Бээжингийн Их Сургуулийн</span>
-            Монгол Оюутны Холбоо
+            <span class="mask pre"><span class="ln">Бээжингийн Их Сургуулийн</span></span>
+            <span class="mask"><span class="ln">Монгол Оюутны Холбоо</span></span>
           </h1>
         ) : (
-          <h1>{title}</h1>
+          <h1><span class="mask"><span class="ln">{title}</span></span></h1>
         )
       }
       {lede && <p class="lede">{lede}</p>}
