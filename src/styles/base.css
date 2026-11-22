@@ -50,6 +50,11 @@
   --shadow: 0 1px 2px rgba(28, 25, 23, 0.05), 0 4px 16px -8px rgba(28, 25, 23, 0.12);
   --wrap: 1120px;
   --gutter: clamp(16px, 4vw, 32px);
+
+  /* Both sites are light only: say so, so a browser's automatic dark mode doesn't invert the brand colours,
+     and native checkboxes, radios and date pickers take the brand colour. */
+  color-scheme: only light;
+  accent-color: var(--maroon);
 }
 
 /* Chinese text (the association's Chinese name) — Golos and Source Serif have no CJK glyphs. */
@@ -65,7 +70,7 @@ body {
   margin: 0;
   background: var(--paper);
   color: var(--ink);
-  font: 400 15.5px/1.6 var(--font-sans);
+  font: 400 0.96875rem/1.6 var(--font-sans); /* 15.5px at the default size; rem so a larger browser text size is honoured */
   font-feature-settings: 'kern', 'liga';
   -webkit-font-smoothing: antialiased;
 }
@@ -87,7 +92,7 @@ p { margin: 0 0 1em; }
 .small { font-size: 0.87rem; }
 .nowrap { white-space: nowrap; }
 .num { font-variant-numeric: tabular-nums; }
-.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
 /* ---------- buttons ---------- */
 .btn {
@@ -125,19 +130,21 @@ form.inline { display: inline; }
 .field .error { font-size: 0.85rem; color: var(--bad); font-weight: 550; }
 .req::after { content: ' *'; color: var(--maroon); }
 
-input[type='text'], input[type='email'], input[type='number'], input[type='date'], input[type='time'],
-input[type='search'], select, textarea {
+/* `input:not([type])` and password: the sign-in code and the team gate fields were left with the browser's raw look */
+input:not([type]), input[type='text'], input[type='email'], input[type='password'], input[type='tel'], input[type='url'],
+input[type='number'], input[type='date'], input[type='time'], input[type='search'], select, textarea {
   width: 100%; min-height: 40px; padding: 8px 11px;
   border: 1px solid var(--line-strong); border-radius: var(--radius-sm);
   background: var(--surface); color: var(--ink);
   font: inherit; font-size: 0.95rem;
 }
-textarea { min-height: 120px; resize: vertical; line-height: 1.55; }
+/* a text box grows with what is typed (up to most of the screen), where the browser can; elsewhere it keeps the drag handle */
+textarea { min-height: 120px; resize: vertical; line-height: 1.55; field-sizing: content; max-height: 70vh; }
 input:focus, select:focus, textarea:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-tint); }
 .field.has-error input, .field.has-error textarea { border-color: var(--bad); }
 .row { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
 .row .field + .field { margin-top: 0; }
-.code-input { font: 600 1.6rem/1 var(--font-sans); letter-spacing: 0.35em; text-align: center; font-variant-numeric: tabular-nums; }
+input.code-input { font: 600 1.6rem/1 var(--font-sans); letter-spacing: 0.35em; text-align: center; font-variant-numeric: tabular-nums; }
 
 /* ---------- surfaces ---------- */
 .card {

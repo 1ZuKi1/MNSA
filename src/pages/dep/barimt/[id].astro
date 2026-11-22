@@ -57,8 +57,8 @@ const stepLabel = (s: Step) => (s === 'cohead' && coGen ? `${coGen} дарга` 
 const stepGen = (s: Step) => (s === 'cohead' && coGen ? `${coGen} даргын` : STEP_GEN[s]);
 const fields = fieldsOf(rec);
 const history = await recordHistory(rec.id);
-const lastRejection = rec.status === 'rejected' ? [...history].reverse().find((h) => h.action === 'reject') : null;
-const lastDecision = [...history].reverse().find((h) => h.action === 'approve' || h.action === 'auto' || h.action === 'void');
+const lastRejection = rec.status === 'rejected' ? history.findLast((h) => h.action === 'reject') : null;
+const lastDecision = history.findLast((h) => h.action === 'approve' || h.action === 'auto' || h.action === 'void');
 
 // The chain as the stepper shows it: which steps are done, which one is waiting, where it stopped.
 const rejectedStep = lastRejection?.step ?? null;

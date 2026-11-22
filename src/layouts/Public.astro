@@ -37,6 +37,8 @@ const ogImage = new URL(image ?? '/brand/logo-512.png', Astro.url).href;
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- follow the phone's own text-size setting (sizes are in rem, and the header measures itself) -->
+    <meta name="text-scale" content="scale" />
     <title>{full}</title>
     <meta name="description" content={description} />
     <meta name="theme-color" content="#0d2138" />
@@ -48,6 +50,28 @@ const ogImage = new URL(image ?? '/brand/logo-512.png', Astro.url).href;
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <script is:inline>document.documentElement.classList.add('js');</script>
+    <!--
+      Pages load before the click: when a visitor rests the pointer on (or starts tapping) a link to another page of
+      this site, the browser fetches it in the background. Fetch only, never a hidden pre-render (that would play the
+      title band's entrance before anyone sees it). Photos, PDFs and the staff workspace are left out.
+      Browsers without speculation rules ignore this.
+    -->
+    <script type="speculationrules" is:inline>
+      {
+        "prefetch": [{
+          "where": {
+            "and": [
+              { "href_matches": "/*" },
+              { "not": { "href_matches": "/media/*" } },
+              { "not": { "href_matches": "/files/*" } },
+              { "not": { "href_matches": "/dep/*" } },
+              { "not": { "selector_matches": "[target=_blank], [download]" } }
+            ]
+          },
+          "eagerness": "moderate"
+        }]
+      }
+    </script>
   </head>
   <body class="public">
     <a class="skip" href="#main">Үндсэн агуулга руу шилжих</a>
@@ -117,6 +141,21 @@ const ogImage = new URL(image ?? '/brand/logo-512.png', Astro.url).href;
 
     <script is:inline>
       (function () {
+        // The header's real height is shared with the CSS (the sticky section menu sits under it and in-page jumps
+        // stop below it). It is measured, not assumed: a larger text size can wrap the name onto more lines.
+        // Measured only while the folded menu is fully shut (it opens inside the header and would stretch it, and
+        // it keeps some height for the length of its closing slide).
+        var bar = document.querySelector('.ph-bar');
+        var siteNav = document.getElementById('site-nav');
+        var folded = matchMedia('(max-width: 1424px)');
+        if (bar) {
+          var setHeader = function () {
+            if (siteNav && folded.matches && siteNav.offsetHeight > 0) return;
+            document.documentElement.style.setProperty('--bar-h', bar.offsetHeight + 'px');
+          };
+          setHeader();
+          if ('ResizeObserver' in window) new ResizeObserver(setHeader).observe(bar);
+        }
         // Mobile menu: a real button with aria-expanded; without JS the nav is simply always shown.
         var btn = document.querySelector('.menu-btn');
         var nav = document.getElementById('site-nav');
