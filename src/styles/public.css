@@ -24,19 +24,24 @@
   --wrap-public: 1080px;
   --font-display: 'Source Serif 4 Variable', 'Source Serif 4', Georgia, serif;
   --key-col: 11rem;
-  --header-h: 72px;
+  --header-h: 72px; /* the header's minimum height; --bar-h (set by script) is its measured height */
+  --toc-h: 0px; /* set by script on pages with a sticky section menu */
   --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
   --t: 170ms var(--ease);
   --lift: 0 14px 30px -18px rgba(13, 33, 56, 0.45);
+  /* Motion tokens. --t above is for feedback (hover, press); these are for things arriving. */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-in: 640ms;
+  --stagger: 70ms;
 }
 
-body.public { background: var(--ivory); font-size: 17px; line-height: 1.65; }
+body.public { background: var(--ivory); font-size: 1.0625rem; line-height: 1.65; } /* 17px at the default size */
 .public .wrap { max-width: var(--wrap-public); }
 .public a, .public button, .public summary { -webkit-tap-highlight-color: transparent; }
 .public ::selection { background: #ffe680; color: var(--ink); }
-.public [id] { scroll-margin-top: calc(var(--header-h) + 16px); }
-/* keyboard focus and in-page jumps land below the sticky header, never under it */
-html:has(body.public) { scroll-padding-top: calc(var(--header-h) + 16px); }
+.public [id] { scroll-margin-top: 16px; }
+/* keyboard focus and in-page jumps land below the sticky header and menu, never under them (the offset lives here once) */
+html:has(body.public) { scroll-padding-top: calc(var(--bar-h, var(--header-h)) + var(--toc-h) + 16px); }
 @media (prefers-reduced-motion: no-preference) { html:has(body.public) { scroll-behavior: smooth; } }
 
 /* ---------- focus: always visible, never the browser's default blue box on navy ---------- */
@@ -82,11 +87,11 @@ html:has(body.public) { scroll-padding-top: calc(var(--header-h) + 16px); }
 /* one underline indicator: grows in on hover, stays for the current page */
 .ph-nav a::after {
   content: ''; position: absolute; left: 7px; right: 7px; bottom: 2px; height: 2px; border-radius: 2px;
-  background: var(--ink-3); transform: scaleX(0); transform-origin: left; transition: transform var(--t), background-color var(--t);
+  background: var(--ink-3); transform: scaleX(0); transform-origin: right; transition: transform var(--t), background-color var(--t);
 }
 
 .ph-nav a[aria-current='page'] { color: var(--maroon); }
-.ph-nav a[aria-current='page']::after { transform: scaleX(1); background: var(--maroon); }
+.ph-nav a[aria-current='page']::after { transform: scaleX(1); transform-origin: left; background: var(--maroon); }
 .menu-btn { display: none; }
 /* The course-review site: a separate website, so the link is set apart as a small outlined pill with ↗. */
 .ph-nav .nav-out { margin-left: 6px; padding: 8px 12px; border: 1px solid var(--line-strong); border-radius: 999px; color: var(--blue-deep); transition: color var(--t), border-color var(--t), background-color var(--t); }
@@ -99,6 +104,8 @@ html:has(body.public) { scroll-padding-top: calc(var(--header-h) + 16px); }
   :root { --header-h: 62px; }
   .ph-bar { flex-wrap: wrap; row-gap: 0; }
   .ph-brand img { width: 44px; }
+  /* the name may squeeze (and wrap onto more lines) so the menu button always fits beside it, even with large text */
+  .ph-brand { flex: 0 1 auto; min-width: 0; }
   .ph-brand .t1 { display: none; }
   .ph-brand .t2 { font-size: 1rem; line-height: 1.15; max-width: 9.5em; white-space: normal; }
   .js .menu-btn {
@@ -157,7 +164,12 @@ html:has(body.public) { scroll-padding-top: calc(var(--header-h) + 16px); }
 /* ---------- title band ---------- */
 .band { background: var(--night); color: var(--on-night); padding: clamp(36px, 5vw, 56px) 0 clamp(40px, 5.5vw, 62px); }
 .band-home { padding: clamp(52px, 8vw, 104px) 0 clamp(60px, 9vw, 116px); }
-.band-text { border-left: 2px solid var(--gold); padding-left: clamp(16px, 3vw, 28px); max-width: 60rem; }
+/* the gold rule down the left edge is a pseudo-element, so it can be drawn in (see Motion at the end) */
+.band-text { position: relative; padding-left: clamp(16px, 3vw, 28px); max-width: 60rem; }
+.band-text::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 2px; background: var(--gold); transform-origin: top; }
+/* each title line sits in a window, so it can rise into view from below its own baseline */
+.band h1 .mask { display: block; clip-path: inset(0 -0.06em -0.14em -0.06em); }
+.band h1 .ln { display: block; }
 .band .kicker { font: 600 0.9rem/1.3 var(--font-sans); letter-spacing: 0.01em; color: var(--gold); margin: 0 0 14px; }
 .band h1 {
   font: 640 clamp(2rem, 1.3rem + 3vw, 3.4rem)/1.08 var(--font-display);
@@ -246,7 +258,7 @@ a.row-in h3 { transition: color var(--t); }
 
 .row-in .k { font-weight: 650; color: var(--ink); }
 .row-in .k small { display: block; font-weight: 500; color: var(--ink-3); font-size: 0.88rem; }
-.row-in .v { min-width: 0; }
+.row-in .v { min-width: 0; overflow-wrap: anywhere; } /* long web addresses wrap instead of pushing the page sideways */
 .row-in .v p { margin: 0; color: var(--ink-2); }
 .row-in .v p + p { margin-top: 6px; }
 .row-in .v .ref { color: var(--ink-3); font-size: 0.86rem; }
@@ -300,7 +312,7 @@ a.row-in h3 { transition: color var(--t); }
 .timeline-steps li > span { color: var(--ink-2); font-size: 0.97rem; }
 .due {
   display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px 2px 7px; border-radius: 999px;
-  background: var(--warn-tint); color: var(--warn); font-size: 0.8rem; font-weight: 650;
+  background: var(--warn-tint); color: var(--warn); font-size: 0.82rem; font-weight: 650;
 }
 .due svg { width: 14px; height: 14px; }
 
@@ -333,7 +345,7 @@ a.row-in h3 { transition: color var(--t); }
 /* ---------- numbered list (goals), two columns on wide screens ---------- */
 .numbered { list-style: none; margin: 0; padding: 0; display: grid; gap: 0 40px; grid-template-columns: repeat(2, 1fr); counter-reset: n; }
 @media (max-width: 760px) { .numbered { grid-template-columns: 1fr; } }
-.numbered li { counter-increment: n; display: grid; grid-template-columns: 2em 1fr; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.numbered li { counter-increment: n; display: grid; grid-template-columns: 2em minmax(0, 1fr); gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
 .numbered li::before { content: counter(n) '.'; font: 650 1.05rem/1.55 var(--font-display); color: var(--maroon); }
 
 .quote {
@@ -414,9 +426,15 @@ a.row-in h3 { transition: color var(--t); }
 .card-p .ph-date { display: grid; justify-items: center; gap: 4px; color: var(--maroon); }
 .card-p .ph-date b { font: 620 clamp(2rem, 1.4rem + 2vw, 2.8rem)/1 var(--font-display); font-variant-numeric: tabular-nums lining-nums; }
 .card-p .ph-date small { font-weight: 600; color: var(--ink-3); letter-spacing: 0.04em; }
-.card-p .body { padding: 16px 18px 20px; }
+.card-p .body { padding: 16px 18px 18px; flex: 1; display: flex; flex-direction: column; }
 .card-p .when { color: var(--ink-3); font-size: 0.88rem; margin: 0; }
 .card-p h3 { font: 620 1.12rem/1.3 var(--font-display); margin: 4px 0 6px; transition: color var(--t); }
+/* the title and the summary are cut after three lines (the full text is on the event page, and is still read in full by screen readers) */
+.card-p h3, .card-p .sum { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden; }
+.card-p .foot { margin-top: auto; padding-top: 14px; display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; }
+.card-p .foot .by { margin: 0; }
+.card-p .read { color: var(--blue); font-weight: 620; font-size: 0.93rem; white-space: nowrap; }
+.card-p .read span { display: inline-block; margin-left: 0.3em; transition: transform var(--t); }
 .card-p p { margin: 0; color: var(--ink-2); font-size: 0.95rem; }
 .card-p .by { color: var(--ink-3); font-size: 0.85rem; margin-top: 10px; }
 
@@ -485,10 +503,16 @@ a.row-in h3 { transition: color var(--t); }
 
 .faq summary:focus-visible { outline-offset: -2px; }
 .faq details p { margin: 0 4px 20px; color: var(--ink-2); max-width: 40em; }
+/* the answer opens and closes smoothly: the height glides where the browser can animate to `auto`, and fades
+   everywhere ::details-content works; elsewhere it simply opens. Closing waits for the fade before hiding. */
+.faq details::details-content { interpolate-size: allow-keywords; overflow: clip; contain: layout; opacity: 1; }
+.faq details:not([open])::details-content { block-size: 0; opacity: 0; }
 @media (prefers-reduced-motion: no-preference) {
-  .faq details[open] p { animation: reveal 220ms var(--ease); }
+  .faq details::details-content {
+    transition: block-size 260ms var(--ease), opacity 220ms var(--ease), content-visibility 260ms;
+    transition-behavior: allow-discrete;
+  }
 }
-@keyframes reveal { from { opacity: 0; transform: translateY(-4px); } }
 
 /* ---------- event detail ---------- */
 .prose { font: 400 1.12rem/1.8 var(--font-display); white-space: pre-wrap; max-width: 40em; }
@@ -501,8 +525,16 @@ a.row-in h3 { transition: color var(--t); }
 
 /* photo viewer (event pages) */
 .lightbox { border: 0; padding: 0; background: rgba(8, 18, 32, 0.94); max-width: 100vw; max-height: 100vh; width: 100vw; height: 100vh; margin: 0; }
-.lightbox::backdrop { background: rgba(8, 18, 32, 0.6); }
+.lightbox::backdrop { background: rgba(8, 18, 32, 0.6); overflow: hidden; overscroll-behavior: contain; }
 .lightbox[open] { display: grid; place-items: center; }
+/* scrolling over the open viewer never scrolls the page behind it */
+.lightbox:modal { overscroll-behavior: contain; }
+/* opening: the viewer fades in and the photo settles from slightly smaller. (Closing stays instant: the
+   photo is cleared on close, so a fade-out would only show an empty frame.) */
+.lightbox[open] { transition: opacity 220ms var(--ease-out); @starting-style { opacity: 0; } }
+@media (prefers-reduced-motion: no-preference) {
+  .lightbox[open] .lb-figure { transition: scale 320ms var(--ease-out); @starting-style { scale: 0.96; } }
+}
 .lb-figure { margin: 0; display: grid; gap: 10px; justify-items: center; max-width: min(92vw, 1400px); }
 .lb-figure img { max-width: 100%; max-height: 82vh; object-fit: contain; border-radius: 8px; }
 .lb-figure figcaption { color: var(--on-night); font-size: 0.95rem; text-align: center; }
@@ -624,6 +656,7 @@ a.row-in h3 { transition: color var(--t); }
 .pf-about { margin: 10px 0 0; max-width: 26em; }
 .pf h2 { font: 600 0.92rem var(--font-sans); letter-spacing: 0.01em; color: #fff; margin: 0 0 14px; }
 .pf ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.pf li { min-width: 0; overflow-wrap: anywhere; } /* the e-mail addresses wrap on a narrow screen with large text */
 .pf-bottom { margin-top: 44px; padding-top: 20px; border-top: 1px solid rgba(255, 255, 255, 0.12); display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; font-size: 0.86rem; }
 
 /* ---------- 404 ---------- */
@@ -637,7 +670,7 @@ a.row-in h3 { transition: color var(--t); }
   .ph-brand:hover img { transform: scale(1.04); }
   .ph-brand:hover .t2 { color: var(--maroon-deep); }
   .ph-nav a:hover { color: var(--ink); }
-  .ph-nav a:hover::after { transform: scaleX(1); }
+  .ph-nav a:hover::after { transform: scaleX(1); transform-origin: left; }
   .public .btn-primary:hover { box-shadow: 0 8px 18px -12px rgba(142, 0, 0, 0.7); }
   .btn-gold:hover { --bg: #ffdf33; --bd: #ffdf33; color: var(--night); box-shadow: 0 10px 26px -12px rgba(255, 211, 0, 0.55); }
   .btn-gold:hover .arr { transform: translateX(3px); }
@@ -657,6 +690,8 @@ a.row-in h3 { transition: color var(--t); }
   .rows > li:has(> a.row-in:hover), .rows > li:has(+ li > a.row-in:hover) { border-bottom-color: transparent; }
   .card-p:hover { border-color: var(--line-strong); box-shadow: var(--lift); transform: translateY(-2px); color: var(--ink); }
   .card-p:hover h3 { color: var(--blue); }
+  .card-p:hover .read { color: var(--blue-deep); }
+  .card-p:hover .read span { transform: translateX(3px); }
   .card-p:hover .img img { transform: scale(1.04); }
   .big-val a:hover { color: var(--blue); }
   .faq summary:hover { color: var(--maroon); }
@@ -669,14 +704,284 @@ a.row-in h3 { transition: color var(--t); }
 a.row-in:active { background: var(--ivory-2); }
 .card-p:active { transform: translateY(0); box-shadow: none; }
 
-/* ---------- entry: sections rise in as they scroll into view (armed by script; no JS = no hiding) ---------- */
-@media (prefers-reduced-motion: no-preference) {
-  .reveal-on .rv { opacity: 0; transform: translateY(14px); transition: opacity 520ms var(--ease), transform 620ms var(--ease); transition-delay: calc(var(--i, 0) * 70ms); }
-  .reveal-on .rv.in { opacity: 1; transform: none; }
+/* ---------- split sections: the heading in a rail on the left, everything else in one column on the right ----------
+   The same shape as a row (key left, detail right), one level up. Every block in the body ends on the same
+   right edge, so no paragraph, list or card is narrower than its neighbours. One column below 980px. */
+.split { display: grid; grid-template-columns: minmax(0, 18rem) minmax(0, 1fr); column-gap: clamp(32px, 5vw, 64px); align-items: start; }
+.split .rail { position: static; }
+.split .rail::before { content: ''; display: block; width: 22px; height: 2px; border-radius: 2px; background: var(--gold-deep); margin-bottom: 14px; transform-origin: left; transition: transform 700ms var(--ease-out) 150ms; }
+.split .rail h2 { margin: 0; font-size: clamp(1.45rem, 1.1rem + 0.7vw, 1.75rem); }
+.split .rail .alt-name { margin: 10px 0 0; font-size: 0.93rem; }
+.split .body { min-width: 0; }
+.split .body :is(.text, .note, .quote, .doc-card, .intro, .callout, .faq, .rows, .numbered, .pairs) { max-width: none; }
+.split .body > :first-child { margin-top: 0; }
+.split .numbered { grid-template-columns: minmax(0, 1fr); }
+/* min(100%, …): a column never asks for more than the screen has, even with large text */
+.split .numbered.chapters { grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr)); }
+.split .pairs { grid-template-columns: repeat(auto-fit, minmax(min(100%, 11.5rem), 1fr)); }
+.split .sub-h { margin-top: 36px; }
+@media (max-width: 979px) {
+  .split { grid-template-columns: minmax(0, 1fr); row-gap: 18px; }
+  .split .rail { position: static; }
+}
+/* the mission: one statement, one size, on the navy field */
+.sec.night .rail::before { background: var(--gold); }
+.sec.night .quote { margin: 0; padding: 0; border: 0; color: #fff; font-size: clamp(1.5rem, 1.05rem + 1.7vw, 2.3rem); line-height: 1.3; text-wrap: balance; }
+
+/* history: a line runs down past each date; a dot marks each one */
+@media (min-width: 641px) {
+  .rows.chronicle { border-top: 0; }
+  .rows.chronicle > li { position: relative; border-bottom: 0; }
+  .chronicle > li::before { content: ''; position: absolute; left: calc(var(--key-col) + 9px); top: 28px; width: 11px; height: 11px; border-radius: 50%; background: var(--maroon); box-shadow: 0 0 0 4px var(--ivory); z-index: 1; }
+  .chronicle > li:not(:last-child)::after { content: ''; position: absolute; left: calc(var(--key-col) + 14px); top: 33px; bottom: -33px; width: 1px; background: var(--line-strong); transform-origin: top; }
 }
 
-/* ---------- reduced motion: keep colour changes, drop all movement ---------- */
+/* ---------- long guide pages: the menu stays under the header, blocks sit inside a section, steps can be ticked ---------- */
+.toc.sticky { position: sticky; top: calc(var(--bar-h, var(--header-h)) - 1px); z-index: 30; box-shadow: 0 12px 20px -22px rgba(13, 33, 56, 0.7); }
+/* the menu is always one line: the pills tighten as the window narrows, and where they still don't fit it becomes a sideways row */
+.toc.sticky ul { position: relative; gap: 5px; padding: 10px 0; flex-wrap: nowrap; overflow-x: auto; margin: 0 calc(var(--gutter) * -1); overscroll-behavior-x: contain; scroll-padding-inline: 2.5rem; }
+/* When the row overflows, its edges fade wherever more pills are hidden that way, so it reads as "swipe for more".
+   The scrollbar is hidden only where those fades can be drawn; otherwise it stays, as the cue that the row scrolls. */
+@property --fade-start { syntax: '<length>'; inherits: false; initial-value: 0px; }
+@property --fade-end { syntax: '<length>'; inherits: false; initial-value: 0px; }
+@supports (animation-timeline: scroll()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .toc.sticky ul {
+      --fade-size: 2.5rem;
+      scrollbar-width: none;
+      mask:
+        linear-gradient(black, black) no-clip subtract,
+        linear-gradient(to right, black, transparent) 0 0 / var(--fade-start) 100% no-repeat no-clip,
+        linear-gradient(to right, transparent, black) 100% 0 / var(--fade-end) 100% no-repeat no-clip;
+      animation: toc-fade-start linear both, toc-fade-end linear both;
+      animation-timeline: scroll(self inline);
+      animation-range: 0 var(--fade-size), calc(100% - var(--fade-size)) 100%;
+    }
+    .toc.sticky ul::-webkit-scrollbar { display: none; }
+    @keyframes toc-fade-start { to { --fade-start: var(--fade-size); } }
+    @keyframes toc-fade-end { from { --fade-end: var(--fade-size); } }
+  }
+}
+.toc.sticky li { flex: none; }
+.toc.sticky li:first-child { margin-left: var(--gutter); }
+.toc.sticky li:last-child { margin-right: var(--gutter); }
+.toc.sticky a { display: inline-flex; align-items: center; min-height: 40px; padding: 0 11px; font-size: 0.88rem; white-space: nowrap; }
+@media (max-width: 1099px) {
+  .toc.sticky ul { gap: 4px; }
+  .toc.sticky a { padding: 0 9px; font-size: 0.82rem; }
+}
+@media (max-width: 640px) {
+  .toc.sticky ul { gap: 6px; }
+  .toc.sticky a { padding: 0 12px; font-size: 0.9rem; }
+}
+.toc a[aria-current='location'] { background: var(--night); border-color: var(--night); color: #fff; }
+
+/* a section can hold several blocks, each with its own heading in the rail */
+.split + .split { margin-top: clamp(40px, 5vw, 56px); }
+.split.sub .rail::before, .split .rail.labelled::before { display: none; }
+.split .rail .sec-label { margin: 0 0 10px; }
+.split .rail .intro { margin: 16px 0 0; font-size: 0.97rem; }
+.split .rail h3 { margin: 0; font: 620 clamp(1.1rem, 1rem + 0.4vw, 1.3rem) / 1.3 var(--font-display); }
+.split .timeline-steps { max-width: none; }
+.split .pairs.warn { grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); }
+.sec.night .intro strong { color: var(--gold); }
+
+/* a cost that leads its row, as a figure on the right */
+.row-in.has-fig { grid-template-columns: var(--key-col) minmax(0, 1fr) 6.5rem; }
+.row-in.has-fig .v { grid-column: 2; }
+.row-in.has-fig .fig-r { grid-column: 3; grid-row: 1; }
+.fig-r { display: grid; justify-items: end; align-content: start; text-align: right; }
+.fig-r small { color: var(--ink-3); font-size: 0.82rem; line-height: 1.3; }
+.fig-r b { font: 650 1.5rem/1.15 var(--font-display); color: var(--maroon); font-variant-numeric: tabular-nums lining-nums; }
+@media (max-width: 640px) {
+  .row-in.has-fig { grid-template-columns: 1fr; }
+  .row-in.has-fig .fig-r { grid-column: 1; grid-row: 2; display: flex; gap: 8px; align-items: baseline; justify-content: flex-start; }
+  .row-in.has-fig .v { grid-column: 1; grid-row: 3; }
+}
+
+/* a list of department names, as separate items */
+.dept-chips { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.row-in .v > p + .dept-chips { margin-top: 8px; }
+.dept-chips li { padding: 3px 10px; border-radius: 6px; background: var(--ivory-2); font-size: 0.95rem; line-height: 1.5; }
+.row-in .v > .dept-chips:first-child { margin-top: 0; }
+
+/* the route table: on a phone each route is a short stack instead of a sideways scroll */
+@media (max-width: 640px) {
+  .plain-t.stack { min-width: 0; }
+  .plain-t.stack thead { display: none; }
+  .plain-t.stack, .plain-t.stack tbody, .plain-t.stack tr, .plain-t.stack th, .plain-t.stack td { display: block; }
+  .plain-t.stack tr { padding: 14px 0; border-bottom: 1px solid var(--line); }
+  .plain-t.stack th, .plain-t.stack td { border: 0; padding: 0; }
+  .plain-t.stack td { margin-top: 8px; }
+  .plain-t.stack td::before { content: attr(data-label); display: block; font-size: 0.82rem; font-weight: 650; color: var(--ink-3); }
+}
+
+/* emergency numbers: large, and a tap away from calling */
+.split .sos { max-width: none; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 560px) { .split .sos { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.sos li { padding: 0; }
+.sos a { display: block; padding: 16px 18px; border-radius: var(--radius-lg); color: inherit; text-decoration: none; transition: background-color var(--t), transform var(--t); }
+.sos a b { font-size: 2.4rem; }
+.sos a:active { transform: translateY(1px); }
+.rows.gap-top { margin-top: 28px; }
+@media (hover: hover) { .sos a:hover { background: var(--maroon-tint); } }
+
+/* steps that can be ticked off: an open ring until done, then a filled marker with a tick, and the line to the next step turns maroon */
+.tick { position: relative; display: grid; place-items: center; flex: none; width: 44px; height: 44px; margin: -9px -10px -9px auto; cursor: pointer; }
+.tick input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.tick .box {
+  width: 26px; height: 26px; border-radius: 7px; border: 2px solid var(--line-strong); background: var(--surface) center / 16px no-repeat;
+  transition: background-color var(--t), border-color var(--t);
+}
+.tick input:checked + .box {
+  background-color: var(--maroon); border-color: var(--maroon);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 8.5l3.2 3.2L13 4.6'/%3E%3C/svg%3E");
+}
+.tick input:focus-visible + .box { outline: 2px solid var(--blue); outline-offset: 3px; }
+.timeline-steps.checkable li::before { background: var(--surface); color: var(--maroon); box-shadow: inset 0 0 0 2px var(--maroon); transition: background-color 300ms var(--ease-out), color 300ms var(--ease-out), box-shadow 300ms var(--ease-out); }
+.timeline-steps.checkable li.done::before {
+  background: var(--maroon) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 8.5l3.2 3.2L13 4.6'/%3E%3C/svg%3E") center / 18px no-repeat;
+  color: transparent; box-shadow: none;
+}
+.timeline-steps.checkable li:not(:last-child)::after {
+  background: var(--line) linear-gradient(var(--maroon), var(--maroon)) top / 100% 0 no-repeat; transition: background-size 500ms var(--ease-out);
+}
+.timeline-steps.checkable li.done:not(:last-child)::after { background-size: 100% 100%; }
+.timeline-steps.checkable li.done > span { color: var(--ink-3); }
+
+/* ---------- newcomer section (home): a full navy field, so the page has a second tone to move through ---------- */
+.sec.night { background: var(--night); color: var(--on-night); --focus: var(--gold); }
+.sec.night, .sec.night + .sec { border-top-color: transparent; }
+.sec.night h2 { color: #fff; }
+.sec.night .sec-label { color: var(--gold); }
+.sec.night .sec-label::before { background: var(--gold); }
+.sec.night .intro, .sec.night .note { color: var(--on-night-2); }
+.sec.night .more { color: var(--gold); }
+.sec.night .timeline-steps { color: var(--ink); box-shadow: none; }
+@media (hover: hover) { .sec.night .more:hover { color: #fff; } }
+.tile:active { transform: translateY(1px); }
+
+/* ==========================================================================
+   Motion
+   One idea, said the same way everywhere: things are written in from the left edge, from the top down,
+   starting with the gold rule. Nothing enters from the right, bounces or loops for show.
+   - The title band plays from the first paint, in CSS alone (never waits for a script).
+   - Below it, each block (a list: each item) arrives once as it scrolls into view, one 70 ms step after
+     the one before. The script only arms this when it can do it and motion is allowed (.reveal-on),
+     so nothing is ever left hidden.
+   - Only transform, opacity and clip-path move. Print and reduced motion get the finished page.
+   ========================================================================== */
+@media (prefers-reduced-motion: no-preference) {
+  /* ----- title band ----- */
+  .band { --d0: 60ms; }
+  .band-home { --d0: 140ms; }
+  .band-text::before { animation: draw-down 900ms var(--ease-out) var(--d0) both; }
+  .band-back, .band .kicker, .band .lede, .band .btn-row {
+    animation: rise-in var(--dur-in) var(--ease-out) calc(var(--d0) + var(--n, 0) * var(--stagger)) both;
+  }
+  .band .lede { --n: 3; }
+  .band .btn-row { --n: 4; }
+  .band h1 .ln { animation: mask-up 760ms var(--ease-out) calc(var(--d0) + var(--n, 1) * var(--stagger)) both; }
+  .band h1 .mask:nth-child(2) .ln { --n: 2; }
+  @keyframes draw-down { from { transform: scaleY(0); } }
+  @keyframes rise-in { from { opacity: 0; transform: translateY(14px); } }
+  @keyframes mask-up { from { transform: translateY(112%); } }
+
+  /* ----- sections: the gold dash by each label draws, then the block arrives ----- */
+  .reveal-on .rv {
+    opacity: 0; transform: translateY(18px);
+    transition: opacity var(--dur-in) var(--ease-out), transform var(--dur-in) var(--ease-out);
+    transition-delay: calc(var(--i, 0) * var(--stagger));
+  }
+  .reveal-on .rv.in { opacity: 1; transform: none; }
+  .sec-label::before { transform-origin: left; transition: transform 700ms var(--ease-out) calc(var(--i, 0) * var(--stagger) + 120ms); }
+  .sec-label.rv:not(.in)::before { transform: scaleX(0); }
+
+  /* ----- lists of rows (events, contacts, guide): the key arrives first, the detail slides in after it ----- */
+  .rows > li.rv .v {
+    transition: opacity var(--dur-in) var(--ease-out), transform var(--dur-in) var(--ease-out);
+    transition-delay: calc(var(--i, 0) * var(--stagger) + 110ms);
+  }
+  .rows > li.rv:not(.in) .v { opacity: 0; transform: translateX(-12px); }
+
+  /* ----- steps: the marker lands, the line runs down to the next one, the deadline tag settles last ----- */
+  .timeline-steps li.rv::before { transition: transform 520ms var(--ease-out), opacity 520ms var(--ease-out), background-color 300ms var(--ease-out), color 300ms var(--ease-out), box-shadow 300ms var(--ease-out); transition-delay: calc(var(--i, 0) * var(--stagger) + 100ms), calc(var(--i, 0) * var(--stagger) + 100ms), 0s, 0s, 0s; }
+  .timeline-steps.checkable li:not(:last-child)::after { transition: transform 760ms var(--ease-out) calc(var(--i, 0) * var(--stagger) + 320ms), background-size 500ms var(--ease-out); }
+  .timeline-steps li.rv:not(.in)::before { transform: scale(0.4); opacity: 0; }
+  .timeline-steps li:not(:last-child)::after { transform-origin: top; transition: transform 760ms var(--ease-out) calc(var(--i, 0) * var(--stagger) + 320ms); }
+  .timeline-steps li.rv:not(.in)::after { transform: scaleY(0); }
+  .timeline-steps li.rv .due { transition: opacity 400ms var(--ease-out), transform 400ms var(--ease-out); transition-delay: calc(var(--i, 0) * var(--stagger) + 560ms); }
+  .timeline-steps li.rv:not(.in) .due { opacity: 0; transform: scale(0.88); }
+
+  /* ----- split sections: the gold dash over the rail heading draws first ----- */
+  .split .rail.rv:not(.in)::before, .split .rail.rv:not(.in) .sec-label::before { transform: scaleX(0); }
+
+  /* ----- history: each dot lands, then the line runs down to the next date ----- */
+  @media (min-width: 641px) {
+    .reveal-on .rv .chronicle > li::before { transition: transform 480ms var(--ease-out), opacity 480ms var(--ease-out); transition-delay: calc(var(--k, 0) * 260ms + 200ms); }
+    .reveal-on .rv .chronicle > li::after { transition: transform 520ms var(--ease-out) calc(var(--k, 0) * 260ms + 380ms); }
+    .reveal-on .rv:not(.in) .chronicle > li::before { transform: scale(0.3); opacity: 0; }
+    .reveal-on .rv:not(.in) .chronicle > li::after { transform: scaleY(0); }
+  }
+
+  /* ----- budget: bars grow from the left edge, after the figures above them ----- */
+  .figs-bar.rv .bar span, .spend-by li.rv .sb-bar span { transition: clip-path 1000ms var(--ease-out) calc(var(--i, 0) * var(--stagger) + 300ms); }
+  .figs-bar.rv .bar span.to-buy { transition-delay: calc(var(--i, 0) * var(--stagger) + 700ms); }
+  .figs-bar.rv:not(.in) .bar span, .spend-by li.rv:not(.in) .sb-bar span { clip-path: inset(0 100% 0 0); }
+
+  /* ----- header: the logo settles once the page moves; a gold line along its foot fills as you read down ----- */
+  .ph-brand img { transform-origin: left center; transition: transform var(--t), scale 320ms var(--ease-out); }
+  .ph-header.is-scrolled .ph-brand img { scale: 0.88; }
+  @supports (animation-timeline: scroll()) {
+    .ph-header::after {
+      content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: var(--gold-deep);
+      transform-origin: left; animation: read-progress linear both; animation-timeline: scroll(root block);
+    }
+    @keyframes read-progress { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+  }
+
+  /* ----- small screens: the folded menu's links step in one after another ----- */
+  @media (max-width: 1424px) {
+    .js .ph-nav li { opacity: 0; transform: translateX(-10px); transition: opacity 180ms var(--ease-out), transform 180ms var(--ease-out); }
+    .js .ph-nav.open li { opacity: 1; transform: none; transition-duration: 420ms; transition-delay: calc(var(--k, 0) * 45ms + 90ms); }
+    .ph-nav li:nth-child(2) { --k: 1; } .ph-nav li:nth-child(3) { --k: 2; } .ph-nav li:nth-child(4) { --k: 3; }
+    .ph-nav li:nth-child(5) { --k: 4; } .ph-nav li:nth-child(6) { --k: 5; } .ph-nav li:nth-child(7) { --k: 6; } .ph-nav li:nth-child(8) { --k: 7; }
+  }
+
+  /* ----- moving between pages: the header holds still, the rest cross-fades (browsers without support just navigate) ----- */
+  @view-transition { navigation: auto; }
+  .ph-header { view-transition-name: site-header; }
+  ::view-transition-group(site-header) { animation-duration: 0s; }
+  ::view-transition-old(root) { animation: vt-out 140ms ease-in both; }
+  ::view-transition-new(root) { animation: vt-in 300ms var(--ease-out) both; }
+  @keyframes vt-out { to { opacity: 0; } }
+  @keyframes vt-in { from { opacity: 0; } }
+}
+
+/* ---------- reduced motion: keep colour changes and fades, drop all movement ----------
+   (Only the properties that move are switched off; colour, border and opacity changes still ease.) */
 @media (prefers-reduced-motion: reduce) {
-  .public *, .public *::before, .public *::after { transition-duration: 0.01ms !important; animation: none !important; }
-  .tile:hover, .card-p:hover { transform: none; }
+  .public *, .public *::before, .public *::after {
+    transition-property: color, background-color, border-color, outline-color, text-decoration-color, box-shadow, opacity !important;
+    animation: none !important;
+  }
+  .tile:hover, .card-p:hover, .card-p:hover .img img, .gallery-p a:hover img { transform: none; }
+}
+
+/* ---------- Windows high-contrast (forced colours): states drawn with backgrounds would vanish, so redraw them ---------- */
+@media (forced-colors: active) {
+  .ph-nav a::after, .js .ph-nav a::after { background: CanvasText; }
+  .toc a[aria-current], .pill[aria-current='true'] { border: 2px solid Highlight; text-decoration: underline; }
+  .bar span, .sb-bar span, .bar-legend .key { background: CanvasText; }
+  .bar span.to-buy, .bar-legend .k-buy { background: GrayText; }
+  .bar, .sb-bar { border: 1px solid CanvasText; }
+  /* the ticks on the newcomer steps: fall back to the real checkbox, which the system draws itself */
+  .tick input { opacity: 1; position: static; width: 22px; height: 22px; }
+  .tick .box { display: none; }
+}
+
+/* ---------- print: the finished page ---------- */
+@media print {
+  .public *, .public *::before, .public *::after { animation: none !important; transition: none !important; }
+  .ph-header::after { display: none; }
 }

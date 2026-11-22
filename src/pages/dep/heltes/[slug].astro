@@ -9,7 +9,7 @@ import { membersOfDept } from '../../../lib/members';
 import { canCreateJobIn, canCreateRecordIn } from '../../../lib/permissions';
 import { JOB_STATUS_LABEL, visibleJobs } from '../../../lib/jobs';
 import { getRecordType } from '../../../lib/record-types';
-import { listRecords } from '../../../lib/records';
+import { listRecords, recordYears } from '../../../lib/records';
 import { academicYear, dateKey, fmtDate, now, relDay } from '../../../lib/time';
 import { ROLE_LABEL, STATUS_LABEL, type DeptSlug } from '../../../lib/types';
 
@@ -17,7 +17,7 @@ const user = Astro.locals.user!;
 const dept = await deptBySlug(Astro.params.slug ?? '');
 if (!dept) return new Response(null, { status: 404 });
 const cur = academicYear();
-const years = [cur, `${Number(cur.slice(0, 4)) - 1}-${cur.slice(0, 4)}`];
+const years = await recordYears();
 const asked = Astro.url.searchParams.get('year') ?? '';
 const year = years.includes(asked) ? asked : cur;
 const [members, records, events, allJobs] = await Promise.all([
@@ -66,7 +66,7 @@ const canWrite = canCreateRecordIn(user, dept.slug as DeptSlug);
                   <tr class="clickable">
                     <td class="main-cell">
                       <a class="row-link" href={`/barimt/${r.id}`}>{r.title}</a>
-                      <span class="sub">{getRecordType(r.type)?.label}{r.number && ` · ${r.number}`} · {r.author_name}</span>
+                      <span class="sub">{getRecordType(r.type)?.label}{r.number && ` · ${r.number}`} · {r.paper_json ? 'цаасан эх' : r.author_name}</span>
                     </td>
                     <td class="side-cell"><span class={`badge b-${r.status}`}>{STATUS_LABEL[r.status]}</span></td>
                     <td class="num nowrap muted hide-sm">{fmtDate(r.updated_at)}</td>

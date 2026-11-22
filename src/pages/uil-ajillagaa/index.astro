@@ -43,8 +43,12 @@ const { upcoming, past } = await publicEvents();
                 <div class="body">
                   <p class="when">{fmtLong(e.starts_at)}</p>
                   <h3>{e.title}</h3>
-                  {e.summary && <p>{e.summary}</p>}
-                  {e.publisher_name && <p class="by">Нийтэлсэн: {e.publisher_name}</p>}
+                  {e.summary && <p class="sum">{e.summary}</p>}
+                  {/* every card is the same size: the text is cut after three lines and the card says there is more */}
+                  <div class="foot">
+                    {e.publisher_name && <p class="by">Нийтэлсэн: {e.publisher_name}</p>}
+                    <span class="read">Дэлгэрэнгүй<span aria-hidden="true"> →</span></span>
+                  </div>
                 </div>
               </a>
             ))}

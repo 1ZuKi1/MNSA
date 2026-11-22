@@ -8,7 +8,7 @@ import { departments } from '../../../lib/db';
 import { readRecordForm } from '../../../lib/forms';
 import { clientIp, withFlash } from '../../../lib/http';
 import { canCreateRecordIn } from '../../../lib/permissions';
-import { getRecordType, RECORD_TYPE_LIST, TYPE_GROUPS } from '../../../lib/record-types';
+import { getRecordType, NEW_RECORD_TYPES, TYPE_GROUPS } from '../../../lib/record-types';
 import { prefill } from '../../../lib/prefill';
 import { createRecord, getRecord, submitRecord } from '../../../lib/records';
 import { STEP_LABEL, type DeptSlug } from '../../../lib/types';
@@ -20,6 +20,7 @@ const depts = allDepts.filter((d) => canCreateRecordIn(user, d.slug as DeptSlug)
 if (!depts.length) return Astro.redirect(withFlash('/barimt', 'denied', 'err'));
 
 let type = getRecordType(Astro.url.searchParams.get('type') ?? '');
+if (type?.archiveOnly) type = null; // paper-only kinds are never written here
 let title = '';
 let values: Record<string, string> = {};
 let errors: Record<string, string> = {};
@@ -29,7 +30,7 @@ const askedDept = Astro.url.searchParams.get('dept');
 let dept = askedDept && depts.some((d) => d.slug === askedDept)
   ? askedDept
   : user.dept && depts.some((d) => d.slug === user.dept) ? user.dept : depts[0].slug;
-const chainText = (chain: typeof RECORD_TYPE_LIST[number]['chain']) => {
+const chainText = (chain: typeof NEW_RECORD_TYPES[number]['chain']) => {
   const steps = chain.filter((s) => stepApplies(s, dept as DeptSlug)).map((s) => STEP_LABEL[s]);
   return steps.length ? steps.join(' → ') : 'шууд батлагдана';
 };
@@ -74,7 +75,7 @@ if (Astro.request.method === 'POST') {
           <section aria-labelledby={`g-${g.key}`}>
             <h2 class="group-h" id={`g-${g.key}`}>{g.label}</h2>
             <div class="type-grid">
-              {RECORD_TYPE_LIST.filter((t) => t.group === g.key).map((t) => (
+              {NEW_RECORD_TYPES.filter((t) => t.group === g.key).map((t) => (
                 <a class="type-card" href={typeHref(t.slug)}>
                   <span class="ic"><Icon name={t.icon} /></span>
                   <h3>{t.label}</h3>

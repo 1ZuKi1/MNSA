@@ -22,7 +22,7 @@
   --lift: 0 12px 28px -18px rgba(13, 33, 56, 0.45);
 }
 
-body.staff { background: var(--paper); font-size: 16px; line-height: 1.6; }
+body.staff { background: var(--paper); font-size: 1rem; line-height: 1.6; }
 .staff [hidden] { display: none !important; }
 .staff a, .staff button, .staff summary { -webkit-tap-highlight-color: transparent; }
 .staff ::selection { background: #ffe680; color: var(--ink); }
@@ -406,6 +406,11 @@ a.row-link:hover { color: var(--blue); text-decoration: underline; text-underlin
 .doc-field h3 { font-size: 0.86rem; font-weight: 650; color: var(--ink-3); margin: 0 0 4px; }
 .doc-field p { margin: 0; white-space: pre-wrap; font-size: 1.02rem; line-height: 1.7; }
 .pre { white-space: pre-wrap; }
+/* A paper document's text, kept as the paper laid it out: its own numbering and indents. */
+.paper-text { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 0.98rem; line-height: 1.65; tab-size: 4; }
+.paper-status > p:first-child { margin: 0 0 12px; }
+.paper-status .kv { margin-bottom: 4px; }
+.paper-status .form-note { margin: 10px 0 0; }
 
 /* ---------- history ---------- */
 .timeline { list-style: none; margin: 0; padding: 0; }
@@ -431,7 +436,8 @@ a.row-link:hover { color: var(--blue); text-decoration: underline; text-underlin
 .field .error { display: flex; align-items: center; gap: 6px; font-size: 0.86rem; color: var(--bad); font-weight: 600; }
 .field .error .icon { width: 15px; height: 15px; }
 .opt { font-weight: 500; color: var(--ink-3); font-size: 0.84rem; }
-.staff input[type='text'], .staff input[type='email'], .staff input[type='number'], .staff input[type='date'],
+.staff input:not([type]), .staff input[type='text'], .staff input[type='email'], .staff input[type='password'], .staff input[type='tel'],
+.staff input[type='url'], .staff input[type='number'], .staff input[type='date'],
 .staff input[type='time'], .staff input[type='search'], .staff select, .staff textarea {
   min-height: 42px; padding: 9px 12px; border-radius: 9px; font-size: 1rem;
   transition: border-color var(--t), box-shadow var(--t);
@@ -666,7 +672,7 @@ body.bare { background: var(--paper); min-height: 100vh; }
   .auth-sub { margin-top: 2px; padding-top: 0; border-top: 0; font-size: 0.86rem; }
   .bare-wrap { min-height: 0; place-items: start center; padding: 32px 16px 48px; }
 }
-.code-input { font: 650 1.7rem/1 var(--font-sans); letter-spacing: 0.4em; text-align: center; font-variant-numeric: tabular-nums; padding-left: 0.4em !important; }
+.staff input.code-input { font: 650 1.7rem/1 var(--font-sans); letter-spacing: 0.4em; text-align: center; font-variant-numeric: tabular-nums; padding-left: 0.4em !important; }
 .dev-code { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; border-radius: 10px; background: var(--blue-tint); color: var(--blue-deep); font-size: 0.9rem; }
 .dev-code strong { font-size: 1.2rem; letter-spacing: 0.15em; }
 .steps-dots { display: flex; gap: 6px; margin: 0 0 18px; }
@@ -700,8 +706,12 @@ body.bare { background: var(--paper); min-height: 100vh; }
   .flash .flash-x:hover { background: rgba(0, 0, 0, 0.06); }
 }
 
+/* reduced motion: nothing moves or slides, but colour and border changes still fade (they are not motion) */
 @media (prefers-reduced-motion: reduce) {
-  .staff *, .staff *::before, .staff *::after { transition-duration: 0.01ms !important; animation: none !important; }
+  .staff *, .staff *::before, .staff *::after {
+    transition-property: color, background-color, border-color, outline-color, text-decoration-color, box-shadow !important;
+    animation: none !important;
+  }
 }
 
 @media print {

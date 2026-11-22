@@ -1,0 +1,195 @@
+---
+/**
+ * «Санхүү» — how money moves through the association: advances, reimbursements and income, each one a
+ * request on the paper form «САНХҮҮГИЙН ХҮСЭЛТИЙН МАЯГТ». Staff only; never on the public site.
+ * Everyone sees their own requests; the «Төсвийн хариуцагч», the President, the board and the maintainer
+ * see all of them and the year's totals.
+ */
+export const prerender = false;
+import Staff from '../../../layouts/Staff.astro';
+import PageHead from '../../../components/PageHead.astro';
+import Icon from '../../../components/Icon.astro';
+import {
+  financeActor, financeYears, fmtMoney, isIncome, KIND_LABEL, listFinance, moneyAwaitingMe, moneyKeepers, moneyToRecord, STATUS_LABEL, STEP_LABEL, yearTotals,
+  type FinanceRow,
+} from '../../../lib/finance';
+import * as P from '../../../lib/permissions';
+import { yearLabel } from '../../../lib/budget';
+import { academicYear, fmtDate } from '../../../lib/time';
+
+const user = Astro.locals.user!;
+const actor = await financeActor(user);
+const seesAll = P.canSeeAllMoney(actor);
+const years = await financeYears();
+const asked = Astro.url.searchParams.get('on') ?? '';
+const year = years.includes(asked) ? asked : academicYear();
+const [rows, mine, waiting, toRecord, totals, keepers] = await Promise.all([
+  seesAll ? listFinance(actor, { year }) : Promise.resolve([] as FinanceRow[]),
+  listFinance(actor, { mine: true }),
+  moneyAwaitingMe(actor),
+  moneyToRecord(actor),
+  seesAll ? yearTotals(year) : Promise.resolve([]),
+  moneyKeepers(),
+]);
+const BADGE: Record<string, string> = { pending: 'b-in_review', approved: 'b-approved', rejected: 'b-rejected', paid: 'b-approved', cancelled: 'b-void' };
+const statusText = (r: FinanceRow) => (r.status === 'pending' && r.awaiting ? `${STEP_LABEL[r.awaiting]} шийдвэрлэнэ` : STATUS_LABEL[r.status]);
+---
+<Staff title="Санхүү">
+  <PageHead
+    title="Санхүү"
+    sub="Холбооны мөнгөний хөдөлгөөн: урьдчилгаа, гарсан зардлын нөхөн олголт, орлого. Зөвхөн ажлын орчинд — нийтийн сайтад гарахгүй."
+  >
+    <Fragment slot="actions">
+      {P.canRequestMoney(actor) && <a class="btn btn-primary" href="/sanhuu/shine"><Icon name="plus" /> Шинэ хүсэлт</a>}
+    </Fragment>
+  </PageHead>
+
+  {
+    keepers.length === 0 && (
+      <p class="flash warn" role="note">
+        <Icon name="alert" />
+        <span class="flash-text">
+          Төсвийн хариуцагч томилогдоогүй байна. Хүсэлтийг эхлээд «Санхүү хариуцсан гишүүн» буюу Төсвийн хариуцагч шийднэ — Тэргүүн
+          «Гишүүд»-ээс томилно.
+        </span>
+      </p>
+    )
+  }
+
+  {
+    waiting.length > 0 && (
+      <section class="panel attention" aria-labelledby="wait-h" style="margin-bottom:18px">
+        <div class="panel-head"><h2 id="wait-h"><Icon name="check" /> Таны шийдвэр хүлээж буй <span class="badge plain b-gold">{waiting.length}</span></h2></div>
+        <div class="panel-body"><ul class="items">
+          {waiting.map((r) => (
+            <li class="item">
+              <span class="ic"><Icon name="receipt" /></span>
+              <a class="item-title" href={`/sanhuu/${r.id}`}>{r.event_name}</a>
+              <span class="item-meta"><span>{KIND_LABEL[r.kind]}</span><span>{r.requester_name}</span><b class="num">{fmtMoney(r.total_minor, r.currency)}</b></span>
+            </li>
+          ))}
+        </ul></div>
+      </section>
+    )
+  }
+
+  {
+    toRecord.length > 0 && (
+      <section class="panel" aria-labelledby="rec-h" style="margin-bottom:18px">
+        <div class="panel-head"><h2 id="rec-h"><Icon name="wallet" /> Олгох, бүртгэх <span class="badge plain">{toRecord.length}</span></h2></div>
+        <div class="panel-body"><p class="form-note">Зөвшөөрөгдсөн. Мөнгийг олгосон (орлогыг хүлээн авсан) бол хүсэлтийг нээгээд «Санхүүгийн бүртгэлд» хэсгийг бөглөнө.</p>
+        <ul class="items">
+          {toRecord.map((r) => (
+            <li class="item">
+              <span class="ic"><Icon name="receipt" /></span>
+              <a class="item-title" href={`/sanhuu/${r.id}#record`}>{r.event_name}</a>
+              <span class="item-meta"><span>{KIND_LABEL[r.kind]}</span><span>{r.requester_name}</span><b class="num">{fmtMoney(r.total_minor, r.currency)}</b></span>
+            </li>
+          ))}
+        </ul></div>
+      </section>
+    )
+  }
+
+  {
+    seesAll && (
+      <section aria-labelledby="all-h">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px">
+          <h2 id="all-h" class="sec-title" style="margin:0">Бүх хүсэлт</h2>
+          <nav class="tabs" aria-label="Хичээлийн жил" style="margin:0">
+            {years.map((y) => <a href={`/sanhuu?on=${y}`} aria-current={y === year ? 'page' : undefined}>{yearLabel(y)}</a>)}
+          </nav>
+        </div>
+        <div class="money-totals">
+          {(totals.length ? totals : [{ currency: 'CNY', inMinor: 0, outMinor: 0 }]).map((t) => (
+            <dl class="panel money-card">
+              <div><dt>Орлого</dt><dd class="num in">{fmtMoney(t.inMinor, t.currency)}</dd></div>
+              <div><dt>Зарлага</dt><dd class="num out">{fmtMoney(t.outMinor, t.currency)}</dd></div>
+              <div><dt>Зөрүү</dt><dd class:list={['num', { neg: t.inMinor - t.outMinor < 0 }]}>{fmtMoney(t.inMinor - t.outMinor, t.currency)}</dd></div>
+            </dl>
+          ))}
+        </div>
+        <p class="form-note" style="margin:6px 0 14px">Зөвхөн бүртгэгдсэн (мөнгө нь бодитоор олгогдсон, хүлээн авсан) хүсэлтүүдээр тооцно.</p>
+        {rows.length === 0 ? (
+          <div class="empty"><Icon name="receipt" /><b>{yearLabel(year)} онд хүсэлт алга.</b></div>
+        ) : (
+          <div class="table-wrap cards-sm">
+            <table class="t">
+              <caption class="sr-only">{yearLabel(year)} оны санхүүгийн хүсэлтүүд</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Арга хэмжээ</th>
+                  <th scope="col">Хүсэлт гаргагч</th>
+                  <th scope="col" class="num">Дүн</th>
+                  <th scope="col">Төлөв</th>
+                  <th scope="col" class="num">Огноо</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr class="clickable">
+                    <td class="main-cell">
+                      <a class="row-link" href={`/sanhuu/${r.id}`}>{r.event_name}</a>
+                      <span class="sub">{KIND_LABEL[r.kind]} · <span class="num">{r.number}</span></span>
+                      <span class="sub m-only">{r.requester_name} · {fmtDate(r.spent_on)}</span>
+                    </td>
+                    <td class="nowrap hide-sm">{r.requester_name}{r.dept_name && <span class="sub">{r.dept_name}</span>}</td>
+                    {/* signed only once the money really moved; asked-for amounts are plain */}
+                    <td class:list={['num nowrap', r.status === 'paid' ? ['strong', isIncome(r.kind) ? 'in' : 'out'] : 'muted']}>
+                      {r.status === 'paid' ? `${isIncome(r.kind) ? '+' : '−'}${fmtMoney(r.paid_minor ?? 0, r.currency)}` : fmtMoney(r.total_minor, r.currency)}
+                    </td>
+                    <td class="side-cell"><span class={`badge ${BADGE[r.status]}`}>{statusText(r)}</span></td>
+                    <td class="num nowrap muted hide-sm">{fmtDate(r.spent_on)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+    )
+  }
+
+  {
+    !seesAll && (
+      <section aria-labelledby="mine-h">
+        <h2 id="mine-h" class="sec-title">Миний хүсэлтүүд</h2>
+        {mine.length === 0 ? (
+          <div class="empty">
+            <Icon name="receipt" />
+            <b>Хүсэлт алга.</b>
+            <span>Арга хэмжээнд мөнгө хэрэгтэй бол урьдчилгаа, өөрөө төлсөн бол нөхөн олголт хүснэ. Баримтаа хадгалаарай.</span>
+          </div>
+        ) : (
+          <div class="table-wrap cards-sm">
+            <table class="t">
+              <caption class="sr-only">Миний санхүүгийн хүсэлтүүд</caption>
+              <thead><tr><th scope="col">Арга хэмжээ</th><th scope="col" class="num">Дүн</th><th scope="col">Төлөв</th></tr></thead>
+              <tbody>
+                {mine.map((r) => (
+                  <tr class="clickable">
+                    <td class="main-cell">
+                      <a class="row-link" href={`/sanhuu/${r.id}`}>{r.event_name}</a>
+                      <span class="sub">{KIND_LABEL[r.kind]} · <span class="num">{r.number}</span> · {fmtDate(r.spent_on)}</span>
+                    </td>
+                    <td class="num nowrap strong">{fmtMoney(r.paid_minor ?? r.total_minor, r.currency)}</td>
+                    <td class="side-cell"><span class={`badge ${BADGE[r.status]}`}>{statusText(r)}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+    )
+  }
+</Staff>
+
+<style>
+  .money-totals { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr)); gap: 12px; }
+  .money-card { margin: 0; display: grid; grid-template-columns: repeat(3, 1fr); padding: 14px 18px; gap: 8px; }
+  .money-card dt { font-size: 0.82rem; color: var(--ink-3); }
+  .money-card dd { margin: 2px 0 0; font-size: 1.25rem; font-weight: 700; }
+  .in { color: var(--ok); }
+  .neg { color: var(--bad); }
+</style>

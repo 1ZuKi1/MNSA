@@ -7,6 +7,7 @@ import { academicYear, now } from './time';
 import type { DeptSlug, RecordStatus, Role, SessionUser, Step, Visibility } from './types';
 import { advance, chainFor, numberPrefix } from './workflow';
 import { staffOrigin } from './site';
+export { paperOf, type PaperInfo } from './paper';
 
 export interface RecordRow {
   id: number;
@@ -34,6 +35,8 @@ export interface RecordRow {
   decided_at: number | null;
   created_at: number;
   updated_at: number;
+  /** Set on a paper document entered into the archive (migration 0012); see PaperInfo in paper.ts. */
+  paper_json: string | null;
 }
 
 const SELECT = `
@@ -63,6 +66,16 @@ export const fieldsOf = (r: RecordRow): Record<string, string> => {
     return {};
   }
 };
+
+/**
+ * Every academic year that has documents, newest first, always including the current one — so the archive
+ * of any past year (the paper documents of 2025–2026 included) stays reachable from the year filters.
+ */
+export async function recordYears(): Promise<string[]> {
+  const cur = academicYear();
+  const rows = await many<{ y: string }>(`SELECT DISTINCT academic_year AS y FROM records`);
+  return [...new Set([cur, ...rows.map((r) => r.y)])].sort().reverse();
+}
 
 export async function getRecord(id: number): Promise<RecordRow | null> {
   return one<RecordRow>(`${SELECT} WHERE r.id = ?`, id);
@@ -185,7 +198,7 @@ export async function createRecord(
   input: { type: RecordType; dept: DeptSlug; coDept: DeptSlug | null; title: string; values: Record<string, string>; visibility: Visibility },
   ip: string | null,
 ): Promise<number> {
-  if (!P.canCreateRecordIn(a, input.dept)) throw new Denied();
+  if (!P.canCreateRecordIn(a, input.dept) || input.type.archiveOnly) throw new Denied();
   const dept = await deptBySlug(input.dept);
   if (!dept) throw new Denied();
   const co = await coDeptId(input.coDept, dept.id);

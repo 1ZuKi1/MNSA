@@ -2,19 +2,55 @@
 /**
  * Steps in order, as one numbered line (home page and the newcomer guide use the same one). A legal
  * deadline (`when`) is shown as a tag beside the step's name, never written into it.
+ * `checkable` (the guide only): each step gets a real checkbox, so a newcomer can tick off what is done.
+ * Ticks are kept in this browser only (localStorage), nothing is sent anywhere.
  */
 import Icon from './Icon.astro';
+import { linkify } from '../lib/linkify';
 
 interface Props {
   steps: { title: string; when?: string | null; text: string }[];
+  checkable?: boolean;
 }
-const { steps } = Astro.props;
+const { steps, checkable = false } = Astro.props;
 ---
-<ol class="timeline-steps">
-  {steps.map((s) => (
+<ol class:list={['timeline-steps', { checkable }]}>
+  {steps.map((s, i) => (
     <li>
-      <b>{s.title}{s.when && <span class="due"><Icon name="clock" />{s.when}</span>}</b>
-      <span>{s.text}</span>
+      <b>
+        {s.title}{s.when && <span class="due"><Icon name="clock" />{s.when}</span>}
+        {checkable && (
+          <label class="tick">
+            <input type="checkbox" data-i={i} aria-label={s.title} />
+            <span class="box" aria-hidden="true"></span>
+          </label>
+        )}
+      </b>
+      <span set:html={linkify(s.text)} />
     </li>
   ))}
 </ol>
+{checkable && (
+  <script is:inline>
+    (function () {
+      var boxes = document.querySelectorAll('.timeline-steps.checkable input[type=checkbox]');
+      if (!boxes.length) return;
+      var KEY = 'mox-newcomer-steps-2026';
+      var saved = [];
+      try { saved = JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) {}
+      function paint() { Array.prototype.forEach.call(boxes, function (b) { b.closest('li').classList.toggle('done', b.checked); }); }
+      function save() {
+        var out = [];
+        Array.prototype.forEach.call(boxes, function (b, i) { if (b.checked) out.push(i); });
+        try { localStorage.setItem(KEY, JSON.stringify(out)); } catch (e) {}
+      }
+      Array.prototype.forEach.call(boxes, function (b, i) {
+        if (saved.indexOf(i) > -1) b.checked = true;
+        b.addEventListener('change', function () { paint(); save(); });
+      });
+      paint();
+      // coming back with the browser's Back button can restore the ticks after this script ran
+      addEventListener('pageshow', paint);
+    })();
+  </script>
+)}
