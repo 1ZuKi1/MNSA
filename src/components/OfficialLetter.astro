@@ -26,8 +26,15 @@ interface Props {
 const { recipient, title, greeting, body, attachments, dateLine, number, signerTitle, signerName, stamp, draft = false } = Astro.props;
 const paragraphs = body.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
 const bracket = (s: string) => (/^\[.*\]$/.test(s.trim()) ? s.trim() : `[${s.trim()}]`);
+// An unapproved letter: «НООРОГ» on every printed page, from page-sized slots (as in OfficialDoc).
+const PAGE_SLOTS = Array.from({ length: 16 });
 ---
 <article class:list={['letter', { draft }]}>
+  {draft && (
+    <div class="l-marks" aria-hidden="true">
+      {PAGE_SLOTS.map(() => <div class="l-pg"><span>НООРОГ</span></div>)}
+    </div>
+  )}
   <header class="lh">
     <div class="lh-org">
       <img class="lh-logo" src="/brand/logo-512.png" alt="" aria-hidden="true" />
@@ -61,9 +68,11 @@ const bracket = (s: string) => (/^\[.*\]$/.test(s.trim()) ? s.trim() : `[${s.tri
 </article>
 
 <style is:global>
-  @page { size: A4; margin: 18mm 20mm 16mm; }
+  /* The same page margins as OfficialDoc: both print pages load both components, so two different @page rules
+     would compete, and the per-page marks need to know the exact page height. */
+  @page { size: A4; margin: 20mm 20mm 18mm; }
   .letter {
-    position: relative; width: 210mm; min-height: 297mm; margin: 20px auto; padding: 18mm 20mm 16mm; background: #fff;
+    position: relative; width: 210mm; min-height: 297mm; margin: 20px auto; padding: 20mm 20mm 18mm; background: #fff;
     box-shadow: 0 2px 16px rgba(0, 0, 0, .12); color: #111; font: 12pt/1.5 'Times New Roman', 'Source Serif 4 Variable', Georgia, serif;
     display: flex; flex-direction: column;
   }
@@ -87,8 +96,17 @@ const bracket = (s: string) => (/^\[.*\]$/.test(s.trim()) ? s.trim() : `[${s.tri
   .l-mark { position: relative; height: 12mm; }
   .l-stamp { position: absolute; left: 50%; top: 50%; width: 30mm; height: auto; transform: translate(-50%, -50%); mix-blend-mode: multiply; }
   .l-number { margin-top: auto !important; padding-top: 12mm; text-align: right; font-size: 9pt; }
+  .l-marks { display: none; pointer-events: none; }
+  .l-pg { position: relative; height: calc(297mm - 20mm - 18mm); display: grid; place-items: center; }
+  .l-pg span { transform: rotate(-24deg); font: 700 96pt 'Golos Text Variable', sans-serif; color: rgba(142, 0, 0, .08); }
   @media print {
-    .letter { width: auto; min-height: calc(297mm - 34mm); margin: 0; padding: 0; box-shadow: none; }
-    .lh-logo, .l-stamp, .lh-org { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .letter { width: auto; min-height: calc(297mm - 38mm); margin: 0; padding: 0; box-shadow: none; }
+    .lh-logo, .l-stamp, .lh-org, .l-pg span { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    /* «НООРОГ» once in the middle of every printed page (slot N = page N), not once across the whole letter */
+    .letter.draft::before { display: none; }
+    .letter > .l-marks {
+      display: block; position: absolute; inset: 0 0 auto; overflow: hidden;
+      height: 100%; height: calc(round(up, 100%, 297mm - 20mm - 18mm) - 1px); /* to the end of the last page */
+    }
   }
 </style>

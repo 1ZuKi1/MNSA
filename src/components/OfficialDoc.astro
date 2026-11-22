@@ -33,9 +33,17 @@ const { kind, subtitle, recipient, meta = [], signers, number, date, draft = fal
 const zh = lang === 'zh';
 // Two or three people who sign alone sit left and right, as on the papers (a third goes under the right one).
 const pair = signers.length >= 2 && signers.length <= 4 && signers.every((s) => s.names.length <= 1);
+// Printed pages get their marks from a stack of page-sized slots behind the text (see the print styles):
+// enough for a 16-page document.
+const PAGE_SLOTS = Array.from({ length: 16 });
 ---
 <article class:list={['sheet', { draft, zh }]} lang={zh ? 'zh-Hans' : undefined}>
   <img class="wm" src="/brand/watermark.svg" alt="" aria-hidden="true" />
+  <div class="pg-marks" aria-hidden="true">
+    {PAGE_SLOTS.map(() => (
+      <div class="pg"><img src="/brand/watermark.svg" alt="" />{draft && <span class="pg-draft">НООРОГ</span>}</div>
+    ))}
+  </div>
   {recipient && <p class="to">{recipient}</p>}
   {kind && <h1 class:list={['kind', { long: kind.length > 24 }]}>{kind}</h1>}
   {subtitle && (kind ? <h2 class="subject">{subtitle}</h2> : <h1 class="subject solo">{subtitle}</h1>)}
@@ -150,12 +158,30 @@ const pair = signers.length >= 2 && signers.length <= 4 && signers.every((s) => 
   .sheet.zh .subject { text-transform: none; }
   .sheet .annex { margin-top: 14mm; break-before: page; }
   .sheet .annex h3 { text-align: center; font-weight: 700; font-size: 13pt; margin: 0 0 10px; }
+  /* Per-page marks (print only). A stack of slots, each exactly one printed page tall (A4 minus the @page
+     margins above), sits behind the text and is cut off where the sheet ends, so slot N lands on page N: the
+     logo, and «НООРОГ» on an unapproved document, are drawn once in the middle of every page. This works in
+     Safari, which does not repeat position: fixed elements on printed pages (the old way, which also showed the
+     draft mark once across the middle of the whole document). */
+  .pg-marks { display: none; pointer-events: none; }
+  .pg { position: relative; height: calc(297mm - 20mm - 18mm); display: grid; place-items: center; }
+  .pg img { width: 120mm; height: auto; }
+  .pg-draft {
+    position: absolute; inset: 0; display: grid; place-items: center; transform: rotate(-24deg);
+    font: 700 96pt 'Golos Text Variable', sans-serif; color: rgba(142, 0, 0, .08);
+  }
   @media print {
-    .sheet { width: auto; min-height: 0; margin: 0; padding: 0; box-shadow: none; overflow: visible; break-after: page; }
-    .sheet:last-of-type { break-after: auto; }
-    /* fixed = repeated on every printed page */
-    .sheet .wm { position: fixed; }
-    .sheet ~ .sheet .wm { display: none; } /* one watermark per page, even when many letters print together */
-    .sheet .wm, .stamp { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .sheet { width: auto; min-height: 0; margin: 0; padding: 0; box-shadow: none; overflow: visible; }
+    /* each letter starts a new page. break-before, not break-after: Safari 17+ misplaces pages after
+       break-after: page (WebKit bug 266386), which printed the duty-letter batch wrongly or blank */
+    .sheet + .sheet { break-before: page; }
+    .sheet .wm, .sheet.draft::before { display: none; }
+    /* cut off at the end of the sheet's LAST PAGE (its height rounded up to whole pages, 1px short so it never
+       starts another page), so a last page holding only the footer still gets its marks */
+    .sheet > .pg-marks {
+      display: block; position: absolute; inset: 0 0 auto; overflow: hidden; z-index: 0;
+      height: 100%; height: calc(round(up, 100%, 297mm - 20mm - 18mm) - 1px);
+    }
+    .pg img, .pg-draft, .stamp { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   }
 </style>
