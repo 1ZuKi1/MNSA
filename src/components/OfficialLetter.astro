@@ -91,11 +91,13 @@ const PAGE_SLOTS = Array.from({ length: 16 });
   .greet { margin-bottom: 4mm !important; }
   .l-body p { text-indent: 12mm; text-align: justify; margin: 0 0 3.5mm; white-space: pre-wrap; }
   .l-attach { margin-top: 4mm !important; }
-  .l-sign { margin-top: 16mm; display: grid; grid-template-columns: 1fr 40mm 1fr; align-items: center; gap: 4mm; text-transform: uppercase; break-inside: avoid-page; }
+  /* The 30 mm stamp reaches ~9 mm above and below this row: that room is padding inside the row (outer gaps cut to
+     match), so the row and its stamp move to a new page together. */
+  .l-sign { margin-top: 6mm; padding: 10mm 0; display: grid; grid-template-columns: 1fr 40mm 1fr; align-items: center; gap: 4mm; text-transform: uppercase; break-inside: avoid-page; }
   .l-role { text-align: right; }
   .l-mark { position: relative; height: 12mm; }
   .l-stamp { position: absolute; left: 50%; top: 50%; width: 30mm; height: auto; transform: translate(-50%, -50%); mix-blend-mode: multiply; }
-  .l-number { margin-top: auto !important; padding-top: 12mm; text-align: right; font-size: 9pt; }
+  .l-number { margin-top: auto !important; padding-top: 2mm; text-align: right; font-size: 9pt; }
   .l-marks { display: none; pointer-events: none; }
   .l-pg { position: relative; height: calc(297mm - 20mm - 18mm); display: grid; place-items: center; }
   .l-pg span { transform: rotate(-24deg); font: 700 96pt 'Golos Text Variable', sans-serif; color: rgba(142, 0, 0, .08); }

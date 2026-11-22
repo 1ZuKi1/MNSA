@@ -133,6 +133,9 @@ const rows = [...lines, ...Array(Math.max(0, 6 - lines.length)).fill(null)];
   .form th { background: #faf8f5; font-weight: 600; width: 38mm; }
   .form .lines th { width: auto; }
   .form .sign th { width: auto; }
+  /* the approval table (its stamp reaches past its row) never splits across pages. (No break-after: avoid on the
+     heading above it: when that can't be kept, the browser splits the table instead.) */
+  .form .sign { break-inside: avoid-page; }
   .form .r { text-align: right; font-variant-numeric: tabular-nums; }
   .form .c { text-align: center; width: 8mm; }
   .form .b { font-weight: 700; }

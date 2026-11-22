@@ -133,7 +133,13 @@ const PAGE_SLOTS = Array.from({ length: 16 });
   .sheet .tsec li { margin: 0 0 4px; text-align: justify; }
   .sheet .closing { text-align: center; font-weight: 700; font-style: italic; margin: 26px 12mm 0; }
   .sheet .attach { margin-top: 14px; }
-  .signs { margin-top: 20mm; display: grid; gap: 10mm 16mm; break-inside: avoid-page; }
+  /* The stamp is pressed over the signature line and reaches ~8 mm above and ~15 mm below this block. The room
+     for it is padding INSIDE the block (with the outer margins cut by the same amount, so nothing moves on
+     paper): the block never splits across pages, so neither does the stamp. Before, a page break could fall
+     right above the signatures and leave the top of the stamp on the previous page.
+     No break-before/after: avoid here or on .place: when such a rule can't be kept, Chrome breaks INSIDE this
+     block instead, which is exactly what must not happen (it split the stamp again in testing). */
+  .signs { margin-top: 10mm; padding: 10mm 0 16mm; display: grid; gap: 10mm 16mm; break-inside: avoid-page; }
   .signs.pair { grid-template-columns: 1fr 1fr; }
   .signs.pair .signer:nth-child(even) { text-align: right; }
   .signs.pair .signer:nth-child(3):last-child { grid-column: 2; text-align: right; }
@@ -146,7 +152,8 @@ const PAGE_SLOTS = Array.from({ length: 16 });
   }
   /* The square stamp is pressed beside the signature, not over the name. */
   .stamp.square { width: 26mm; left: auto; right: -30mm; transform: translate(0, -50%); }
-  .place { margin-top: 16mm; text-align: center; break-inside: avoid-page; }
+  /* (its 16 mm gap from the signatures is the padding at the foot of .signs) */
+  .place { margin-top: 0; text-align: center; break-inside: avoid-page; }
   .place p { margin: 0 0 6px; }
   .place .org { font-size: 14pt; margin-top: 4px; }
   .place .org-zh { font-size: 9pt; color: #555; font-family: 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', 'Source Han Sans SC', sans-serif; }
