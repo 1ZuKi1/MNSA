@@ -168,7 +168,9 @@ Do these once, in order. Everything uses the **association's** Cloudflare accoun
     Then the President uploads the official stamp at *Тохиргоо → Албан тамга*: a scan or straight-on photo of the real stamp pressed on white paper (a transparent PNG looks cleanest). It prints on the signature line only of documents the President approved, and its image is served only behind the staff login.
 11. **Auto-deploy on push:** Cloudflare → Workers → `mnsa` → Settings → Builds → connect `github.com/1ZuKi1/MNSA`. Build command `npm run build`, deploy command `npx wrangler deploy`.
 
-**The association's paper documents** (2025–2026, and Ж-0007 and М-0004 of 2026–2027) are entered into *Баримт бичиг* as records marked «Цаасан эх»: approved on paper, never edited, printed with the paper's own heading, date and signers. The import is a SQL file kept outside the repository (`neccesary-files/paper-archive.sql` — it holds members' names). Run it once, after migration `0012`:
+The stamps live in *Тохиргоо*: the **round** one (Дугуй тамга) prints on every document the President approved; the **square** Mongolian-script one (Дөрвөлжин тамга) only on the official blank — «Албан бичиг» and «Хамтын ажиллагаа». Upload both.
+
+**The association's paper documents** (2025–2026 and last year's signed duty letters; of 2026–2027 Ж-0007, М-0004, the letter to the Embassy, the three Chinese memoranda and the agreement with ХМОНХ) are entered into *Баримт бичиг* as records marked «Цаасан эх»: approved on paper, never edited, printed with the paper's own heading, date and signers. The import is a SQL file kept outside the repository (`neccesary-files/paper-archive.sql` — it holds members' names and student IDs). Run it after migrations `0012`–`0013`:
 ```bash
 npm run db:migrate:remote
 npx wrangler d1 execute mnsa-db --remote --file=neccesary-files/paper-archive.sql
@@ -193,7 +195,10 @@ src/
     events.ts          Events, task board, participation report, photos
     members.ts         Invites, roles, deputy, annual renewal
     budget.ts money.ts «Төсөв»: the public budget, kept by a «Төсвийн хариуцагч»; money in fen, never floats
-    settings.ts        The official stamp (President only; stored private, never on the public site)
+    finance.ts         «Санхүү»: money requests (advance, reimbursement, income) — staff only, never public
+    settings.ts        The two official stamps, round and square (President only; private, never on the public site)
+    letterhead.ts      The official blank's letterhead, and Chinese labels / Latin names for Chinese documents
+    paper.ts           Paper documents from before the website (records marked «Цаасан эх»)
     letters.ts         Duty letters («үүрэг, хариуцлагыг хүлээн зөвшөөрсөн тухай») printed from the member list
     prefill.ts         Starting values for new documents (department members, meeting attendance)
     team.ts            The public team page, built from the member list
@@ -215,7 +220,9 @@ tests/                 Unit tests + e2e.sh
 docs/ARCHITECTURE.md   Why everything is the way it is
 ```
 
-**Adding a new kind of document** — add an entry to `RECORD_TYPES` in `src/lib/record-types.ts`: fields, a type letter for the number, an icon, an approval chain and a `print` description (heading, who signs). The form, validation, archive, numbering and the printed page (`components/OfficialDoc.astro`) all follow automatically.
+**Adding a new kind of document** — add an entry to `RECORD_TYPES` in `src/lib/record-types.ts`: fields, a type letter for the number, an icon, an approval chain and a `print` description (heading, who signs). The form, validation, archive, numbering and the printed page (`components/OfficialDoc.astro`) all follow automatically. `print.layout: 'letter'` prints it on the official blank (`components/OfficialLetter.astro`), `print.stamp: 'square'` gives it the square stamp, and `print.langField` names a field whose value «中文» prints every fixed label in Chinese.
+
+**The official blank's address and phone** are in `src/lib/letterhead.ts` — the phone is the President's, so change it at the September handover.
 
 **Updating the Үндсэн дүрэм on the website** — when the Их Хуралдаан adopts a new version, put the PDF in `public/files/` with the adoption date in its name (e.g. `undsen-durem-2027-09-21.pdf`), then change `src/lib/public-docs.ts` (file name, version, date, counts, chapters). Keep the old file so saved links still work. It shows on *Танилцуулга* and in every page's footer.
 

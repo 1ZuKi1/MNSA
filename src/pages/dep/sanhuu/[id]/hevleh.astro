@@ -1,0 +1,153 @@
+---
+/**
+ * A money request printed on the association's paper form «САНХҮҮГИЙН ХҮСЭЛТИЙН МАЯГТ» (sections 1–7), for
+ * the file or for a signature. Browser print → "Save as PDF".
+ */
+export const prerender = false;
+import '@fontsource-variable/golos-text';
+import { asFinanceLike, financeActor, financeLines, fmtMoney, fmtQty, getFinance, KIND_LABEL, FINANCE_KINDS } from '../../../../lib/finance';
+import { int } from '../../../../lib/http';
+import * as P from '../../../../lib/permissions';
+import { stampId, stampUrl } from '../../../../lib/settings';
+import { fmtDate } from '../../../../lib/time';
+
+const user = Astro.locals.user!;
+const id = int(Astro.params.id);
+const r = id ? await getFinance(id) : null;
+const actor = await financeActor(user);
+if (!r || !P.canReadMoney(actor, asFinanceLike(r))) return new Response(null, { status: 404 });
+const lines = await financeLines(r.id);
+const stampMedia = r.president_at && r.status !== 'rejected' ? await stampId('round') : null;
+const showAccount = r.requester_id === user.id || P.canKeepBudget(actor) || user.role === 'president' || user.role === 'maintainer';
+const box = (on: boolean) => (on ? '☒' : '☐');
+const DEPTS: [string | null, string][] = [['gadaad', 'Гадаад'], ['dotood', 'Дотоод'], ['surgalt', 'Сургалт'], ['media', 'Медиа'], ['erh-zui', 'Эрх зүй'], [null, 'Бусад']];
+// A step's line on the form: approved, or the step that said no (a rejected request keeps `awaiting` on it).
+const decided = (who: string | null, at: number | null, step: 'keeper' | 'president') =>
+  at ? { ok: true, no: false, who, at }
+  : r.status === 'rejected' && r.awaiting === step ? { ok: false, no: true, who: r.rejecter_name, at: r.rejected_at }
+  : { ok: false, no: false, who: null as string | null, at: null as number | null };
+const keeper = decided(r.keeper_name, r.keeper_at, 'keeper');
+const president = decided(r.president_name, r.president_at, 'president');
+const rows = [...lines, ...Array(Math.max(0, 6 - lines.length)).fill(null)];
+---
+<!doctype html>
+<html lang="mn">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="robots" content="noindex" />
+    <title>{r.number} — Санхүүгийн хүсэлт</title>
+  </head>
+  <body>
+    <div class="toolbar"><button onclick="window.print()">Хэвлэх / PDF хадгалах</button><a href={`/sanhuu/${r.id}`}>← Буцах</a></div>
+    <article class="form">
+      <header>
+        <img src="/brand/logo-512.png" alt="" />
+        <div>
+          <p class="org">Бээжингийн Их Сургуулийн Монгол Оюутны Холбоо</p>
+          <h1>САНХҮҮГИЙН ХҮСЭЛТИЙН МАЯГТ</h1>
+        </div>
+        <p class="no">№ {r.number}</p>
+      </header>
+
+      <h2>1. Хүсэлтийн төрөл</h2>
+      <p class="boxes">{FINANCE_KINDS.map((k) => <span>{box(r.kind === k)} {KIND_LABEL[k]}</span>)}</p>
+
+      <h2>2. Хүсэлт гаргагч</h2>
+      <table>
+        <tr><th>Овог нэр</th><td>{r.requester_name}</td><th>Огноо</th><td>{fmtDate(r.created_at)}</td></tr>
+        <tr><th>Хэлтэс</th><td colspan="3" class="boxes">{DEPTS.map(([s, l]) => <span>{box(r.dept_slug === s)} {l}</span>)}</td></tr>
+        <tr><th>Холбоо барих</th><td colspan="3">{r.contact ?? ''}</td></tr>
+      </table>
+
+      <h2>3. Арга хэмжээ</h2>
+      <table>
+        <tr><th>Арга хэмжээний нэр</th><td>{r.event_name}</td></tr>
+        <tr><th>Зардал гарах огноо</th><td>{fmtDate(r.spent_on)}</td></tr>
+        <tr><th>Зорилго, тайлбар</th><td class="pre">{r.purpose ?? ''}</td></tr>
+      </table>
+
+      <h2>4. Зардал, орлогын жагсаалт</h2>
+      <p class="boxes">Валют: <span>{box(r.currency === 'CNY')} CNY (¥)</span><span>{box(r.currency === 'MNT')} MNT (₮)</span><span>{box(!['CNY', 'MNT'].includes(r.currency))} Бусад: {['CNY', 'MNT'].includes(r.currency) ? '____' : r.currency}</span></p>
+      <table class="lines">
+        <thead><tr><th>№</th><th>Зүйлийн нэр, тайлбар</th><th>Тоо</th><th>Нэгж үнэ</th><th>Нийт дүн</th><th>Тэмдэглэл</th></tr></thead>
+        <tbody>
+          {rows.map((l, n) => (
+            <tr><td class="c">{n + 1}</td><td>{l?.item ?? ''}</td><td class="r">{l ? fmtQty(l.qty_c) : ''}</td><td class="r">{l ? fmtMoney(l.unit_minor, r.currency) : ''}</td><td class="r">{l ? fmtMoney(l.total_minor, r.currency) : ''}</td><td>{l?.note ?? ''}</td></tr>
+          ))}
+        </tbody>
+        <tfoot><tr><th colspan="4" class="r">НИЙТ ДҮН</th><td class="r b">{fmtMoney(r.total_minor, r.currency)}</td><td></td></tr></tfoot>
+      </table>
+
+      <h2>5. Төлбөр, баримт</h2>
+      <table>
+        <tr><th>Төлбөрийн хэлбэр</th><td class="boxes"><span>{box(r.pay_method === 'cash')} Бэлнээр</span><span>{box(r.pay_method === 'wechat')} WeChat</span></td></tr>
+        <tr><th>Хүлээн авагчийн нэр</th><td>{r.payee_name ?? ''}</td></tr>
+        <tr><th>Данс / WeChat ID</th><td>{showAccount ? (r.payee_account ?? '') : '••••'}</td></tr>
+        <tr><th>Баримт хавсаргасан</th><td class="boxes"><span>{box(!r.no_receipt_reason)} Тийм ({r.receipts_stated || '____'} ширхэг)</span><span>{box(!!r.no_receipt_reason)} Үгүй — шалтгаан: {r.no_receipt_reason ?? '________'}</span></td></tr>
+      </table>
+
+      <h2>6. Батламж</h2>
+      <table class="sign">
+        <thead><tr><th>Албан тушаал</th><th>Овог нэр</th><th>Шийдвэр</th><th>Гарын үсэг / тамга</th><th>Огноо</th></tr></thead>
+        <tbody>
+          <tr><td>Санхүү хариуцсан гишүүн</td><td>{keeper.who ?? ''}</td><td class="boxes"><span>{box(keeper.ok)} Зөвшөөрсөн</span><span>{box(keeper.no)} Татгалзсан</span></td><td></td><td>{keeper.at ? fmtDate(keeper.at) : ''}</td></tr>
+          <tr><td>Тэргүүн</td><td>{president.who ?? ''}</td><td class="boxes"><span>{box(president.ok)} Зөвшөөрсөн</span><span>{box(president.no)} Татгалзсан</span></td><td class="st">{stampMedia && <img src={stampUrl('round', stampMedia)} alt="Тамга" />}</td><td>{president.at ? fmtDate(president.at) : ''}</td></tr>
+        </tbody>
+      </table>
+      {r.reject_reason && <p><b>Татгалзсан шалтгаан:</b> {r.reject_reason}</p>}
+
+      <h2>7. Санхүүгийн бүртгэлд</h2>
+      <table>
+        <tr><th>Хүлээн авсан огноо</th><td>{r.paid_on ? fmtDate(r.paid_on) : ''}</td><th>Бүртгэлийн №</th><td>{r.paid_on ? r.number : ''}</td></tr>
+        <tr><th>Олгосон дүн</th><td>{r.paid_minor !== null ? fmtMoney(r.paid_minor, r.currency) : ''}</td><th>Олгосон хүн</th><td>{r.payer_name ?? ''}</td></tr>
+      </table>
+
+      <div class="notes">
+        <b>Санамж</b>
+        <ul>
+          <li>Нэг арга хэмжээ тутамд нэг маягт бөглөнө.</li>
+          <li>Гарсан зардлын баримт (чек, QR төлбөрийн зураг, нэхэмжлэх) заавал хавсаргана.</li>
+          <li>Батлагдсан төсвөөс хэтрэх зардлыг гаргахаас өмнө зөвшөөрүүлнэ.</li>
+        </ul>
+      </div>
+      <p class="trail">team.pkumongolia.com/sanhuu/{r.id}</p>
+    </article>
+  </body>
+</html>
+
+<style is:global>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #e9e6e1; font: 10.5pt/1.45 'Golos Text Variable', system-ui, sans-serif; color: #111; }
+  .toolbar { position: sticky; top: 0; display: flex; gap: 16px; align-items: center; padding: 10px 20px; background: #fff; border-bottom: 1px solid #ddd; font-size: 14px; }
+  .toolbar button { font: inherit; font-weight: 600; padding: 7px 14px; border-radius: 6px; border: 1px solid #8e0000; background: #8e0000; color: #fff; cursor: pointer; }
+  @page { size: A4; margin: 14mm 14mm 12mm; }
+  .form { width: 210mm; min-height: 297mm; margin: 20px auto; padding: 14mm; background: #fff; box-shadow: 0 2px 16px rgba(0, 0, 0, .12); }
+  .form header { display: grid; grid-template-columns: 22mm 1fr auto; gap: 6mm; align-items: center; border-bottom: 2px solid #8e0000; padding-bottom: 4mm; margin-bottom: 4mm; }
+  .form header img { width: 22mm; }
+  .form .org { margin: 0; color: #8e0000; font-weight: 700; }
+  .form h1 { margin: 2px 0 0; font-size: 15pt; letter-spacing: .03em; }
+  .form .no { margin: 0; font-variant-numeric: tabular-nums; }
+  .form h2 { font-size: 10.5pt; margin: 5mm 0 2mm; padding: 1.5mm 3mm; background: #f1ece6; }
+  .form table { width: 100%; border-collapse: collapse; }
+  .form th, .form td { border: 1px solid #bbb; padding: 1.6mm 2.4mm; text-align: left; vertical-align: top; }
+  .form th { background: #faf8f5; font-weight: 600; width: 38mm; }
+  .form .lines th { width: auto; }
+  .form .sign th { width: auto; }
+  .form .r { text-align: right; font-variant-numeric: tabular-nums; }
+  .form .c { text-align: center; width: 8mm; }
+  .form .b { font-weight: 700; }
+  .form .pre { white-space: pre-wrap; }
+  .form .boxes span { margin-right: 6mm; white-space: nowrap; }
+  .form p.boxes { margin: 0 0 2mm; }
+  .form .st { position: relative; height: 16mm; width: 34mm; }
+  .form .st img { position: absolute; inset: 0; margin: auto; height: 26mm; mix-blend-mode: multiply; transform: translateY(-2mm); }
+  .form .notes { margin-top: 5mm; font-size: 9pt; color: #444; }
+  .form .notes ul { margin: 1mm 0 0; padding-left: 5mm; }
+  .form .trail { margin-top: 4mm; font-size: 7.5pt; color: #888; }
+  @media print {
+    body { background: #fff; }
+    .toolbar { display: none; }
+    .form { width: auto; min-height: 0; margin: 0; padding: 0; box-shadow: none; }
+    .form h2, .form th, .form header img, .form .st img { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>

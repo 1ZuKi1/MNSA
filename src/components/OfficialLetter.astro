@@ -1,0 +1,94 @@
+---
+/**
+ * The association's official blank («Official Blank - Mongolian.docx»), for letters that go to other
+ * organisations — as on the letter to the Embassy of 2026-10-08: the logo with the association's address on
+ * the left, the recipient on the right, the reference line, the title in brackets, the greeting, the letter,
+ * and «ТЭРГҮҮН  [signature, square stamp]  НЭР» with the document number at the bottom right.
+ *
+ * No watermark and no approval trail: this page leaves the association.
+ */
+import { LETTERHEAD } from '../lib/letterhead';
+
+interface Props {
+  recipient: string;
+  title: string;
+  greeting?: string;
+  body: string;
+  attachments?: string;
+  /** «2026 оны 10 дугаар сарын 08-ны өдрийн» */
+  dateLine: string;
+  number?: string | null;
+  signerTitle: string;
+  signerName: string;
+  stamp?: string | null;
+  draft?: boolean;
+}
+const { recipient, title, greeting, body, attachments, dateLine, number, signerTitle, signerName, stamp, draft = false } = Astro.props;
+const paragraphs = body.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
+const bracket = (s: string) => (/^\[.*\]$/.test(s.trim()) ? s.trim() : `[${s.trim()}]`);
+---
+<article class:list={['letter', { draft }]}>
+  <header class="lh">
+    <div class="lh-org">
+      <img class="lh-logo" src="/brand/logo-512.png" alt="" aria-hidden="true" />
+      <p class="lh-name">{LETTERHEAD.name}</p>
+      <p>{LETTERHEAD.address}</p>
+      <p>Утас: {LETTERHEAD.phone}</p>
+      <p>Майл хаяг: {LETTERHEAD.email}</p>
+      <p>Вэб: {LETTERHEAD.web}</p>
+    </div>
+    <p class="lh-to">{bracket(recipient)}</p>
+  </header>
+
+  <div class="ref">
+    <p>__________________ № __________________</p>
+    <p>{dateLine} {number ?? '______'} дугаартай албан бичиг.</p>
+  </div>
+
+  <h1 class="l-title">{bracket(title)}</h1>
+
+  <p class="greet">{greeting?.trim() || 'Сайн байна уу!'}</p>
+  <div class="l-body">{paragraphs.map((p) => <p>{p}</p>)}</div>
+  {attachments && <p class="l-attach"><strong>Хавсралт:</strong> {attachments}</p>}
+
+  <div class="l-sign">
+    <span class="l-role">{signerTitle}</span>
+    <span class="l-mark">{stamp && <img class="l-stamp" src={stamp} alt="Тамга" />}</span>
+    <span class="l-name">{signerName}</span>
+  </div>
+
+  {number && <p class="l-number num">{number}</p>}
+</article>
+
+<style is:global>
+  @page { size: A4; margin: 18mm 20mm 16mm; }
+  .letter {
+    position: relative; width: 210mm; min-height: 297mm; margin: 20px auto; padding: 18mm 20mm 16mm; background: #fff;
+    box-shadow: 0 2px 16px rgba(0, 0, 0, .12); color: #111; font: 12pt/1.5 'Times New Roman', 'Source Serif 4 Variable', Georgia, serif;
+    display: flex; flex-direction: column;
+  }
+  .letter.draft::before {
+    content: 'НООРОГ'; position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none;
+    font: 700 96pt 'Golos Text Variable', sans-serif; color: rgba(142, 0, 0, .08); transform: rotate(-24deg);
+  }
+  .letter p { margin: 0; }
+  .lh { display: flex; justify-content: space-between; align-items: flex-start; gap: 12mm; }
+  .lh-org { width: 72mm; text-align: center; font-size: 8.5pt; line-height: 1.45; color: #2a5d8f; }
+  .lh-logo { display: block; width: 32mm; height: auto; margin: 0 auto 2mm; }
+  .lh-org .lh-name { color: #a00000; font-weight: 700; font-size: 10.5pt; line-height: 1.3; margin-bottom: 1.5mm; }
+  .lh-to { flex: 1; max-width: 80mm; text-align: right; font-size: 13pt; line-height: 1.35; }
+  .ref { margin-top: 8mm; color: #2a5d8f; font-size: 10.5pt; }
+  .l-title { margin: 9mm 0 7mm; text-align: center; font: 700 13pt/1.35 'Times New Roman', 'Source Serif 4 Variable', serif; text-transform: uppercase; }
+  .greet { margin-bottom: 4mm !important; }
+  .l-body p { text-indent: 12mm; text-align: justify; margin: 0 0 3.5mm; white-space: pre-wrap; }
+  .l-attach { margin-top: 4mm !important; }
+  .l-sign { margin-top: 16mm; display: grid; grid-template-columns: 1fr 40mm 1fr; align-items: center; gap: 4mm; text-transform: uppercase; break-inside: avoid-page; }
+  .l-role { text-align: right; }
+  .l-mark { position: relative; height: 12mm; }
+  .l-stamp { position: absolute; left: 50%; top: 50%; width: 30mm; height: auto; transform: translate(-50%, -50%); mix-blend-mode: multiply; }
+  .l-number { margin-top: auto !important; padding-top: 12mm; text-align: right; font-size: 9pt; }
+  @media print {
+    .letter { width: auto; min-height: calc(297mm - 34mm); margin: 0; padding: 0; box-shadow: none; }
+    .lh-logo, .l-stamp, .lh-org { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>

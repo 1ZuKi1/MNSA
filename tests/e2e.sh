@@ -54,15 +54,17 @@ has "President approves" "$(post $J/president.jar /barimt/$RID -d action=approve
 pg=$(get $J/dotood2.jar /barimt/$RID)
 has "status is approved" "$pg" "b-approved"
 check "print page renders" "$(code $J/dotood2.jar /barimt/$RID/hevleh)" 200
-has "print shows all three signers" "$(get $J/dotood2.jar /barimt/$RID/hevleh)" "Ж. Саруул"
 pr=$(get $J/dotood2.jar /barimt/$RID/hevleh)
-has "print has the President's signature line" "$pr" 's-title">Холбооны Тэргүүн'
-has "…with the approver's name on it" "$pr" 's-name">Б. Тэмүүлэн'
-has "…and Legal's beside it" "$pr" 's-title">Эрх Зүйн Хэлтэс'
+has "a letter prints on the official blank" "$pr" 'class="letter'
+has "…with the association's address and e-mail" "$pr" "pku_mongolia@163.com"
+has "…addressed to the recipient, in brackets" "$pr" "\[Оюутны төвийн удирдлага\]"
+has "…its title in brackets" "$pr" "\[Танхим ашиглах зөвшөөрөл хүсэх тухай\]"
+has "…the default greeting" "$pr" "Сайн байна уу!"
+has "…the reference line with our number" "$pr" "МОХ-ДХ/2627/А/001 дугаартай албан бичиг"
+has "…signed by the President who approved it" "$pr" 'l-name">Б. Тэмүүлэн'
 M=$(TZ=Asia/Shanghai date +%-m); case $M in 1|4|9|11) SUF=дүгээр;; *) SUF=дугаар;; esac
-has "…and the official date line (today's month)" "$pr" "оны $M $SUF сарын"
-hasnt "…and no stamp while none is uploaded" "$pr" "/tamga?v="
-has "letterhead carries the Chinese name" "$pr" "北京大学蒙古国留学生学生会"
+has "…and dated on the approval day (today's month)" "$pr" "оны $M $SUF сарын"
+hasnt "…and no stamp while none is uploaded" "$pr" "/tamga?"
 has "approved record is locked" "$(curl -s -o /dev/null -w '%{redirect_url}' -b $J/dotood.jar -H "$S" $B/barimt/$RID/zasah)" "err=denied"
 
 echo "── records: the types added from the President's form"
@@ -109,6 +111,28 @@ has "…with the dates written out" "$pr" "2025 оны 10 дугаар сары�
 has "…and the person signs beside the President" "$pr" 's-name">Баяржаргалын Номин-Эрдэнэ'
 has "…numbered ГЦ" "$pr" "МОХ-УД/2627/ГЦ/001"
 
+echo "── records: Хамтын ажиллагаа, in Chinese"
+has "the new type is offered" "$(get $J/gadaad.jar /barimt/shine)" "Хамтын ажиллагаа"
+loc=$(post $J/gadaad.jar /barimt/shine -d "type=hamtiin&dept=gadaad&visibility=staff&then=submit" --data-urlencode "title=Солонгос оюутны холбоотой хамтран ажиллах санамж бичиг" \
+  --data-urlencode "f_lang=中文" --data-urlencode "f_doc_kind=Хамтран ажиллах санамж бичиг" --data-urlencode "f_partner=北京大学韩国留学生会" \
+  --data-urlencode "f_body=一、总则
+本备忘录由双方友好协商达成。" --data-urlencode "f_annex=活动计划")
+HID=$(echo "$loc" | grep -o 'barimt/[0-9]*' | grep -o '[0-9]*')
+has "the дарга's own memorandum goes straight to Legal" "$(get $J/gadaad.jar /barimt/$HID)" "Эрх зүйн хэлтсийн"
+has "…numbered ХА" "$(get $J/gadaad.jar /barimt/$HID)" "МОХ-ГХ/2627/ХА/001"
+has "Legal approves it" "$(post $J/legal.jar /barimt/$HID -d action=approve)" "ok=approved"
+has "…then the President" "$(post $J/president.jar /barimt/$HID -d action=approve)" "ok=approved"
+pr=$(get $J/gadaad.jar /barimt/$HID/hevleh)
+has "it prints under the Chinese heading" "$pr" "《合作谅解备忘录》"
+has "…with the Chinese footer" "$pr" "编号: <span class=\"num\">МОХ-ГХ/2627/ХА/001"
+has "…and the place in Chinese" "$pr" "中华人民共和国北京市"
+has "…signed by 学生会主席 in Latin letters" "$pr" 's-name">B. Temuulen'
+has "…by 外交部" "$pr" 's-title">外交部'
+has "…and 法务部" "$pr" 's-name">J. Saruul'
+has "…dated in Chinese" "$pr" "年.*月.*日"
+has "…with the annex after the signatures" "$pr" "附件"
+hasnt "…and no Mongolian footer" "$pr" "Бүгд Найрамдах Хятад Ард Улс</p>"
+
 echo "── records: the department wall, open reading"
 check "other dept can READ approved record" "$(code $J/gadaad.jar /barimt/$RID)" 200
 check "maintainer can read" "$(code $J/dev.jar /barimt/$RID)" 200
@@ -117,7 +141,7 @@ check "dept-only draft hidden from board (draft)" "$(code $J/board.jar /barimt/4
 check "dept-only draft visible to its author" "$(code $J/legal.jar /barimt/4)" 200
 pg=$(curl -s -b $J/dotood2.jar -H "$S" -H "$O" -X POST -d "type=tailan&dept=gadaad&visibility=staff&then=save" --data-urlencode "title=x" --data-urlencode "f_report_kind=Улирлын эцсийн" -d "f_period=2026-09-01&f_period_to=2026-12-20" --data-urlencode "f_work=x" $B/barimt/shine)
 has "posting into another dept is refused, with the reason" "$pg" "Энэ хэлтэст бичих эрх танд байхгүй"
-check "…and nothing was created" "$(get $J/president.jar '/barimt?dept=gadaad' | grep -c 'class="row-link"')" 0
+check "…and nothing was created" "$(get $J/president.jar '/barimt?dept=gadaad' | grep -c 'class="row-link"[^>]*>x</a>')" 0
 check "maintainer can create records (President's powers)" "$(code $J/dev.jar /barimt/shine)" 200
 has "records list shows other dept (open read)" "$(get $J/gadaad.jar /barimt)" "Нээлтийн уулзалтын тайлан"
 hasnt "records list hides dept-only draft" "$(get $J/gadaad.jar /barimt)" "Гишүүнчлэлийн батламжийн"
@@ -192,7 +216,13 @@ has "…not without a login" "$(curl -s -o /dev/null -w '%{redirect_url}' -H "$S
 check "…not on the public host" "$(curl -s -o /dev/null -w '%{http_code}' -H "$P" $B/tamga)" 404
 SID=$(get $J/president.jar /tohirgoo | grep -o 'tamga?v=[A-Za-z0-9_-]*' | head -1 | cut -d= -f2)
 check "…and not through the public photo route" "$(curl -s -o /dev/null -w '%{http_code}' -H "$P" $B/media/$SID)" 404
-has "the President-approved letter now carries the stamp" "$(get $J/dotood2.jar /barimt/$RID/hevleh)" "/tamga?v="
+hasnt "the round stamp never goes on the official blank" "$(get $J/dotood2.jar /barimt/$RID/hevleh)" "/tamga?"
+has "…it goes on the President-approved notice" "$(get $J/legal.jar /barimt/$MID2/hevleh)" '/tamga?v='
+has "President uploads the square stamp" "$(curl -s -o /dev/null -w "%{redirect_url}" -b $J/president.jar -H "$S" -H "$O" -F action=stamp -F kind=square -F "file=@$J/stamp.png;type=image/png" $B/tohirgoo)" "ok=stamp"
+check "…served to staff at its own address" "$(curl -s -o /dev/null -w '%{http_code} %{content_type}' -b $J/dotood2.jar -H "$S" "$B/tamga?kind=square")" "200 image/png"
+has "…and the letter now carries it" "$(get $J/dotood2.jar /barimt/$RID/hevleh)" "tamga?kind=square"
+hasnt "…while the notice keeps the round one" "$(get $J/legal.jar /barimt/$MID2/hevleh)" "kind=square"
+has "a Chinese memorandum carries the square stamp too" "$(get $J/gadaad.jar /barimt/$HID/hevleh)" "tamga?kind=square"
 pr=$(get $J/president.jar /barimt/3/hevleh)
 hasnt "a report approved by a дарга gets no stamp" "$pr" "/tamga?v="
 has "…and is signed by the department's members" "$pr" 's-title">Хэлтсийн гишүүд'
@@ -200,7 +230,10 @@ has "…each of them by name" "$pr" 's-name">Ц. Мөнхжин'
 hasnt "the unapproved amendment gets no stamp" "$(get $J/legal.jar /barimt/$DID/hevleh)" "/tamga?v="
 has "audit log shows the stamp change" "$(get $J/president.jar /burtgel)" "Тамга сольсон"
 has "President removes the stamp" "$(post $J/president.jar /tohirgoo -d action=remove_stamp)" "ok=removed"
-hasnt "…and it is gone from the print" "$(get $J/dotood2.jar /barimt/$RID/hevleh)" "/tamga?v="
+hasnt "…and it is gone from the print" "$(get $J/legal.jar /barimt/$MID2/hevleh)" "/tamga?v="
+has "…the square one stays until removed on its own" "$(get $J/dotood2.jar /barimt/$RID/hevleh)" "tamga?kind=square"
+has "President removes the square stamp" "$(post $J/president.jar /tohirgoo -d action=remove_stamp -d kind=square)" "ok=removed"
+check "…and it is gone too" "$(code $J/dotood2.jar '/tamga?kind=square')" 404
 check "…and from /tamga" "$(code $J/dotood2.jar /tamga)" 404
 
 echo "── participation report"
@@ -488,6 +521,59 @@ has "the old «Байгаа / Хандиваар» kinds are gone: such a post i
 has "the President relieves the keeper" "$(post $J/president.jar /gishuud -d action=budget_off -d user=4 -d back=/gishuud/4)" "ok=budget_keeper_off"
 has "…who can no longer add" "$(post $J/dotood2.jar /tosov -d action=add -d date=$TODAY -d item=x -d qty=1 -d unit=1)" "err=denied"
 check "the staff budget page doesn't exist on the public host" "$(curl -s -o /dev/null -w '%{http_code}' -H "$P" $B/dep/tosov)" 404
+
+echo "── money (Санхүү) — staff only"
+check "the money page is not on the public site" "$(curl -s -o /dev/null -w '%{http_code}' -H "$P" $B/sanhuu)" 404
+has "the President names a keeper for money" "$(post $J/president.jar /gishuud -d action=budget_on -d user=8 -d back=/gishuud/8)" "ok=budget_keeper"
+TODAY=$(TZ=Asia/Shanghai date +%Y-%m-%d)
+loc=$(post $J/media.jar /sanhuu/shine -d kind=reimburse -d dept=media -d date=$TODAY -d currency=CNY -d pay_method=wechat -d receipts=yes -d receipts_count=2 \
+  --data-urlencode "event=Соёлын өдөрлөг" --data-urlencode "payee_name=С. Хулан" --data-urlencode "payee_account=wxid_hulan" \
+  --data-urlencode "line_item=Хэвлэмэл плакат" -d line_qty=2 --data-urlencode "line_unit=45.50" -d line_note= \
+  --data-urlencode "line_item=Скоч" -d line_qty=1 -d line_unit=10 -d line_note= \
+  -d line_item= -d line_qty=1 -d line_unit= -d line_note=)
+FID=$(echo "$loc" | grep -o 'sanhuu/[0-9]*' | grep -o '[0-9]*')
+has "a дарга asks to be paid back" "$loc" "ok=money_created"
+pg=$(get $J/media.jar /sanhuu/$FID)
+has "…numbered in the year's money series" "$pg" "МОХ-САН/2627/001"
+has "…the total is the server's (2 × 45.50 + 10)" "$pg" "¥101"
+has "…waiting on the keeper first" "$pg" "Санхүү хариуцсан гишүүн шийдвэрлэнэ"
+has "…the requester sees the WeChat ID" "$pg" "wxid_hulan"
+check "another member can't open it" "$(code $J/gadaad.jar /sanhuu/$FID)" 404
+check "the board can read it" "$(code $J/board.jar /sanhuu/$FID)" 200
+hasnt "…but not the WeChat ID" "$(get $J/board.jar /sanhuu/$FID)" "wxid_hulan"
+has "the board can't decide" "$(post $J/board.jar /sanhuu/$FID -d action=approve)" "err=denied"
+has "nor the President before the keeper" "$(post $J/president.jar /sanhuu/$FID -d action=approve)" "err=denied"
+has "the keeper's queue shows it" "$(get $J/media2.jar /sanhuu)" "Таны шийдвэр хүлээж буй"
+has "the keeper approves" "$(post $J/media2.jar /sanhuu/$FID -d action=approve)" "ok=money_approved"
+has "…then the President" "$(post $J/president.jar /sanhuu/$FID -d action=approve)" "ok=money_approved"
+has "nobody but the keeper records the payment" "$(post $J/president.jar /sanhuu/$FID -d action=record -d amount=101 -d paid_on=$TODAY)" "err=denied"
+has "the keeper records the money given" "$(post $J/media2.jar /sanhuu/$FID -d action=record -d amount=101 -d paid_on=$TODAY)" "ok=money_paid"
+has "…the year's money out" "$(get $J/president.jar /sanhuu)" "−¥101"
+has "the requester adds a receipt photo" "$(curl -s -o /dev/null -w "%{redirect_url}" -b $J/media.jar -H "$S" -H "$O" -F action=receipt -F "file=@$J/stamp.png;type=image/png" $B/sanhuu/$FID)" "ok=receipt_added"
+RCP=$(get $J/media.jar /sanhuu/$FID | grep -o "sanhuu/$FID/barimt/[0-9]*" | head -1)
+check "…shown to the requester" "$(curl -s -o /dev/null -w '%{http_code} %{content_type}' -b $J/media.jar -H "$S" $B/$RCP)" "200 image/png"
+check "…never to another member" "$(code $J/gadaad.jar /$RCP)" 404
+check "…nor through the public photo route" "$(curl -s -o /dev/null -w '%{http_code}' -H "$P" $B/$RCP)" 404
+pr=$(get $J/media.jar /sanhuu/$FID/hevleh)
+has "it prints on the paper form" "$pr" "САНХҮҮГИЙН ХҮСЭЛТИЙН МАЯГТ"
+has "…the kind ticked" "$pr" "☒ Гарсан зардал нөхөн авах"
+has "…and the money recorded" "$pr" "Олгосон дүн"
+loc=$(post $J/dotood2.jar /sanhuu/shine -d kind=income -d dept=dotood -d date=$TODAY -d currency=MNT -d receipts=no --data-urlencode "event=Хураамж" --data-urlencode "line_item=Гишүүдийн хураамж" -d line_qty=20 -d line_unit=5000)
+IID=$(echo "$loc" | grep -o 'sanhuu/[0-9]*' | grep -o '[0-9]*')
+has "a member records income, in tögrög" "$(get $J/dotood2.jar /sanhuu/$IID)" "₮100,000"
+has "saying no needs a reason" "$(post $J/media2.jar /sanhuu/$IID -d action=reject)" "err=comment"
+has "the keeper says no, with the reason" "$(post $J/media2.jar /sanhuu/$IID -d action=reject --data-urlencode "comment=Дансны хуулга хавсаргана уу")" "ok=money_rejected"
+has "…the requester reads why" "$(get $J/dotood2.jar /sanhuu/$IID)" "Дансны хуулга хавсаргана уу"
+loc=$(post $J/media2.jar /sanhuu/shine -d kind=advance -d dept=media -d date=$TODAY -d currency=CNY -d receipts=no --data-urlencode "event=Спортын өдөр" --data-urlencode "line_item=Ус" -d line_qty=24 -d line_unit=2)
+KID=$(echo "$loc" | grep -o 'sanhuu/[0-9]*' | grep -o '[0-9]*')
+has "the keeper's own request skips the keeper" "$(get $J/media2.jar /sanhuu/$KID)" "Тэргүүн шийдвэрлэнэ"
+has "…and the keeper can't approve it" "$(post $J/media2.jar /sanhuu/$KID -d action=approve)" "err=denied"
+loc=$(post $J/dotood2.jar /sanhuu/shine -d kind=advance -d dept=dotood -d date=$TODAY -d currency=CNY -d receipts=no --data-urlencode "event=Туршилт" --data-urlencode "line_item=x" -d line_qty=1 -d line_unit=1)
+CID2=$(echo "$loc" | grep -o 'sanhuu/[0-9]*' | grep -o '[0-9]*')
+has "the requester can withdraw a request" "$(post $J/dotood2.jar /sanhuu/$CID2 -d action=cancel)" "ok=money_cancelled"
+has "a request with no lines is refused" "$(curl -s -b $J/dotood2.jar -H "$S" -H "$O" -X POST -d kind=advance -d date=$TODAY -d currency=CNY --data-urlencode "event=x" $B/sanhuu/shine)" "Дор хаяж нэг мөр"
+has "the audit log keeps it" "$(get $J/president.jar '/burtgel?cat=finance')" "Мөнгө олгосныг бүртгэсэн"
+has "the President relieves the money keeper" "$(post $J/president.jar /gishuud -d action=budget_off -d user=8 -d back=/gishuud/8)" "ok=budget_keeper_off"
 
 echo "── safety"
 J4=$(mktemp -d); login president@demo.test $J4/p.jar

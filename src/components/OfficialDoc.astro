@@ -25,11 +25,16 @@ interface Props {
   date: string;
   draft?: boolean;
   trail?: string | null;
+  /** 'zh': the footer in Chinese (编号 · 日期 · 中华人民共和国北京市), for documents written in Chinese. */
+  lang?: 'mn' | 'zh';
 }
-const { kind, subtitle, recipient, meta = [], signers, number, date, draft = false, trail } = Astro.props;
-const pair = signers.length === 2 && signers.every((s) => s.names.length <= 1);
+import { ZH } from '../lib/letterhead';
+const { kind, subtitle, recipient, meta = [], signers, number, date, draft = false, trail, lang = 'mn' } = Astro.props;
+const zh = lang === 'zh';
+// Two or three people who sign alone sit left and right, as on the papers (a third goes under the right one).
+const pair = signers.length >= 2 && signers.length <= 4 && signers.every((s) => s.names.length <= 1);
 ---
-<article class:list={['sheet', { draft }]}>
+<article class:list={['sheet', { draft, zh }]} lang={zh ? 'zh-Hans' : undefined}>
   <img class="wm" src="/brand/watermark.svg" alt="" aria-hidden="true" />
   {recipient && <p class="to">{recipient}</p>}
   {kind && <h1 class:list={['kind', { long: kind.length > 24 }]}>{kind}</h1>}
@@ -53,21 +58,33 @@ const pair = signers.length === 2 && signers.every((s) => s.names.length <= 1);
         {(s.names.length ? s.names : ['']).map((n) => (
           <div class="s-line">
             <span class="s-name">{n || '________________'}</span>
-            <span class="s-dots">/………………../{s.stamp && <img class="stamp" src={s.stamp} alt="Тамга" />}</span>
+            <span class="s-dots">/………………../{s.stamp && <img class:list={['stamp', { square: s.stamp.includes('kind=square') }]} src={s.stamp} alt="Тамга" />}</span>
           </div>
         ))}
       </div>
     ))}
   </div>
 
-  <footer class="place">
-    {number && <p>Дугаар: <span class="num">{number}</span></p>}
-    <p>Огноо: {date}</p>
-    <p>Бээжин хот, Бүгд Найрамдах Хятад Ард Улс</p>
-    <p class="org">Бээжингийн Их Сургуулийн Монгол Оюутны Холбоо</p>
-    <p class="org-zh" lang="zh-Hans">北京大学蒙古国留学生学生会</p>
-  </footer>
+  {
+    zh ? (
+      <footer class="place">
+        {number && <p>{ZH.number}: <span class="num">{number}</span></p>}
+        <p>{ZH.date}：{date}</p>
+        <p>{ZH.place}</p>
+        <p class="org">{ZH.org}</p>
+      </footer>
+    ) : (
+      <footer class="place">
+        {number && <p>Дугаар: <span class="num">{number}</span></p>}
+        <p>Огноо: {date}</p>
+        <p>Бээжин хот, Бүгд Найрамдах Хятад Ард Улс</p>
+        <p class="org">Бээжингийн Их Сургуулийн Монгол Оюутны Холбоо</p>
+        <p class="org-zh" lang="zh-Hans">北京大学蒙古国留学生学生会</p>
+      </footer>
+    )
+  }
   {trail && <p class="trail">{trail}</p>}
+  <slot name="after" />
 </article>
 
 <style is:global>
@@ -110,7 +127,8 @@ const pair = signers.length === 2 && signers.every((s) => s.names.length <= 1);
   .sheet .attach { margin-top: 14px; }
   .signs { margin-top: 20mm; display: grid; gap: 10mm 16mm; break-inside: avoid-page; }
   .signs.pair { grid-template-columns: 1fr 1fr; }
-  .signs.pair .signer:last-child { text-align: right; }
+  .signs.pair .signer:nth-child(even) { text-align: right; }
+  .signs.pair .signer:nth-child(3):last-child { grid-column: 2; text-align: right; }
   .s-title { margin-bottom: 6px; }
   .s-line { margin-bottom: 4px; white-space: nowrap; }
   .s-dots { position: relative; display: inline-block; margin-left: 4px; }
@@ -118,12 +136,20 @@ const pair = signers.length === 2 && signers.every((s) => s.names.length <= 1);
     position: absolute; left: 50%; top: 50%; width: 38mm; height: auto; transform: translate(-50%, -52%);
     mix-blend-mode: multiply; opacity: .95; pointer-events: none;
   }
+  /* The square stamp is pressed beside the signature, not over the name. */
+  .stamp.square { width: 26mm; left: auto; right: -30mm; transform: translate(0, -50%); }
   .place { margin-top: 16mm; text-align: center; break-inside: avoid-page; }
   .place p { margin: 0 0 6px; }
   .place .org { font-size: 14pt; margin-top: 4px; }
   .place .org-zh { font-size: 9pt; color: #555; font-family: 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', 'Source Han Sans SC', sans-serif; }
   .trail { margin: 12mm 0 0; padding-top: 6px; border-top: 1px solid #e3e3e3; font: 7.5pt/1.5 'Golos Text Variable', sans-serif; color: #777; }
   .sheet .num { font-variant-numeric: tabular-nums; }
+  /* Chinese documents: the reader's system Chinese serif (Songti/SimSun), as on the memoranda. */
+  .sheet.zh { font-family: 'Source Serif 4 Variable', 'Songti SC', 'SimSun', 'Noto Serif SC', 'Source Han Serif SC', serif; }
+  .sheet.zh .kind, .sheet.zh .subject, .sheet.zh .sec h3 { font-family: inherit; }
+  .sheet.zh .subject { text-transform: none; }
+  .sheet .annex { margin-top: 14mm; break-before: page; }
+  .sheet .annex h3 { text-align: center; font-weight: 700; font-size: 13pt; margin: 0 0 10px; }
   @media print {
     .sheet { width: auto; min-height: 0; margin: 0; padding: 0; box-shadow: none; overflow: visible; break-after: page; }
     .sheet:last-of-type { break-after: auto; }

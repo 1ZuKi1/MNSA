@@ -255,3 +255,114 @@ export function readBudgetYearForm(fd: FormData) {
   const ok = Object.keys(errors).length === 0;
   return { ok, values, errors, input: ok ? { plannedFen: plannedFen!, fundsFen: fundsFen! } : null };
 }
+
+// ------------------------------------------------------------------ «Санхүү» — the finance request form
+
+export interface FinanceLineValues {
+  item: string;
+  qty: string;
+  unit: string;
+  note: string;
+}
+export interface FinanceValues {
+  kind: string;
+  dept: string;
+  contact: string;
+  event: string;
+  date: string;
+  purpose: string;
+  currency: string;
+  currencyOther: string;
+  lines: FinanceLineValues[];
+  payMethod: string;
+  payeeName: string;
+  payeeAccount: string;
+  receipts: string;
+  receiptsCount: string;
+  noReceiptReason: string;
+}
+export const FINANCE_MAX_LINES = 20;
+
+/**
+ * The paper form «САНХҮҮГИЙН ХҮСЭЛТИЙН МАЯГТ», sections 1–5. The lines arrive as parallel lists
+ * (line_item, line_qty, line_unit, line_note); empty rows are dropped, the totals are the server's.
+ */
+export function readFinanceForm(fd: FormData) {
+  const all = (name: string, max: number) => fd.getAll(name).map((v) => (typeof v === 'string' ? v.trim().slice(0, max) : ''));
+  const items = all('line_item', 200);
+  const qtys = all('line_qty', 30);
+  const units = all('line_unit', 30);
+  const notes = all('line_note', 200);
+  const rows: FinanceLineValues[] = items.map((item, i) => ({ item, qty: qtys[i] ?? '', unit: units[i] ?? '', note: notes[i] ?? '' }));
+  const values: FinanceValues = {
+    kind: str(fd, 'kind', 12),
+    dept: str(fd, 'dept', 20),
+    contact: str(fd, 'contact', 120),
+    event: str(fd, 'event', 200),
+    date: str(fd, 'date', 10),
+    purpose: str(fd, 'purpose', 2000),
+    currency: str(fd, 'currency', 10) || 'CNY',
+    currencyOther: str(fd, 'currency_other', 10).toUpperCase(),
+    // a row the form shows with its default quantity «1» but nothing else typed is an empty row
+    lines: rows.filter((r) => r.item || r.unit || r.note).slice(0, FINANCE_MAX_LINES),
+    payMethod: str(fd, 'pay_method', 10),
+    payeeName: str(fd, 'payee_name', 120),
+    payeeAccount: str(fd, 'payee_account', 120),
+    receipts: str(fd, 'receipts', 5),
+    receiptsCount: str(fd, 'receipts_count', 5),
+    noReceiptReason: str(fd, 'no_receipt_reason', 500),
+  };
+  const errors: Record<string, string> = {};
+  if (!['advance', 'reimburse', 'income'].includes(values.kind)) errors.kind = 'Хүсэлтийн төрлийг сонгоно уу.';
+  if (values.dept && !['gadaad', 'dotood', 'surgalt', 'media', 'erh-zui', 'other'].includes(values.dept)) errors.dept = 'Хэлтсээ сонгоно уу.';
+  if (!values.event) errors.event = 'Арга хэмжээний нэрийг бичнэ үү.';
+  let spentOn = 0;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(values.date)) errors.date = 'Огноог оруулна уу.';
+  else
+    try {
+      spentOn = fromLocal(values.date);
+    } catch {
+      errors.date = 'Огноо буруу байна.';
+    }
+  const currency = values.currency === 'other' ? values.currencyOther : values.currency;
+  if (!/^[A-Z₮¥$€]{1,6}$/.test(currency)) errors.currency = 'Валютыг сонгох эсвэл товчилж бичнэ үү, жишээ нь USD.';
+  const lines: { item: string; qtyC: number; unitMinor: number; note: string }[] = [];
+  values.lines.forEach((l, i) => {
+    const qtyC = parseQty(l.qty || '1');
+    const unit = parseMoney(l.unit);
+    if (!l.item || qtyC === null || unit === null) errors[`line_${i}`] = `${i + 1}-р мөр: нэр, тоо (бүхэл тоо), нэгж үнийг бичнэ үү.`;
+    else lines.push({ item: l.item, qtyC, unitMinor: unit, note: l.note });
+  });
+  if (!values.lines.length) errors.lines = 'Дор хаяж нэг мөр бичнэ үү.';
+  if (values.payMethod && !['cash', 'wechat'].includes(values.payMethod)) errors.pay_method = 'Төлбөрийн хэлбэрийг сонгоно уу.';
+  let receiptsStated = 0;
+  if (values.receipts === 'yes') {
+    const n = Number(values.receiptsCount || '0');
+    if (!Number.isInteger(n) || n < 0 || n > 99) errors.receipts_count = 'Баримтын тоог бичнэ үү.';
+    else receiptsStated = n;
+  } else if (values.receipts === 'no' && values.kind === 'reimburse' && !values.noReceiptReason)
+    errors.no_receipt_reason = 'Баримтгүй бол шалтгааныг бичнэ үү.';
+  const ok = Object.keys(errors).length === 0;
+  return {
+    ok,
+    values,
+    errors,
+    input: ok
+      ? {
+          kind: values.kind as 'advance' | 'reimburse' | 'income',
+          dept: (values.dept && values.dept !== 'other' ? values.dept : null) as DeptSlug | null,
+          contact: values.contact,
+          eventName: values.event,
+          spentOn,
+          purpose: values.purpose,
+          currency,
+          lines,
+          payMethod: (values.payMethod || null) as 'cash' | 'wechat' | null,
+          payeeName: values.payeeName,
+          payeeAccount: values.payeeAccount,
+          receiptsStated,
+          noReceiptReason: values.receipts === 'no' ? values.noReceiptReason : '',
+        }
+      : null,
+  };
+}

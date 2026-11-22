@@ -499,6 +499,45 @@ The year of a line follows its date (1 September → 31 August), so a late-Augus
 
 ---
 
+## 5e. Money — Санхүү (staff only)
+
+Added 2026-10-09, from the association's paper form «САНХҮҮГИЙН ХҮСЭЛТИЙН МАЯГТ». Where «Төсөв» is the public summary of the budget, «Санхүү» is how money actually moves through the association: every advance, reimbursement and income, who asked, who agreed, who handed it over, with photos of the receipts. **Never on the public site** — every page is under the staff host, and receipt photos are private media served only to someone who may read the request.
+
+### A request is the paper form
+
+| Form section | On the site |
+|---|---|
+| 1. Хүсэлтийн төрөл | Урьдчилгаа авах · Гарсан зардал нөхөн авах · Орлогын бүртгэл |
+| 2. Хүсэлт гаргагч | the person logged in; department (or «Бусад»); contact |
+| 3. Арга хэмжээ | event name, date, purpose |
+| 4. Жагсаалт | currency (CNY, MNT or typed), lines (item · qty · price · note); totals by the server, in hundredths |
+| 5. Төлбөр, баримт | cash or WeChat, payee, account / WeChat ID, receipts (count, or why none); photos added on the request's page |
+| 6. Батламж | «Санхүү хариуцсан гишүүн» (= the «Төсвийн хариуцагч»), then the Тэргүүн |
+| 7. Санхүүгийн бүртгэлд | the keeper records the amount given (or received) and the day; the request's number is the register number |
+
+Numbered on creation, per academic year: **МОХ-САН/2627/001**. The printed page (`/sanhuu/N/hevleh`) is the paper form filled in, with the round stamp once the President approved.
+
+### Who can do what
+
+| | |
+|---|---|
+| Ask | everyone on the team (not the maintainer) |
+| Read | the requester; the keeper, the President, the board and the maintainer read all, with the year's money in and out per currency |
+| Account / WeChat ID | only the requester, the keeper, the President and the maintainer |
+| Decide | the keeper first, then the President. **Nobody decides their own request**: the keeper's goes to the President only, the President's to the keeper only |
+| Say no | with a reason, which the requester reads; the step that said no is kept |
+| Record the money | the keeper, once approved |
+| Withdraw | the requester, while it waits |
+| Receipts | the requester and the keeper, any time until rejected or withdrawn (an advance's receipts come later) |
+
+Nothing is deleted: a removed receipt keeps who removed it and when. Every step is in the audit log («Санхүү» filter). The menu counts requests waiting on the person (a decision, or recording the money).
+
+**Not linked to «Төсөв» yet**: a paid reimbursement doesn't add a public budget line by itself — the keeper still adds it there. Joining the two is the natural next step once the team has used both for a while.
+
+Schema: `finance_requests`, `finance_lines`, `finance_receipts` (migration 0013).
+
+---
+
 ## 6. September handover — your design, hardened
 
 Your instinct is right. The part that worries me is the single irreversible button: one typo in the email address and the association is permanently handed to a stranger, or to nobody. Two changes fix that without adding complexity.
@@ -660,10 +699,12 @@ He filled in the form `MOX_Terguun_medeelel.docx`. His personal details and the 
 | 5c · «Ажлууд» — jobs outside events, with a stage board; joining to help | ✅ (2026-09-26, joining 2026-10-08) |
 | 5d · «Төсөв» — public budget, kept by a «Төсвийн хариуцагч» | ✅ (2026-10-09) |
 | Paper archive — 2025–2026 and signed 2026–2027 papers in *Баримт бичиг* | ✅ (2026-10-09) |
+| Official blank, «Хамтын ажиллагаа» (Mongolian / Chinese), two stamps | ✅ (2026-10-09) |
+| 5e · «Санхүү» — money requests, staff only | ✅ (2026-10-09) |
 | 5 · Live meeting minutes | not started |
 | 6 · Presidency handover page, weekly backup | not started |
 
-Verified with 118 unit tests (permissions, approval chain, dates, document types, co-departments, record fields, session cookie, jobs, safe redirects, the members import, budget money and forms) and a 352-step end-to-end test driving every role through the real server, plus a production-build check with `wrangler dev` and an axe accessibility audit of every public page.
+Verified with 135 unit tests (permissions, approval chain, dates, document types, co-departments, record fields, session cookie, jobs, safe redirects, the members import, budget money and forms, paper documents, the official blank and Chinese labels, money requests) and an end-to-end test of over 400 steps driving every role through the real server, plus a production-build check with `wrangler dev` and an axe accessibility audit of every public page.
 
 ### Decisions made while building
 
@@ -678,6 +719,7 @@ Verified with 118 unit tests (permissions, approval chain, dates, document types
 - **«Тусламж» — the help page (2026-09-26).** At the bottom of the sidebar, above «Нийтийн сайт»: signing in and out, the menu, writing a document step by step, approving, sending back and printing, events, jobs, one's own page, what to be careful about, and whom to ask. The list of document types and who approves each is read from `record-types.ts`, so it can't drift from the system; «Таны эрх» at the top follows the reader's own role, and the contacts come from the member list.
 - **«Ажлууд» — work that isn't an event (2026-09-26).** Staff asked for a place for the rest of the work: preparing a budget, booking a hall, updating a list. A job belongs to one department and has one accountable person (хариуцагч) who moves it through three stages — Эхлээгүй → Хийгдэж байна → Дууссан — with optional progress notes; the whole history shows on the job's page. «Зөвхөн манай хэлтэс» jobs are seen by that department, the хариуцагч and the leadership; «Бүх гишүүд» jobs by everyone in the workspace. Never on the public site. Only a department's дарга (for their department) and the President add, change or cancel jobs (changed the same day at the President's request; members and the board don't). The хариуцагч is either appointed by them, or — when nobody is appointed — anyone who can see the job takes it with «Би хийнэ»; the хариуцагч can also step down, and the job needs someone again. Appointments, taking and stepping down all show in the job's history. `/ajil` is a three-column board (done jobs stay 30 days); the dashboard lists your open jobs with a one-tap «Эхлүүлэх»/«Дууссан» and offers unassigned ones under «Хүн хэрэгтэй ажлууд», the menu counts them, the department page lists its open jobs, and a newly assigned хариуцагч gets an e-mail. Tables `jobs` and `job_updates` (migration 0007).
 - **Joining a job to help — «Нэгдэх» (2026-10-08).** Staff said nobody could step forward on a job: once someone was on it, only the дарга could change who does it. Now anyone who can see a job someone is already on presses «Нэгдэх» and helps, without waiting to be appointed (the same as «Нэгдэх» on event tasks). The хариуцагч stays the one accountable and alone moves the stages; helpers write progress notes, see the job on their dashboard and in the menu count, and can step back at any time. If the хариуцагч steps down, a helper can take the job over with «Би хийнэ». The job's history shows who joined and who stepped back. In «Оролцоо» a helper on a finished job counts as done and volunteered (marked «туслагчаар»); someone who joined and stepped back counts neither way — helping is extra. Table `job_helpers` (migration 0008); one open row per person per job, nothing deleted.
+- **The official blank and «Хамтын ажиллагаа» (2026-10-09).** «Албан бичиг» goes to other organisations, so it prints on the association's official blank (`components/OfficialLetter.astro`), as on the letter to the Embassy of 2026-10-08: logo and address on the left, the recipient on the right, the reference line «… -ны өдрийн МОХ-…/А/001 дугаартай албан бичиг» (the genitive follows how the day is read: 08-ны, 29-ний), the title in brackets, a greeting, and «ТЭРГҮҮН [signature, stamp] НЭР» with the number bottom right — no watermark and no internal approval line. «Хамтын ажиллагаа» (ХА) is a memorandum or an agreement with another organisation, written in Mongolian or Chinese; Гадаад хэлтэс writes it, Legal and the President approve. In Chinese every fixed label prints in Chinese (《合作谅解备忘录》, 编号, 日期, 中华人民共和国北京市, 学生会主席 / 外交部 / 法务部) and names in Latin letters (Ө. Амарсанаа → U. Amarsanaa), as on the memoranda of 2026-09-23; an annex prints after the signatures. **Two stamps**: the round one on every President-approved document, the square Mongolian-script one only on these two outgoing kinds (`print.stamp: 'square'`). The old memoranda numbered С-0002…С-0004 keep those numbers in the archive; new ones are numbered ХА, since С is the election committee's letter.
 - **Paper documents from before the website (2026-10-09).** The association's Word papers — 2025–2026's regulations (Ж), notices (М), announcements (З), protocols (П) and the five departments' autumn reports, plus the 2026–2027 papers already signed (Ж-0007, М-0004) — are records in *Баримт бичиг* like any other, so every year is in one archive, searchable and filtered by year. A paper record is stored as `approved` with `records.paper_json` (migration 0012) saying what the paper says: its heading, date, signers, source file and the number as written (filed numbers kept: Ж-0001, П-0006 …; the numberless reports stay numberless). Its text, with the paper's own numbering, is `fields_json.text`. It has no approval chain on screen, can't be edited (only voided by the President), and prints in the association's layout with the paper's signers and date — never the stamp, which is for documents approved on the site. «Зарлал» (З) exists only on paper and is never offered for a new document (`archiveOnly`). The signed duty letters are not imported: the site already prints them from the member list. The year filters now list every year that has documents, not just this year and last. The import SQL is generated from the files and kept in `neccesary-files/`, never committed.
 - **Fixes from the October review (2026-10-08).**
   - *Open redirect:* `?next=/%09/evil.example` on the login page sent a logged-in person to another site (browsers drop the tab, leaving `//evil.example`). `safeNext` now refuses any control character or space.

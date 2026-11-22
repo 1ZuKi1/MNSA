@@ -253,6 +253,56 @@ export function canSetBudgetKeeper(a: Actor, target: MemberLike): boolean {
   return hasPresidentPowers(a) && target.id !== a.id && target.role !== 'president' && target.role !== 'maintainer';
 }
 
+// ------------------------------------------------------------------ money («Санхүү»)
+
+/**
+ * The staff-only money records (finance requests, as on the paper form «САНХҮҮГИЙН ХҮСЭЛТИЙН МАЯГТ»).
+ * Anyone on the team asks; the «Төсвийн хариуцагч» decides first and the President second; nobody decides
+ * their own request, so there is always someone else; the keeper records the money given or received.
+ */
+export type FinanceActor = Actor & { isBudgetKeeper: boolean };
+export type FinanceStep = 'keeper' | 'president';
+export interface FinanceLike {
+  requesterId: number;
+  status: 'pending' | 'approved' | 'rejected' | 'paid' | 'cancelled';
+  awaiting: FinanceStep | null;
+}
+
+/** Everyone who takes on work may ask (not the maintainer, who isn't on the team). */
+export const canRequestMoney = (a: Actor) => governs(a);
+
+/** The keeper, the President (and the maintainer, who oversees the site) and the board see every request. */
+export const canSeeAllMoney = (a: FinanceActor) => hasPresidentPowers(a) || isBoard(a) || canKeepBudget(a);
+
+export function canReadMoney(a: FinanceActor, r: FinanceLike): boolean {
+  return r.requesterId === a.id || canSeeAllMoney(a);
+}
+
+/** The steps a request needs: the keeper's and the President's, except the one that is the requester's own. */
+export function financeSteps(requester: { isBudgetKeeper: boolean; role: Role }): FinanceStep[] {
+  const steps: FinanceStep[] = [];
+  if (!(requester.isBudgetKeeper && requester.role !== 'president')) steps.push('keeper');
+  if (requester.role !== 'president') steps.push('president');
+  return steps;
+}
+
+export function canDecideMoney(a: FinanceActor, r: FinanceLike): boolean {
+  if (r.status !== 'pending' || r.requesterId === a.id) return false;
+  if (r.awaiting === 'keeper') return canKeepBudget(a);
+  if (r.awaiting === 'president') return isPresident(a);
+  return false;
+}
+
+/** «Санхүүгийн бүртгэлд»: the keeper records the money given (or received) once the request is approved. */
+export const canRecordMoney = (a: FinanceActor, r: FinanceLike) => r.status === 'approved' && canKeepBudget(a);
+
+/** The requester may withdraw a request nobody has finished deciding. */
+export const canCancelMoney = (a: Actor, r: FinanceLike) => r.status === 'pending' && r.requesterId === a.id;
+
+/** Receipts: the requester and the keeper add them, any time before the request is closed. */
+export const canAddReceipt = (a: FinanceActor, r: FinanceLike) =>
+  (r.requesterId === a.id || canKeepBudget(a)) && r.status !== 'rejected' && r.status !== 'cancelled';
+
 // ------------------------------------------------------------------ settings
 
 /** The official stamp (and any future association-wide setting) belongs to the President alone. */
