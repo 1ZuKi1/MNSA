@@ -28,6 +28,11 @@ declare namespace Cloudflare {
     /** Overrides for cross-links between the two sites (test deployment). */
     PUBLIC_ORIGIN?: string;
     STAFF_ORIGIN?: string;
+    /** Phone notifications (`npm run push:keys`). Without both, the notifications page says it isn't set up. */
+    VAPID_PUBLIC_KEY?: string;
+    VAPID_PRIVATE_KEY?: string;
+    /** mailto: or https: address the push services can reach us at. Default https://pkumongolia.com. */
+    VAPID_SUBJECT?: string;
   }
 }
 interface Env extends Cloudflare.Env {}

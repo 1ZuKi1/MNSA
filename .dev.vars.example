@@ -4,3 +4,6 @@ SESSION_SECRET=dev-only-change-me-0123456789abcdef0123456789abcdef
 RESEND_API_KEY=
 # Shows the login code on the page too — only ever honoured on *.localhost.
 DEV_SHOW_CODES=1
+# Phone notifications: run `npm run push:keys -- --dev` to fill these in. Empty = the feature hides itself.
+VAPID_PUBLIC_KEY=
+VAPID_PRIVATE_KEY=

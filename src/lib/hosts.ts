@@ -25,8 +25,15 @@ export function shouldPrefixStaffPath(pathname: string): boolean {
   if (/^\/(_astro|@|node_modules|src|brand|files|media)(\/|$)/.test(pathname)) return false;
   if (pathname.startsWith('/@') || pathname.startsWith('/__')) return false;
   if (pathname === '/favicon.svg' || pathname === '/apple-touch-icon.png') return false;
+  if (isAppFile(pathname)) return false;
   return true;
 }
+
+/**
+ * The files that make the team web installable as an app (public/). They must sit at the root of the
+ * staff host — a service worker only controls pages under its own folder — and the public site has no use for them.
+ */
+export const isAppFile = (pathname: string) => pathname === '/sw.js' || pathname === '/manifest.webmanifest';
 
 /** "/dep/barimt/3" → "/barimt/3" (for links and redirects on the staff host). */
 export function cleanStaffPath(pathname: string): string {

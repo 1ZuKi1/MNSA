@@ -1,0 +1,22 @@
+{
+  "id": "/",
+  "name": "МОХ ажлын орчин",
+  "short_name": "МОХ",
+  "description": "Бээжингийн Их Сургуулийн Монгол Оюутны Холбооны дотоод ажлын орчин",
+  "lang": "mn",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f4f1ea",
+  "theme_color": "#0d2138",
+  "icons": [
+    { "src": "/brand/app-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/brand/app-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/brand/app-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Баримт бичиг", "url": "/barimt" },
+    { "name": "Ажлууд", "url": "/ajil" },
+    { "name": "Санхүү", "url": "/sanhuu" }
+  ]
+}

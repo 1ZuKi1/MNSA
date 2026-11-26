@@ -906,3 +906,34 @@ a.stat.stat-plan.stat-bad::before { background: var(--bad); }
   .budget-t tfoot td:empty { display: none; }
 }
 
+
+/* ---------- «Апп ба мэдэгдэл» (phone app + notifications) ---------- */
+.push-page { display: grid; gap: 18px; max-width: 760px; }
+.push-page .panel + .panel { margin-top: 0; }
+.push-lead { margin: 0 0 14px; font-weight: 600; line-height: 1.55; }
+.push-ok { display: flex; align-items: center; gap: 8px; color: var(--ok); }
+.push-ok .icon { width: 20px; height: 20px; }
+.push-actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 12px; }
+.push-small { margin: 0; font-size: 0.88rem; color: var(--ink-3); }
+.push-msg { margin: 10px 0 0; font-size: 0.92rem; font-weight: 550; color: var(--ok); }
+.push-msg:empty { display: none; }
+.push-msg.bad { color: var(--bad); }
+.push-install { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+.push-install p { margin: 0 0 10px; }
+.ios-share { display: inline-grid; place-items: center; width: 1.5em; height: 1.5em; border: 1.5px solid currentColor; border-radius: 5px; font-size: 0.8em; vertical-align: -0.15em; color: var(--blue); }
+.push-nudge .flash-text a { white-space: nowrap; }
+
+/* ---------- deleting documents ---------- */
+.delete-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-top: 14px; }
+.delete-row .form-note { margin: 0; }
+.deletion-box { margin-top: 16px; padding: 16px 18px; border: 1.5px solid var(--bad); border-radius: 12px; background: var(--bad-tint); }
+.deletion-box h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; font-size: 1.02rem; color: var(--bad); }
+.deletion-box h3 .icon { width: 18px; height: 18px; }
+.deletion-box p { margin: 0 0 8px; }
+.deletion-box blockquote { margin: 0 0 12px; padding: 8px 12px; border-left: 3px solid var(--line-strong); background: var(--paper); border-radius: 0 8px 8px 0; white-space: pre-wrap; }
+.deletion-box .kv { margin-bottom: 10px; }
+.deletion-box .btn-row { margin-top: 12px; }
+.ok-text { display: inline-flex; align-items: center; gap: 6px; color: var(--ok); font-weight: 600; }
+.ok-text .icon { width: 16px; height: 16px; }
+.renumber-list { display: inline-flex; flex-wrap: wrap; gap: 4px 12px; margin: 0 4px; }
+.renumber-list > span { white-space: nowrap; }

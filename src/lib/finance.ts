@@ -5,7 +5,8 @@
  * Who may do what: permissions.ts (the «money» section). Every change is in the audit log; nothing is deleted.
  */
 import { auditStmt, db, deptBySlug, many, one, stmt } from './db';
-import { fmtQty, lineTotal } from './money';
+import { fmtMoney, fmtQty, lineTotal } from './money';
+import { clip, pushToUsers } from './push';
 import * as P from './permissions';
 import { Conflict, Denied } from './records';
 import { academicYear, now } from './time';
@@ -246,7 +247,38 @@ export async function createFinance(a: SessionUser, input: FinanceInput, ip: str
     ),
     auditStmt(a.id, 'finance.create', 'finance', id, { kind: input.kind, total, currency: input.currency }, ip),
   ]);
+  const fresh = await getFinance(id);
+  if (fresh) await notifyMoney(fresh, steps[0] ?? null, a.id);
   return id;
+}
+
+/** Who decides a step: the keepers for 'keeper', the President for 'president' — never the requester. */
+async function stepPeople(step: P.FinanceStep, requesterId: number): Promise<number[]> {
+  const rows =
+    step === 'keeper'
+      ? await many<{ id: number }>(`SELECT id FROM users WHERE is_budget_keeper = 1 AND status = 'active' AND role NOT IN ('president','maintainer') AND id <> ?`, requesterId)
+      : await many<{ id: number }>(`SELECT id FROM users WHERE role = 'president' AND status = 'active' AND id <> ?`, requesterId);
+  return rows.map((r) => r.id);
+}
+
+/**
+ * Phone notifications for money requests (no email: Resend's free plan is kept for login codes and documents).
+ * `next` = the step now waiting, or null when the request is fully approved.
+ */
+async function notifyMoney(r: FinanceRow, next: P.FinanceStep | null, actorId: number | null) {
+  const what = clip(`${r.number} · ${r.event_name} · ${fmtMoney(r.total_minor, r.currency)}`, 110);
+  const url = `/sanhuu/${r.id}`;
+  const tag = `money-${r.id}`;
+  if (next) {
+    await pushToUsers(await stepPeople(next, r.requester_id), { title: 'Санхүүгийн хүсэлт шийдвэр хүлээж байна', body: `${r.requester_name}: ${what}`, url, tag });
+    return;
+  }
+  if (actorId !== r.requester_id) await pushToUsers([r.requester_id], { title: 'Санхүүгийн хүсэлт зөвшөөрөгдлөө', body: what, url, tag });
+  // Approved: the keeper now gives out (or takes in) the money and records it in «Санхүүгийн бүртгэл».
+  await pushToUsers(
+    (await stepPeople('keeper', -1)).filter((id) => id !== actorId),
+    { title: 'Батлагдсан хүсэлт — бүртгэлд тэмдэглэнэ үү', body: `${r.requester_name}: ${what}`, url, tag },
+  );
 }
 
 async function requesterOf(r: FinanceRow): Promise<{ isBudgetKeeper: boolean; role: Role }> {
@@ -269,6 +301,12 @@ export async function decideFinance(a: SessionUser, r: FinanceRow, decision: 'ap
     ).run();
     if (!upd.meta.changes) throw new Conflict();
     await auditStmt(a.id, 'finance.reject', 'finance', r.id, { step }, ip).run();
+    await pushToUsers([r.requester_id], {
+      title: 'Санхүүгийн хүсэлтээс татгалзлаа',
+      body: clip(`${r.number} · ${r.event_name}: ${reason.trim()}`, 140),
+      url: `/sanhuu/${r.id}`,
+      tag: `money-${r.id}`,
+    });
     return;
   }
   const steps = P.financeSteps(await requesterOf(r));
@@ -280,6 +318,7 @@ export async function decideFinance(a: SessionUser, r: FinanceRow, decision: 'ap
   ).run();
   if (!upd.meta.changes) throw new Conflict();
   await auditStmt(a.id, 'finance.approve', 'finance', r.id, { step }, ip).run();
+  await notifyMoney(r, next, a.id);
 }
 
 /** «Санхүүгийн бүртгэлд»: the money given out (or received) — by the keeper, once approved. */

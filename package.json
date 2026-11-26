@@ -15,7 +15,8 @@
     "db:migrate:remote": "wrangler d1 migrations apply mnsa-db --remote && wrangler d1 migrations apply mnsa-media --remote",
     "deploy": "astro build && wrangler deploy",
     "deploy:test": "node scripts/deploy-test.mjs",
-    "import:members": "node scripts/import-members.mjs"
+    "import:members": "node scripts/import-members.mjs",
+    "push:keys": "node scripts/push-keys.mjs"
   },
   "dependencies": {
     "@astrojs/cloudflare": "^14.3.3",

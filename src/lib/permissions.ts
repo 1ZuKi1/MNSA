@@ -90,6 +90,36 @@ export function canVoidRecord(a: Actor, r: RecordLike): boolean {
   return r.status === 'approved' && isPresident(a);
 }
 
+/**
+ * Deleting a document nobody needs: a draft, or one sent back. It has no number (numbers are given on
+ * approval), so nothing else changes. Its author may, and the President's side.
+ */
+export function canDeleteUnapproved(a: Actor, r: RecordLike): boolean {
+  if (r.status !== 'draft' && r.status !== 'rejected') return false;
+  return hasPresidentPowers(a) || r.authorId === a.id;
+}
+
+/**
+ * Deleting an approved (or voided) document takes two people: one from the President's side (the President,
+ * or the maintainer) and the Legal дарга. Each confirms separately; the later numbers in its series then move down.
+ */
+export type DeletionSide = 'president' | 'legal';
+export function deletionSide(a: Actor): DeletionSide | null {
+  if (hasPresidentPowers(a)) return 'president';
+  if (isLegalHead(a)) return 'legal';
+  return null;
+}
+export function canRequestOfficialDeletion(a: Actor, r: RecordLike): boolean {
+  return (r.status === 'approved' || r.status === 'void') && deletionSide(a) !== null;
+}
+/** The second confirmation must come from the other side — never the same side twice. */
+export function canConfirmOfficialDeletion(a: Actor, d: { presidentBy: number | null; legalBy: number | null }): boolean {
+  const side = deletionSide(a);
+  if (side === 'president') return d.presidentBy === null && d.legalBy !== a.id;
+  if (side === 'legal') return d.legalBy === null && d.presidentBy !== a.id;
+  return false;
+}
+
 export function isLegalHead(a: Actor): boolean {
   return a.role === 'head' && a.dept === LEGAL;
 }

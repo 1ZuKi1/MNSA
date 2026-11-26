@@ -64,6 +64,12 @@ const roleText = user ? `${ROLE_LABEL[user.role]}${user.isDeputy ? ' · орло
     <title>{title} · МОХ ажлын орчин</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <!-- Installable as an app: home-screen icon, opens without the browser bars, can receive notifications (/medegdel). -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="МОХ" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <script is:inline>document.documentElement.classList.add('js');</script>
     <slot name="head" />
   </head>
@@ -136,6 +142,9 @@ const roleText = user ? `${ROLE_LABEL[user.role]}${user.isDeputy ? ' · орло
             </nav>
             {user && (
               <div class="side-foot">
+                <a class="side-link" href="/medegdel" aria-current={active('/medegdel') ? 'page' : undefined}>
+                  <Icon name="bell" /> Апп ба мэдэгдэл
+                </a>
                 <a class="side-link" href="/tuslamj" aria-current={active('/tuslamj') ? 'page' : undefined}>
                   <Icon name="help" /> Тусламж
                 </a>
@@ -183,6 +192,18 @@ const roleText = user ? `${ROLE_LABEL[user.role]}${user.isDeputy ? ' · орло
 
     <script is:inline>
       (function () {
+        // ---- the app: the service worker shows notifications and an offline page (public/sw.js)
+        if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(function () {});
+        // logging out of a device stops its notifications too: someone else may use it next
+        document.addEventListener('submit', function (e) {
+          if (e.target.getAttribute('action') !== '/gar' || !('serviceWorker' in navigator)) return;
+          navigator.serviceWorker.getRegistration().then(function (reg) { return reg && reg.pushManager && reg.pushManager.getSubscription(); }).then(function (sub) {
+            if (!sub) return;
+            fetch('/push', { method: 'POST', keepalive: true, credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'unsubscribe', endpoint: sub.endpoint }) }).catch(function () {});
+            sub.unsubscribe();
+          }).catch(function () {});
+        }, true);
+
         // ---- drawer menu (phones): button toggles, Esc / scrim / × close, the page behind goes inert
         var side = document.getElementById('side');
         var btn = document.querySelector('.menu-btn');

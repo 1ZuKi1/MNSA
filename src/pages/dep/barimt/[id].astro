@@ -7,15 +7,17 @@ import { clientIp, int, str, withFlash } from '../../../lib/http';
 import * as P from '../../../lib/permissions';
 import { getRecordType, showField } from '../../../lib/record-types';
 import {
-  asRecordLike, Conflict, decideRecord, Denied, fieldsOf, getRecord, paperOf, recordChain, recordHistory, submitRecord, voidRecord, withdrawRecord,
+  asRecordLike, cancelOfficialDeletion, Conflict, confirmOfficialDeletion, decideRecord, deleteUnapproved, deletionPlan, Denied, ensureNumber, fieldsOf,
+  getRecord, paperOf, pendingDeletion, recordChain, recordHistory, requestOfficialDeletion, submitRecord, voidRecord, withdrawRecord,
 } from '../../../lib/records';
 import { fmtDate, fmtDateTime, relDay } from '../../../lib/time';
 import { STATUS_LABEL, STEP_GEN, STEP_LABEL, ROLE_LABEL, type Step } from '../../../lib/types';
 
 const user = Astro.locals.user!;
 const id = int(Astro.params.id);
-const rec = id ? await getRecord(id) : null;
-if (!rec || !P.canReadRecord(user, asRecordLike(rec))) return new Response(null, { status: 404 });
+const found = id ? await getRecord(id) : null;
+if (!found || !P.canReadRecord(user, asRecordLike(found))) return new Response(null, { status: 404 });
+const rec = await ensureNumber(found);
 const type = getRecordType(rec.type)!;
 // A paper document from before the website: approved on paper, shown as the paper says (migration 0012).
 const paper = paperOf(rec);
@@ -27,6 +29,25 @@ if (Astro.request.method === 'POST') {
   const comment = str(fd, 'comment', 2000);
   const ip = clientIp(Astro.request);
   try {
+    // Deleting: a draft goes at once; an approved document only once both sides agree.
+    if (action === 'delete') {
+      await deleteUnapproved(user, rec, ip);
+      return Astro.redirect(withFlash('/barimt', 'deleted'));
+    }
+    if (action === 'delete_request') {
+      await requestOfficialDeletion(user, rec, comment, ip);
+      return Astro.redirect(withFlash(here, 'delete_requested'));
+    }
+    if (action === 'delete_confirm' || action === 'delete_cancel') {
+      const d = await pendingDeletion(rec.id);
+      if (!d) throw new Conflict();
+      if (action === 'delete_cancel') {
+        await cancelOfficialDeletion(user, d, ip);
+        return Astro.redirect(withFlash(here, 'delete_cancelled'));
+      }
+      await confirmOfficialDeletion(user, rec, d, ip);
+      return Astro.redirect(withFlash('/barimt', 'deleted_official'));
+    }
     if (action === 'submit') await submitRecord(user, rec, ip);
     else if (action === 'approve') await decideRecord(user, rec, 'approve', comment, ip);
     else if (action === 'reject') await decideRecord(user, rec, 'reject', comment, ip);
@@ -49,7 +70,15 @@ const can = {
   withdraw: P.canWithdrawRecord(user, like),
   void: P.canVoidRecord(user, like),
   makeEvent: !paper && type.createsEvent && rec.status === 'approved' && P.canEditEvents(user),
+  delete: P.canDeleteUnapproved(user, like),
+  askDelete: P.canRequestOfficialDeletion(user, like),
 };
+// Deleting an approved document: the open request (if any), and which numbers would move.
+const deletion = rec.status === 'approved' || rec.status === 'void' ? await pendingDeletion(rec.id) : null;
+const canConfirmDeletion = !!deletion && P.canConfirmOfficialDeletion(user, { presidentBy: deletion.president_by, legalBy: deletion.legal_by });
+const canCancelDeletion = !!deletion && (P.deletionSide(user) !== null || deletion.requested_by === user.id);
+const plan = deletion || can.askDelete ? await deletionPlan(rec) : [];
+const planText = plan.length ? ` Дараах дугаарууд шилжинэ: ${plan.map((m) => `${m.from} → ${m.to}`).join(', ')}.` : '';
 const standIn = can.decide && rec.awaiting ? !P.isStepOwner(user, rec.awaiting, rec.dept_slug, rec.co_dept_slug) : false;
 // The second department's дарга is named by department, so the two дарга steps can't be mixed up.
 const coGen = rec.co_dept_name?.replace(/хэлтэс$/, 'хэлтсийн') ?? '';
@@ -80,6 +109,7 @@ const chain = steps
 const ACTION_LABEL: Record<string, string> = {
   create: 'Үүсгэсэн', import: 'Цаасан эхээс архивт оруулсан', edit: 'Зассан', submit: 'Хянуулахаар илгээсэн', auto: 'Автоматаар дамжсан',
   approve: 'Баталсан', reject: 'Буцаасан', withdraw: 'Эргүүлэн татсан', void: 'Хүчингүй болгосон',
+  renumber: 'Дугаар өөрчлөгдсөн', delete_request: 'Устгах хүсэлт гаргасан', delete_cancel: 'Устгах хүсэлтийг цуцалсан',
 };
 let headline = {
   draft: 'Ноорог — хянуулахаар илгээгээгүй байна.',
@@ -90,7 +120,9 @@ let headline = {
 }[rec.status];
 const paperDay = (d: string | null | undefined) => (d ? d.replaceAll('-', '.') : '');
 if (paper) headline = rec.status === 'void' ? 'Хүчингүй болсон.' : `Цаасан хэлбэрээр батлагдсан${paper.date ? ` — ${paperDay(paper.date)}` : ''}.`;
-const hasActions = can.decide || can.submit || can.withdraw || can.makeEvent || can.void;
+const hasActions = can.decide || can.submit || can.withdraw || can.makeEvent || can.void || can.delete || (can.askDelete && !deletion);
+// Printable once it's on its way (with a «НООРОГ» mark until approved), or a paper document.
+const printable = !!rec.number || !!paper || rec.status === 'in_review';
 ---
 <Staff title={rec.title}>
   <PageHead
@@ -99,7 +131,7 @@ const hasActions = can.decide || can.submit || can.withdraw || can.makeEvent || 
   >
     <Fragment slot="actions">
       {can.edit && <a class="btn" href={`${here}/zasah`}><Icon name="edit" /> Засах</a>}
-      {(rec.number || paper) && <a class="btn" href={`${here}/hevleh`} target="_blank" rel="noopener"><Icon name="print" /> Хэвлэх / PDF<span class="sr-only"> (шинэ цонхонд)</span></a>}
+      {printable && <a class="btn" href={`${here}/hevleh`} target="_blank" rel="noopener"><Icon name="print" /> Хэвлэх / PDF<span class="sr-only"> (шинэ цонхонд)</span></a>}
     </Fragment>
     <span class={`badge b-${rec.status}`}>{STATUS_LABEL[rec.status]}</span>
     <span>{type.label}</span>
@@ -146,6 +178,38 @@ const hasActions = can.decide || can.submit || can.withdraw || can.makeEvent || 
         <p><strong>{headline}</strong>{rec.status === 'in_review' && rec.submitted_at && <span class="muted"> Илгээсэн: {relDay(rec.submitted_at)}.</span>}</p>
       </div>
       )}
+      {deletion && (
+        <div class="deletion-box" role="region" aria-labelledby="del-h">
+          <h3 id="del-h"><Icon name="trash" /> Устгах хүсэлт хүлээгдэж байна</h3>
+          <p><b>{deletion.requested_name}</b> {fmtDate(deletion.created_at)}-нд устгах хүсэлт гаргасан. Шалтгаан:</p>
+          <blockquote>{deletion.reason}</blockquote>
+          <dl class="kv">
+            <dt>Тэргүүний тал</dt><dd>{deletion.president_name ? <span class="ok-text"><Icon name="check" /> {deletion.president_name} зөвшөөрсөн</span> : <span class="muted">хүлээж байна</span>}</dd>
+            <dt>Эрх зүйн хэлтсийн дарга</dt><dd>{deletion.legal_name ? <span class="ok-text"><Icon name="check" /> {deletion.legal_name} зөвшөөрсөн</span> : <span class="muted">хүлээж байна</span>}</dd>
+          </dl>
+          {plan.length > 0 && (
+            <p class="form-note">Устгавал дараах дугаарууд шилжинэ: <span class="renumber-list">{plan.map((m) => <span><span class="num">{m.from}</span> → <span class="num">{m.to}</span></span>)}</span></p>
+          )}
+          <p class="form-note">Хүсэлт {fmtDate(deletion.created_at + 7 * 24 * 3600)} хүртэл хүчинтэй.</p>
+          {(canConfirmDeletion || canCancelDeletion) && (
+            <form method="post" class="btn-row">
+              {canConfirmDeletion && (
+                <button
+                  class="btn btn-danger"
+                  name="action"
+                  value="delete_confirm"
+                  data-confirm={`«${rec.title}»${rec.number ? ` (${rec.number})` : ''} баримтыг бүрмөсөн устгах уу?${planText}\n\nУстгасны дараа буцаах боломжгүй. Та итгэлтэй байна уу?`}
+                ><Icon name="trash" /> Зөвшөөрч, устгах</button>
+              )}
+              {canCancelDeletion && (
+                <button class="btn" name="action" value="delete_cancel" data-confirm="Устгах хүсэлтийг цуцлах уу? Баримт хэвээр үлдэнэ.">
+                  <Icon name="undo" /> {deletion.requested_by === user.id ? 'Хүсэлтээ цуцлах' : 'Татгалзах'}
+                </button>
+              )}
+            </form>
+          )}
+        </div>
+      )}
       {lastRejection && (
         <div class="reject-note">
           <b>{lastRejection.actor_name} буцаасан шалтгаан:</b>
@@ -189,7 +253,52 @@ const hasActions = can.decide || can.submit || can.withdraw || can.makeEvent || 
               {can.makeEvent && <a class="btn btn-blue" href={`/uil-ajillagaa/shine?from=${rec.id}`}><Icon name="calendar" /> Арга хэмжээ үүсгэх</a>}
             </div>
           )}
-          {can.submit && !rec.number && <p class="form-note">Илгээх үед баримтын дугаар автоматаар олгогдоно.</p>}
+          {can.submit && !rec.number && <p class="form-note">Баримт бүх шатаар батлагдах үед дугаар автоматаар олгогдоно.</p>}
+          {can.delete && (
+            <form method="post" class="delete-row">
+              <button
+                class="btn btn-danger btn-sm"
+                name="action"
+                value="delete"
+                data-confirm={`«${rec.title}» баримтыг устгах уу?\n\nУстгасан баримтыг сэргээх боломжгүй.`}
+              ><Icon name="trash" /> Устгах</button>
+              <span class="form-note">Хэрэггүй болсон ноорог, буцаагдсан баримтыг устгана.</span>
+            </form>
+          )}
+          {can.askDelete && !deletion && (
+            <details>
+              <summary class="linkish danger">Батлагдсан баримтыг устгах…</summary>
+              <form method="post" class="stack" style="--stack:10px; margin-top:12px; max-width:560px">
+                <p class="form-note" style="margin:0">
+                  Тэргүүн (эсвэл техникийн хариуцагч) <b>болон</b> Эрх зүйн хэлтсийн дарга хоёулаа зөвшөөрсний дараа л устгагдана.
+                  Таны хүсэлт таны зөвшөөрөлд тооцогдоно. Нөгөө тал 7 хоногийн дотор шийдвэрлэхгүй бол хүсэлт хүчингүй болно.
+                </p>
+                {plan.length > 0 ? (
+                  <div class="flash warn" style="margin:0">
+                    <Icon name="alert" />
+                    <span class="flash-text">
+                      Устгасны дараа энэ цувралын дараагийн дугаарууд нэгээр ухарна:
+                      <span class="renumber-list">{plan.map((m) => <span><span class="num">{m.from}</span> → <span class="num">{m.to}</span></span>)}</span>
+                      Эдгээрийг хэвлэж, тамгалсан бол дахин хэвлэх шаардлагатай.
+                    </span>
+                  </div>
+                ) : rec.number && <p class="form-note" style="margin:0">Энэ цувралын сүүлийн дугаар тул өөр баримтын дугаар өөрчлөгдөхгүй.</p>}
+                <div class="field">
+                  <label for="del-reason">Устгах шалтгаан</label>
+                  <textarea id="del-reason" name="comment" rows="2" required></textarea>
+                </div>
+                <div>
+                  <button
+                    class="btn btn-danger btn-sm"
+                    name="action"
+                    value="delete_request"
+                    data-require="del-reason"
+                    data-confirm={`«${rec.title}»${rec.number ? ` (${rec.number})` : ''} баримтыг устгах хүсэлт гаргах уу?${planText}\n\nТа итгэлтэй байна уу?`}
+                  ><Icon name="trash" /> Устгах хүсэлт гаргах</button>
+                </div>
+              </form>
+            </details>
+          )}
           {can.void && (
             <details>
               <summary class="linkish danger">Хүчингүй болгох…</summary>

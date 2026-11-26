@@ -17,6 +17,7 @@ import { awaitingMe, myDrafts } from '../../lib/records';
 import { dateKey, dayDiff, fmtDate, fmtDayName, now, relDay } from '../../lib/time';
 import { ROLE_LABEL, type DeptSlug } from '../../lib/types';
 import { departments } from '../../lib/db';
+import { pushPublicKey } from '../../lib/push';
 
 const user = Astro.locals.user!;
 const manager = canManageMembers(user);
@@ -39,6 +40,7 @@ const daysLeft = user.termEndsAt ? Math.ceil((user.termEndsAt - t) / 86400) : nu
 const todo = waiting.length + returned.length + board.mine.length + jobs.length;
 const canWrite = depts.some((d) => canCreateRecordIn(user, d.slug as DeptSlug));
 const firstName = user.name.split('. ').at(-1);
+const pushReady = !!pushPublicKey();
 const due = (ts: number | null) => (ts === null ? null : dayDiff(ts, t));
 ---
 <Staff title="Нүүр">
@@ -59,6 +61,14 @@ const due = (ts: number | null) => (ts === null ? null : dayDiff(ts, t));
     <div class="flash info" role="note">
       <Icon name="users" />
       <span class="flash-text">{renewals.length} хүний эрх удахгүй дуусна. <a href="/gishuud/shine-jil">Шинэ жилийн бүртгэл хийх →</a></span>
+    </div>
+  )}
+
+  {pushReady && (
+    <div class="flash info push-nudge" role="note" data-push-nudge hidden>
+      <Icon name="bell" />
+      <span class="flash-text">Шийдвэр хүлээж буй баримт, танд оноосон ажлын мэдэгдлийг утсандаа авах уу? <a href="/medegdel">Апп болгох, мэдэгдэл асаах →</a></span>
+      <button class="flash-x" type="button" aria-label="Дахиж бүү харуул" data-nudge-x><Icon name="x" /></button>
     </div>
   )}
 
@@ -348,4 +358,28 @@ const due = (ts: number | null) => (ts === null ? null : dayDiff(ts, t));
       )}
     </div>
   </div>
+
+  {pushReady && (
+    <script is:inline>
+      (function () {
+        // «turn on notifications?» — once per device, until it's on or someone closes it
+        var n = document.querySelector('[data-push-nudge]');
+        if (!n) return;
+        var KEY = 'mnsa-push-nudge-off';
+        try { if (localStorage.getItem(KEY)) return; } catch (e) { return; }
+        n.querySelector('[data-nudge-x]').addEventListener('click', function () {
+          n.remove();
+          try { localStorage.setItem(KEY, '1'); } catch (e) { /* private mode */ }
+        });
+        var ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        var standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+        if (ios && !standalone) { n.hidden = false; return; } // iPhone in Safari: first add it to the home screen
+        if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) return;
+        if (Notification.permission === 'denied') return;
+        navigator.serviceWorker.ready.then(function (reg) { return reg.pushManager.getSubscription(); }).then(function (sub) {
+          if (!sub) n.hidden = false;
+        });
+      })();
+    </script>
+  )}
 </Staff>

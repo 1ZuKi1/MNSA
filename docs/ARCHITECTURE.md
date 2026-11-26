@@ -316,7 +316,14 @@ This isn't a compromise, it's the better engineering choice: it costs nothing, n
 
 The format is the President's (his own example on the form, 2026-09-23). Each department numbers each type separately, from 001 every academic year.
 
-Assigned by the database **on first submission**, never on draft — so abandoned drafts don't burn numbers, and two people cannot possibly be given the same one.
+Assigned by the database **when the document is fully approved** (since 2026-11; before that, on first submission), in the same transaction as the last approval — so drafts, documents in review and documents sent back never take a number, there are no gaps, and two people cannot possibly be given the same one. A document in review prints with the «НООРОГ» mark and a blank where the number goes. Documents numbered under the old rule keep their numbers.
+
+### Deleting a document
+
+- **Draft or sent back** (no number): its author, or the President's side, presses «Устгах» and confirms. Gone for good; the activity log keeps a line. A legacy document that already had a number gives it back if it was the last in its series, otherwise that number stays unused (later ones may be printed already).
+- **Approved or voided**: needs **two** confirmations, one from the President's side (the President or the maintainer) and one from the Legal дарга — never the same side twice. The first to ask writes a reason, which counts as their yes; the other side is notified (push and email) and has 7 days to confirm or refuse, after which the request lapses. Both see beforehand exactly which numbers will move. On the second yes the document is deleted and every later number in its series moves down by one (Т1 Т2 Т3 Т4 minus Т3 → Т4 becomes Т3), lowest first; each moved document gets a «Өмнө нь … дугаартай байсан» line in its history, and its author a notification to reprint. The series counter is reset to the highest number still in use. `record_deletions` (migration 0015) keeps every request and a full copy of the deleted document — record, versions and history — so nothing disappears without a trace. Rules in `permissions.ts` (`canDeleteUnapproved`, `deletionSide`, `canConfirmOfficialDeletion`), the renumbering itself is the pure `renumberPlan` in `workflow.ts`, both tested.
+
+Renumbering approved documents was the association's decision (2026-11). Its cost: a paper already printed and sent still carries the old number, and letters that cite it by number now point at a different document. That is why it takes two people and shows the moves before anyone confirms.
 
 ### Version history, free
 
@@ -535,6 +542,32 @@ Nothing is deleted: a removed receipt keeps who removed it and when. Every step 
 **Not linked to «Төсөв» yet**: a paid reimbursement doesn't add a public budget line by itself — the keeper still adds it there. Joining the two is the natural next step once the team has used both for a while.
 
 Schema: `finance_requests`, `finance_lines`, `finance_receipts` (migration 0013).
+
+---
+
+## 5f. The team web as a phone app, with notifications
+
+`team.pkumongolia.com` installs onto a phone's home screen as an app (a PWA) — no App Store, no second codebase. Three files make it one: `public/manifest.webmanifest` (name, icons, opens without browser bars), `public/sw.js` (the service worker: shows notifications, opens the right page when one is tapped, shows an «Интернэт холболт алга» page offline; it caches nothing else, because staff pages are private and must be fresh), and the `<link rel="manifest">` in `layouts/Staff.astro`. Both files are served only on the staff host — `worker.ts` returns 404 for them on the public site.
+
+**Why a PWA and not a native app.** A native app means $99 a year to Apple, App Store review, and a second codebase the next CS students would have to learn. For about 40 staff the PWA does everything needed.
+
+**Notifications** are standard Web Push, written with Web Crypto only (`lib/webpush.ts`: VAPID signing and RFC 8291 encryption — no npm library, tested in `tests/webpush.test.ts`). `lib/push.ts` keeps one row per device in `push_subscriptions` (migration 0014) and sends to people by user id. Sending never throws, so a failed push never blocks an approval. Devices Apple or Google report as gone (404/410) are deleted; other failures go to the activity log as `push_failed`, like failed emails.
+
+What sends a push — the same moments as the emails, plus a few email never covered, because push is free and email is capped at 100 a day:
+
+| Moment | Who gets it |
+|---|---|
+| A document reaches a step | whoever owns that step (also emailed) |
+| A document is fully approved / returned | its author |
+| A job is given to someone | the new хариуцагч (also emailed) |
+| A money request reaches a step | the keepers, or the President |
+| A money request is approved / refused | the requester; on approval the keepers too (to record it) |
+
+**iPhone rules** (Apple's, not ours): notifications work only once the site is added to the home screen (iOS 16.4+), the permission prompt must come straight from a tap, and the installed app has its own cookies — people log in once more inside it. The page «Апп ба мэдэгдэл» (`/medegdel`) walks them through it and lists their devices, so a lost phone can be removed. Logging out on a device also turns its notifications off.
+
+**China.** iPhones get pushes through Apple's servers, which work without a VPN. Android Chrome uses Google's (FCM), which doesn't — Android users there may not get them. Email stays on for the important moments.
+
+**Keys.** One VAPID pair per deployment: `npm run push:keys`, then `wrangler secret put VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY`. Never change the pair — every phone that turned notifications on would silently stop receiving them. Without the keys the feature hides itself.
 
 ---
 

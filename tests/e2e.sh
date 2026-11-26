@@ -39,7 +39,8 @@ loc=$(post $J/dotood2.jar /barimt/shine -d "type=albn-bichig&dept=dotood&visibil
 RID=$(echo "$loc" | grep -o 'barimt/[0-9]*' | grep -o '[0-9]*'); echo "  record #$RID ($loc)"
 has "submitted flash" "$loc" "ok=submitted"
 pg=$(get $J/dotood2.jar /barimt/$RID)
-has "number assigned on submit, in the President's format" "$pg" "МОХ-ДХ/2627/А/001"
+hasnt "no number while in review (numbers come on approval)" "$pg" "МОХ-ДХ/2627/А/001"
+check "…but it can be printed as a draft already" "$(code $J/dotood2.jar /barimt/$RID/hevleh)" 200
 has "awaiting the дарга" "$pg" "Хэлтсийн даргын"
 has "дарга's queue shows it" "$(get $J/dotood.jar /)" "Танхим ашиглах"
 hasnt "other дарга's queue doesn't" "$(get $J/gadaad.jar /)" "Танхим ашиглах"
@@ -53,6 +54,7 @@ has "the maintainer cannot sign at the President's step" "$(post $J/dev.jar /bar
 has "President approves" "$(post $J/president.jar /barimt/$RID -d action=approve --data-urlencode "comment=Зөвшөөрөв")" "ok=approved"
 pg=$(get $J/dotood2.jar /barimt/$RID)
 has "status is approved" "$pg" "b-approved"
+has "numbered on approval, in the President's format" "$pg" "МОХ-ДХ/2627/А/001"
 check "print page renders" "$(code $J/dotood2.jar /barimt/$RID/hevleh)" 200
 pr=$(get $J/dotood2.jar /barimt/$RID/hevleh)
 has "a letter prints on the official blank" "$pr" 'class="letter'
@@ -119,9 +121,9 @@ loc=$(post $J/gadaad.jar /barimt/shine -d "type=hamtiin&dept=gadaad&visibility=s
 本备忘录由双方友好协商达成。" --data-urlencode "f_annex=活动计划")
 HID=$(echo "$loc" | grep -o 'barimt/[0-9]*' | grep -o '[0-9]*')
 has "the дарга's own memorandum goes straight to Legal" "$(get $J/gadaad.jar /barimt/$HID)" "Эрх зүйн хэлтсийн"
-has "…numbered ХА" "$(get $J/gadaad.jar /barimt/$HID)" "МОХ-ГХ/2627/ХА/001"
 has "Legal approves it" "$(post $J/legal.jar /barimt/$HID -d action=approve)" "ok=approved"
 has "…then the President" "$(post $J/president.jar /barimt/$HID -d action=approve)" "ok=approved"
+has "…numbered ХА once approved" "$(get $J/gadaad.jar /barimt/$HID)" "МОХ-ГХ/2627/ХА/001"
 pr=$(get $J/gadaad.jar /barimt/$HID/hevleh)
 has "it prints under the Chinese heading" "$pr" "《合作谅解备忘录》"
 has "…with the Chinese footer" "$pr" "编号: <span class=\"num\">МОХ-ГХ/2627/ХА/001"
@@ -580,6 +582,52 @@ J4=$(mktemp -d); login president@demo.test $J4/p.jar
 loc=$(curl -s -o /dev/null -w '%{redirect_url}' -b $J4/p.jar -H "$S" "$B/nevtreh?next=/%09/evil.example")
 hasnt "login never sends you to another site (tab trick)" "$loc" "evil.example"
 check "jobs never reach the public site" "$(curl -s -o /dev/null -w '%{http_code}' -H "$P" $B/ajil)" 404
+
+echo "── deleting documents"
+loc=$(post $J/dotood2.jar /barimt/shine -d "type=albn-bichig&dept=dotood&visibility=staff&then=save" \
+  --data-urlencode "title=Хэрэггүй болсон ноорог" --data-urlencode "f_recipient=Хэн нэгэн" --data-urlencode "f_body=Туршилт")
+DID=$(echo "$loc" | grep -o 'barimt/[0-9]*' | grep -o '[0-9]*')
+has "a draft shows the delete button to its author" "$(get $J/dotood2.jar /barimt/$DID)" 'value="delete"'
+hasnt "…not to its дарга" "$(get $J/dotood.jar /barimt/$DID)" 'value="delete"'
+has "…who can't delete it either" "$(post $J/dotood.jar /barimt/$DID -d action=delete)" "err=denied"
+has "the author deletes it" "$(post $J/dotood2.jar /barimt/$DID -d action=delete)" "ok=deleted"
+check "…and it is gone" "$(code $J/dotood2.jar /barimt/$DID)" 404
+has "an approved document can't be deleted that way" "$(post $J/president.jar /barimt/$RID -d action=delete)" "err=denied"
+
+# A series of four: the President's own releases are approved (and numbered) on submit.
+for n in 2 3 4; do
+  loc=$(post $J/president.jar /barimt/shine -d "type=choloolol&dept=udirdlaga&visibility=staff&then=submit" --data-urlencode "title=Чөлөөлөх тухай $n" \
+    --data-urlencode "f_person=Туршилт $n" --data-urlencode "f_position=Хэлтсийн дарга" --data-urlencode "f_department=Дотоод хэлтэс" \
+    -d "f_term_start=2025-09-28&f_request_date=2025-10-27&f_effective_date=2025-10-27")
+  eval "G$n=$(echo "$loc" | grep -o 'barimt/[0-9]*' | grep -o '[0-9]*')"
+done
+has "the series runs ГЦ/001…004" "$(get $J/president.jar /barimt/$G4)" "МОХ-УД/2627/ГЦ/004"
+hasnt "a member can't ask to delete an approved one" "$(get $J/dotood2.jar /barimt/$G3)" 'value="delete_request"'
+has "…and is refused if they try" "$(post $J/dotood2.jar /barimt/$G3 -d action=delete_request --data-urlencode "comment=x")" "err=denied"
+pg=$(get $J/president.jar /barimt/$G3)
+has "the President sees what would move" "$pg" "МОХ-УД/2627/ГЦ/004</span> → <span class=\"num\">МОХ-УД/2627/ГЦ/003"
+has "asking needs a reason" "$(post $J/president.jar /barimt/$G3 -d action=delete_request)" "err=comment"
+has "the President asks" "$(post $J/president.jar /barimt/$G3 -d action=delete_request --data-urlencode "comment=Давхардсан баримт")" "ok=delete_requested"
+has "…a second request is refused" "$(post $J/dev.jar /barimt/$G3 -d action=delete_request --data-urlencode "comment=x")" "err=conflict"
+has "the request is on the document" "$(get $J/legal.jar /barimt/$G3)" "Устгах хүсэлт хүлээгдэж байна"
+has "the maintainer is the same side: can't confirm" "$(post $J/dev.jar /barimt/$G3 -d action=delete_confirm)" "err=denied"
+has "…nor can the President twice" "$(post $J/president.jar /barimt/$G3 -d action=delete_confirm)" "err=denied"
+check "still there" "$(code $J/president.jar /barimt/$G3)" 200
+has "Legal confirms: deleted" "$(post $J/legal.jar /barimt/$G3 -d action=delete_confirm)" "ok=deleted_official"
+check "…gone" "$(code $J/president.jar /barimt/$G3)" 404
+pg=$(get $J/president.jar /barimt/$G4)
+has "ГЦ/004 became ГЦ/003" "$pg" 'class="num">МОХ-УД/2627/ГЦ/003'
+hasnt "…no ГЦ/004 any more" "$pg" 'class="num">МОХ-УД/2627/ГЦ/004'
+has "…and its history says so" "$pg" "Өмнө нь МОХ-УД/2627/ГЦ/004 дугаартай байсан"
+loc=$(post $J/president.jar /barimt/shine -d "type=choloolol&dept=udirdlaga&visibility=staff&then=submit" --data-urlencode "title=Чөлөөлөх тухай 5" \
+  --data-urlencode "f_person=Туршилт 5" --data-urlencode "f_position=Хэлтсийн дарга" --data-urlencode "f_department=Дотоод хэлтэс" \
+  -d "f_term_start=2025-09-28&f_request_date=2025-10-27&f_effective_date=2025-10-27")
+G5=$(echo "$loc" | grep -o 'barimt/[0-9]*' | grep -o '[0-9]*')
+has "the next one continues at ГЦ/004" "$(get $J/president.jar /barimt/$G5)" "МОХ-УД/2627/ГЦ/004"
+has "Legal asks to delete ГЦ/002" "$(post $J/legal.jar /barimt/$G2 -d action=delete_request --data-urlencode "comment=Туршилт")" "ok=delete_requested"
+has "the President refuses" "$(post $J/president.jar /barimt/$G2 -d action=delete_cancel)" "ok=delete_cancelled"
+check "…and it stays" "$(code $J/president.jar /barimt/$G2)" 200
+has "…with its number" "$(get $J/president.jar /barimt/$G2)" "МОХ-УД/2627/ГЦ/002"
 
 echo "── help (Тусламж)"
 hp=$(get $J/dotood2.jar /tuslamj)

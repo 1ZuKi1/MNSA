@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { advance, formatNumber } from '../src/lib/workflow';
+import { advance, formatNumber, parseNumber, renumberPlan } from '../src/lib/workflow';
 import { RECORD_TYPES } from '../src/lib/record-types';
 import { academicYear, fromLocal, termEnd, fmtDate, fmtOfficial, fmtOfficialDate } from '../src/lib/time';
 import type { DeptSlug, Role, Step } from '../src/lib/types';
@@ -98,5 +98,34 @@ describe('every document type is complete', () => {
       for (const n of [...(t.print.meta ?? []), ...(t.print.plain ?? [])]) expect(t.fields.map((f) => f.name)).toContain(n);
       for (const f of t.fields) if (f.type === 'select') expect(f.options?.length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe('deleting an approved number renumbers its series', () => {
+  const s = (n: number, t = 'Т') => `МОХ-МХ/2627/${t}/${String(n).padStart(3, '0')}`;
+  it('reads numbers made by the system, not paper ones', () => {
+    expect(parseNumber(s(3))).toEqual({ prefix: 'МОХ-МХ/2627/Т/', seq: 3 });
+    expect(parseNumber('Ж-0003')).toBeNull();
+    expect(parseNumber(null)).toBeNull();
+  });
+  it('Т1 Т2 Т3 Т4 minus Т3 → Т4 becomes Т3', () => {
+    const series = [1, 2, 3, 4].map((n) => ({ id: n, number: s(n) }));
+    expect(renumberPlan(s(3), series)).toEqual([{ id: 4, from: s(4), to: s(3) }]);
+  });
+  it('moves every later number, lowest first, and leaves other series alone', () => {
+    const series = [
+      { id: 9, number: s(5) },
+      { id: 2, number: s(2) },
+      { id: 7, number: s(4) },
+      { id: 8, number: s(3, 'А') },
+      { id: 6, number: 'Ж-0004' },
+    ];
+    expect(renumberPlan(s(2), series)).toEqual([
+      { id: 7, from: s(4), to: s(3) },
+      { id: 9, from: s(5), to: s(4) },
+    ]);
+  });
+  it('deleting the last number moves nothing', () => {
+    expect(renumberPlan(s(4), [1, 2, 3, 4].map((n) => ({ id: n, number: s(n) })))).toEqual([]);
   });
 });

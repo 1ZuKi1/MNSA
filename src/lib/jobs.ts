@@ -6,6 +6,7 @@
  */
 import { auditStmt, db, deptBySlug, many, one, stmt } from './db';
 import { jobAssignedMail, sendMail } from './mailer';
+import { clip, pushToUsers } from './push';
 import * as P from './permissions';
 import { Denied } from './records';
 import { staffOrigin } from './site';
@@ -177,6 +178,12 @@ async function notifyOwner(a: SessionUser, ownerId: number | null, jobId: number
   if (ownerId === null || ownerId === a.id) return;
   const o = await one<{ email: string }>(`SELECT email FROM users WHERE id = ?`, ownerId);
   if (!o) return;
+  await pushToUsers([ownerId], {
+    title: 'Танд ажил оноолоо',
+    body: clip(`${a.name} таныг «${title}» ажлын хариуцагчаар томиллоо.`, 140),
+    url: `/ajil/${jobId}`,
+    tag: `job-${jobId}`,
+  });
   await sendMail(jobAssignedMail(o.email, a.name, title, `${staffOrigin()}/ajil/${jobId}`));
 }
 

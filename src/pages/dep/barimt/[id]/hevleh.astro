@@ -24,7 +24,8 @@ const rec = id ? await getRecord(id) : null;
 if (!rec || !P.canReadRecord(user, asRecordLike(rec))) return new Response(null, { status: 404 });
 // A paper document from before the website prints as the paper was: its own heading, date and signers.
 const paper = paperOf(rec);
-if (!rec.number && !paper) return new Response(null, { status: 404 });
+// Printable from the moment it's sent for review (with the draft mark until approved; the number comes on approval).
+if (!rec.number && !paper && rec.status !== 'in_review') return new Response(null, { status: 404 });
 const type = getRecordType(rec.type)!;
 const pr = type.print;
 const f = fieldsOf(rec);

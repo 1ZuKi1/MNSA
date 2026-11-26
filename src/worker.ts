@@ -8,7 +8,7 @@
  * (team.pkumongolia.com/barimt → /dep/barimt internally). On the public host, /dep does not exist.
  */
 import { handle } from '@astrojs/cloudflare/handler';
-import { isLocalHost, isStaffHost, publicCacheSeconds, shouldPrefixStaffPath, STAFF_PREFIX } from './lib/hosts';
+import { isAppFile, isLocalHost, isStaffHost, publicCacheSeconds, shouldPrefixStaffPath, STAFF_PREFIX } from './lib/hosts';
 
 const COMMON_HEADERS: Record<string, string> = {
   'X-Content-Type-Options': 'nosniff',
@@ -64,11 +64,15 @@ export default {
       const res = await handle(req, env, ctx);
       // Static assets and photos keep their own caching; everything else is private and uncached.
       const isAsset = /^\/(_astro|brand|media)\//.test(url.pathname);
-      return withHeaders(res, isAsset ? COMMON_HEADERS : STAFF_HEADERS);
+      const out = withHeaders(res, isAsset ? COMMON_HEADERS : STAFF_HEADERS);
+      // The manifest is fetched by the browser itself; the content type makes iOS and Chrome read it as one.
+      if (url.pathname === '/manifest.webmanifest') out.headers.set('Content-Type', 'application/manifest+json; charset=utf-8');
+      return out;
     }
 
     // ── public host ─────────────────────────────────────────────────────────
-    if (url.pathname === STAFF_PREFIX || url.pathname.startsWith(STAFF_PREFIX + '/')) {
+    // The app files (service worker, manifest) belong to the staff site only.
+    if (isAppFile(url.pathname) || url.pathname === STAFF_PREFIX || url.pathname.startsWith(STAFF_PREFIX + '/')) {
       return new Response('Not found', { status: 404, headers: { 'content-type': 'text/plain; charset=utf-8' } });
     }
 

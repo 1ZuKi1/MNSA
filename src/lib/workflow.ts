@@ -57,3 +57,24 @@ export const numberPrefix = (deptCode: string, year: string, typeCode: string) =
 export function formatNumber(deptCode: string, year: string, typeCode: string, seq: number): string {
   return numberPrefix(deptCode, year, typeCode) + String(seq).padStart(3, '0');
 }
+
+/** "МОХ-ДХ/2627/А/003" → { prefix: "МОХ-ДХ/2627/А/", seq: 3 }. Null for a number outside the system (a paper's «Ж-0003»). */
+export function parseNumber(n: string | null): { prefix: string; seq: number } | null {
+  const m = n ? /^(МОХ-[^/]+\/\d{4}\/[^/]+\/)(\d{3,})$/.exec(n) : null;
+  return m ? { prefix: m[1], seq: Number(m[2]) } : null;
+}
+
+/**
+ * What happens to a series when one approved number is deleted (President and Legal both agreed):
+ * every later number in the same series moves down by one, so Т1 Т2 Т3 Т4 minus Т3 becomes Т1 Т2 Т3.
+ * Returned lowest first, the order the updates must run in (each takes the number the previous one freed).
+ */
+export function renumberPlan(deleted: string, series: { id: number; number: string }[]): { id: number; from: string; to: string }[] {
+  const d = parseNumber(deleted);
+  if (!d) return [];
+  return series
+    .map((r) => ({ r, p: parseNumber(r.number) }))
+    .filter((x): x is { r: { id: number; number: string }; p: { prefix: string; seq: number } } => !!x.p && x.p.prefix === d.prefix && x.p.seq > d.seq)
+    .sort((a, b) => a.p.seq - b.p.seq)
+    .map(({ r, p }) => ({ id: r.id, from: r.number, to: d.prefix + String(p.seq - 1).padStart(3, '0') }));
+}

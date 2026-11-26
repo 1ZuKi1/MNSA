@@ -1,0 +1,251 @@
+---
+/**
+ * «Апп ба мэдэгдэл» — the team web on the phone's home screen, and notifications on the lock screen.
+ *
+ * Which box shows is decided in the browser (it depends on the phone, not the person):
+ *   iPhone in Safari        → how to add it to the home screen (iOS only allows notifications from there)
+ *   can subscribe, hasn't   → «Мэдэгдэл асаах»
+ *   subscribed              → on; send a test, or turn off
+ *   refused in settings     → where to allow it again
+ * The list of devices below is from the server, so a lost phone can be removed from a laptop.
+ */
+export const prerender = false;
+import Staff from '../../layouts/Staff.astro';
+import PageHead from '../../components/PageHead.astro';
+import Icon from '../../components/Icon.astro';
+import { clientIp, int } from '../../lib/http';
+import { myDevices, pushPublicKey, removeSubscriptionById } from '../../lib/push';
+import { audit } from '../../lib/db';
+import { fmtDate } from '../../lib/time';
+
+const user = Astro.locals.user!;
+
+if (Astro.request.method === 'POST') {
+  const fd = await Astro.request.formData();
+  const id = int(fd.get('device'));
+  if (fd.get('action') === 'remove' && id !== null) {
+    await removeSubscriptionById(user.id, id);
+    await audit(user.id, 'push.device_removed', 'push', id, null, clientIp(Astro.request));
+    return Astro.redirect('/medegdel?ok=removed', 303);
+  }
+  return Astro.redirect('/medegdel', 303);
+}
+
+const key = pushPublicKey();
+const devices = await myDevices(user.id);
+---
+<Staff title="Апп ба мэдэгдэл">
+  <PageHead
+    title="Апп ба мэдэгдэл"
+    sub="Ажлын орчныг утсандаа апп болгон суулгаж, таны шийдвэр хүлээж буй баримт, танд оноосон ажлын мэдэгдлийг утсандаа шууд аваарай."
+  />
+
+  <div class="push-page">
+    <section class="panel" aria-labelledby="state-h" id="push" data-key={key ?? ''}>
+      <div class="panel-head"><h2 id="state-h"><Icon name="bell" /> Энэ төхөөрөмж</h2></div>
+      <div class="panel-body">
+        {!key ? (
+          <p class="help-note"><Icon name="alert" /> Мэдэгдэл энэ сайт дээр хараахан тохируулагдаагүй байна. Техникийн хариуцагчид хандана уу.</p>
+        ) : (
+          <>
+            <noscript><p class="help-note"><Icon name="alert" /> Мэдэгдэл асаахад JavaScript хэрэгтэй.</p></noscript>
+
+            {/* iPhone / iPad, opened in the browser rather than from the home screen */}
+            <div data-state="ios-install" hidden>
+              <p class="push-lead">iPhone дээр мэдэгдэл авахын тулд эхлээд ажлын орчныг <b>нүүр дэлгэцэндээ нэмнэ</b>. Нэг минут ч болохгүй.</p>
+              <ol class="help-steps">
+                <li>Энэ хуудсыг <b>Safari</b>-аар нээнэ (WeChat дотроос нээсэн бол баруун дээд буланд «…» → «Open in Safari» / «在Safari中打开»).</li>
+                <li>Доод хэсгийн <b>Хуваалцах</b> товчийг дарна — дээшээ сумтай дөрвөлжин <span class="ios-share" aria-hidden="true">⬆︎</span>.</li>
+                <li>Жагсаалтаас <b>«Add to Home Screen»</b> (хятад хэлтэй утсанд <span lang="zh-Hans">«添加到主屏幕»</span>) сонгоод <b>«Add»</b> дарна.</li>
+                <li>Нүүр дэлгэцэнд гарч ирсэн <b>МОХ</b> аппыг нээж, нэг удаа дахин нэвтэрнэ. Апп Safari-гаас тусдаа тул нэвтрэлт нь тусдаа.</li>
+                <li>Аппын цэснээс <b>«Апп ба мэдэгдэл»</b> руу орж <b>«Мэдэгдэл асаах»</b> дарна.</li>
+              </ol>
+              <p class="help-tip">iOS 16.4 буюу түүнээс шинэ хувилбар хэрэгтэй. Утасныхаа хувилбарыг Settings → General → About хэсгээс харна.</p>
+            </div>
+
+            <div data-state="off" hidden>
+              <p class="push-lead">Энэ төхөөрөмж дээр мэдэгдэл унтраалттай байна.</p>
+              <div class="push-actions">
+                <button class="btn btn-primary" type="button" data-push-on><Icon name="bell" /> Мэдэгдэл асаах</button>
+              </div>
+              <p class="push-small">Дарахад утас «зөвшөөрөх үү?» гэж асууна — <b>Allow</b> / <span lang="zh-Hans">允许</span> дарна уу.</p>
+            </div>
+
+            <div data-state="on" hidden>
+              <p class="push-lead push-ok"><Icon name="check" /> Энэ төхөөрөмж дээр мэдэгдэл асаалттай.</p>
+              <div class="push-actions">
+                <button class="btn btn-blue" type="button" data-push-test><Icon name="send" /> Туршилтын мэдэгдэл илгээх</button>
+                <button class="btn" type="button" data-push-off>Унтраах</button>
+              </div>
+            </div>
+
+            <div data-state="denied" hidden>
+              <p class="help-note"><Icon name="alert" /> Энэ төхөөрөмж дээр мэдэгдлийг хориглосон байна. Дахин зөвшөөрөхдөө:</p>
+              <ul class="help-list">
+                <li><b>iPhone:</b> Settings → Notifications → <b>МОХ</b> → Allow Notifications асаана.</li>
+                <li><b>Android, компьютер:</b> хаягийн мөрний зүүн талын цоож тэмдэг → Notifications → Allow.</li>
+              </ul>
+              <p class="push-small">Зөвшөөрсний дараа энэ хуудсыг дахин ачаална.</p>
+            </div>
+
+            <div data-state="unsupported" hidden>
+              <p class="help-note"><Icon name="alert" /> Энэ хөтөч мэдэгдэл дэмжихгүй байна. iPhone дээр Safari, Android дээр Chrome, компьютер дээр Chrome эсвэл Edge ашиглана уу.</p>
+            </div>
+
+            <p class="push-msg" role="status" aria-live="polite" data-push-msg></p>
+
+            <div data-state="android-install" hidden class="push-install">
+              <p><Icon name="phone" class="inline-ic" /> Утасныхаа нүүр дэлгэцэнд апп болгон нэмбэл нэг товшилтоор нээгдэнэ.</p>
+              <button class="btn" type="button" data-install><Icon name="download" /> Апп болгон суулгах</button>
+            </div>
+          </>
+        )}
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="what-h">
+      <div class="panel-head"><h2 id="what-h"><Icon name="inbox" /> Юуны тухай мэдэгдэл ирэх вэ</h2></div>
+      <div class="panel-body">
+        <ul class="help-list">
+          <li>Баримт бичиг <b>таны шийдвэрийг хүлээж</b> ирэхэд.</li>
+          <li>Таны илгээсэн баримт <b>батлагдах</b> эсвэл <b>буцаагдахад</b>.</li>
+          <li>Танд <b>ажил оноох</b> үед.</li>
+          <li>Санхүүгийн хүсэлт таны шийдвэрийг хүлээж ирэх, таны хүсэлтийг зөвшөөрөх эсвэл татгалзахад.</li>
+        </ul>
+        <p class="help-tip">Мэдэгдэл дээр дарахад тухайн баримт, ажил шууд нээгдэнэ. И-мэйлээр ирдэг мэдэгдэл өмнөх шигээ ирсээр байна.</p>
+        <p class="help-note"><Icon name="globe" /> Android утсанд мэдэгдэл Google-ийн сервисээр дамждаг тул Хятадад VPN-гүй үед ирэхгүй байж болно. iPhone-д ийм асуудал байхгүй.</p>
+      </div>
+    </section>
+
+    {devices.length > 0 && (
+      <section class="panel" aria-labelledby="dev-h">
+        <div class="panel-head"><h2 id="dev-h"><Icon name="phone" /> Мэдэгдэл авдаг төхөөрөмжүүд</h2></div>
+        <div class="panel-body">
+          <ul class="items">
+            {devices.map((d) => (
+              <li class="item" data-endpoint={d.endpoint}>
+                <span class="ic blue"><Icon name="phone" /></span>
+                <span class="item-title">{d.device ?? 'Төхөөрөмж'} <span class="this-device" hidden>(энэ төхөөрөмж)</span></span>
+                <span class="item-meta">
+                  <span>{fmtDate(d.created_at)}-нд асаасан</span>
+                  {d.last_ok_at && <span>сүүлд {fmtDate(d.last_ok_at)}-нд мэдэгдэл хүлээн авсан</span>}
+                </span>
+                <span class="item-act">
+                  <form method="post" data-confirm="Энэ төхөөрөмж рүү мэдэгдэл илгээхээ болих уу?">
+                    <input type="hidden" name="action" value="remove" />
+                    <input type="hidden" name="device" value={d.id} />
+                    <button class="btn btn-sm btn-danger">Хасах</button>
+                  </form>
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p class="push-small">Утсаа солих, гээх үед хуучин утсаа эндээс хасна.</p>
+        </div>
+      </section>
+    )}
+  </div>
+
+  <script is:inline>
+    (function () {
+      var box = document.getElementById('push');
+      if (!box || !box.dataset.key) return;
+      var KEY = box.dataset.key;
+      var msg = box.querySelector('[data-push-msg]');
+      var ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      var standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+      var canPush = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+
+      function show(state) {
+        box.querySelectorAll('[data-state]').forEach(function (el) {
+          if (el.dataset.state !== 'android-install') el.hidden = el.dataset.state !== state;
+        });
+      }
+      function say(text, bad) { msg.textContent = text || ''; msg.classList.toggle('bad', !!bad); }
+      function post(body) {
+        return fetch('/push', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+          .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { j.status = r.status; return j; }); });
+      }
+      function keyBytes(b64) {
+        var s = atob(b64.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((b64.length + 3) % 4));
+        return Uint8Array.from(s, function (c) { return c.charCodeAt(0); });
+      }
+      function markThisDevice(endpoint) {
+        document.querySelectorAll('[data-endpoint]').forEach(function (li) {
+          var mark = li.querySelector('.this-device');
+          if (mark) mark.hidden = li.dataset.endpoint !== endpoint;
+        });
+      }
+
+      function refresh() {
+        if (ios && !standalone) { show('ios-install'); return; }
+        if (!canPush) { show('unsupported'); return; }
+        if (Notification.permission === 'denied') { show('denied'); return; }
+        navigator.serviceWorker.ready.then(function (reg) { return reg.pushManager.getSubscription(); }).then(function (sub) {
+          if (sub) {
+            show('on');
+            markThisDevice(sub.endpoint);
+            // keep the server's copy current (it may have been removed from another device)
+            if (!document.querySelector('[data-endpoint="' + CSS.escape(sub.endpoint) + '"]')) post({ action: 'subscribe', subscription: sub.toJSON() });
+          } else show('off');
+        });
+      }
+
+      var on = box.querySelector('[data-push-on]');
+      if (on) on.addEventListener('click', function () {
+        say('');
+        on.disabled = true;
+        // iOS asks only when this runs straight from the tap, so permission comes first, before any waiting.
+        Notification.requestPermission().then(function (perm) {
+          if (perm !== 'granted') { on.disabled = false; refresh(); return; }
+          return navigator.serviceWorker.ready
+            .then(function (reg) { return reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(KEY) }); })
+            .then(function (sub) { return post({ action: 'subscribe', subscription: sub.toJSON() }); })
+            .then(function (r) {
+              on.disabled = false;
+              if (r.ok) { say('Мэдэгдэл асаалаа. Шалгахын тулд «Туршилтын мэдэгдэл илгээх» дарж үзээрэй.'); location.replace('/medegdel'); }
+              else say('Хадгалж чадсангүй. Дахин оролдоно уу.', true);
+            });
+        }).catch(function () { on.disabled = false; say('Мэдэгдэл асааж чадсангүй. Интернэтээ шалгаад дахин оролдоно уу.', true); });
+      });
+
+      var test = box.querySelector('[data-push-test]');
+      if (test) test.addEventListener('click', function () {
+        test.disabled = true;
+        say('Илгээж байна…');
+        post({ action: 'test' }).then(function (r) {
+          test.disabled = false;
+          if (r.status === 429) say('Хэт олон удаа илгээлээ. Хэдэн минутын дараа дахин оролдоно уу.', true);
+          else if (r.sent > 0) say('Илгээлээ. Хэдэн секундын дотор мэдэгдэл ирэх ёстой.');
+          else say('Илгээж чадсангүй. «Унтраах» дараад дахин асааж үзнэ үү.', true);
+        }).catch(function () { test.disabled = false; say('Сүлжээний алдаа гарлаа.', true); });
+      });
+
+      var off = box.querySelector('[data-push-off]');
+      if (off) off.addEventListener('click', function () {
+        off.disabled = true;
+        navigator.serviceWorker.ready.then(function (reg) { return reg.pushManager.getSubscription(); }).then(function (sub) {
+          if (!sub) return;
+          return post({ action: 'unsubscribe', endpoint: sub.endpoint }).then(function () { return sub.unsubscribe(); });
+        }).then(function () { location.replace('/medegdel'); })
+          .catch(function () { off.disabled = false; say('Унтрааж чадсангүй. Дахин оролдоно уу.', true); });
+      });
+
+      // Android / desktop Chrome offer their own "install" prompt; show our button only when they do.
+      var install = box.querySelector('[data-state="android-install"]');
+      var deferred = null;
+      window.addEventListener('beforeinstallprompt', function (e) {
+        e.preventDefault();
+        deferred = e;
+        if (install && !standalone) install.hidden = false;
+      });
+      if (install) install.querySelector('[data-install]').addEventListener('click', function () {
+        if (!deferred) return;
+        deferred.prompt();
+        deferred.userChoice.finally(function () { deferred = null; install.hidden = true; });
+      });
+
+      refresh();
+    })();
+  </script>
+</Staff>

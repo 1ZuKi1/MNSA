@@ -177,6 +177,16 @@ npx wrangler d1 execute mnsa-db --remote --file=neccesary-files/paper-archive.sq
 ```
 Running it again changes nothing — each paper is matched by its source file.
 
+**Deleting documents, numbers on approval** (migration `0015`): run `npm run db:migrate:remote` before it reaches `main`. Rules: `docs/ARCHITECTURE.md` §5, «Deleting a document».
+
+**Phone app and notifications** (migration `0014`): run `npm run db:migrate:remote` first, then make the key pair once and store it on the staff Worker:
+```bash
+npm run push:keys                          # prints VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY
+npx wrangler secret put VAPID_PUBLIC_KEY   # add  --name mnsa-dep  while the staff site is on workers.dev
+npx wrangler secret put VAPID_PRIVATE_KEY
+```
+Keep the pair forever — a new one silently stops every phone already signed up. When the staff site moves from `mnsa-dep` to `team.pkumongolia.com`, put the **same** pair on `mnsa`; phones have to turn notifications on again anyway, because the address changed. Locally: `npm run push:keys -- --dev`. How it works: `docs/ARCHITECTURE.md` §5f.
+
 **A change that adds a file to `migrations/`** (for example `0009`–`0011`, the budget): auto-deploy does not touch the database, so run `npm run db:migrate:remote` **before** the change reaches `main`. New code on an old database fails on the pages that read the new tables.
 
 ---
@@ -204,6 +214,7 @@ src/
     team.ts            The public team page, built from the member list
     site.ts            Test-mode switches and the public/staff addresses
     nav.ts             The two counts next to the staff menu (waiting decisions, my tasks)
+    push.ts webpush.ts Phone notifications: devices, who gets what, and Web Push done with Web Crypto
     icons.ts           The line icons used on both sites
   layouts/Staff.astro  Staff frame: sidebar / phone drawer, flash messages, and the form helpers
                        (ask before destructive actions, submit once, warn about unsaved changes)

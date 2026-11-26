@@ -299,3 +299,44 @@ describe('the budget is kept only by a «Төсвийн хариуцагч»', (
     expect(P.canSetBudgetKeeper(president, { id: maintainer.id, role: 'maintainer', isDeputy: false })).toBe(false);
   });
 });
+
+describe('deleting documents', () => {
+  it('a draft or a sent-back document: its author, and the President\'s side', () => {
+    for (const status of ['draft', 'rejected'] as const) {
+      const r = rec({ status, step: null });
+      expect(P.canDeleteUnapproved(dotoodMember, r)).toBe(true);
+      expect(P.canDeleteUnapproved(president, r)).toBe(true);
+      expect(P.canDeleteUnapproved(maintainer, r)).toBe(true);
+      expect(P.canDeleteUnapproved(dotoodMember2, r)).toBe(false);
+      expect(P.canDeleteUnapproved(dotoodHead, r)).toBe(false);
+      expect(P.canDeleteUnapproved(legalHead, r)).toBe(false);
+    }
+  });
+  it('never one in review, approved or voided that way', () => {
+    for (const status of ['in_review', 'approved', 'void'] as const) {
+      expect(P.canDeleteUnapproved(dotoodMember, rec({ status }))).toBe(false);
+      expect(P.canDeleteUnapproved(president, rec({ status }))).toBe(false);
+    }
+  });
+  it('an approved document: only the President\'s side or the Legal дарга may ask', () => {
+    const r = rec({ status: 'approved', step: null });
+    expect(P.canRequestOfficialDeletion(president, r)).toBe(true);
+    expect(P.canRequestOfficialDeletion(maintainer, r)).toBe(true);
+    expect(P.canRequestOfficialDeletion(legalHead, r)).toBe(true);
+    expect(P.canRequestOfficialDeletion(dotoodMember, r)).toBe(false);
+    expect(P.canRequestOfficialDeletion(dotoodHead, r)).toBe(false);
+    expect(P.canRequestOfficialDeletion(board, r)).toBe(false);
+    expect(P.canRequestOfficialDeletion(legalHead, rec({ status: 'draft' }))).toBe(false);
+  });
+  it('both sides must confirm, never the same side twice', () => {
+    const byPresident = { presidentBy: president.id, legalBy: null };
+    const byLegal = { presidentBy: null, legalBy: legalHead.id };
+    expect(P.canConfirmOfficialDeletion(legalHead, byPresident)).toBe(true);
+    expect(P.canConfirmOfficialDeletion(maintainer, byPresident)).toBe(false); // same side
+    expect(P.canConfirmOfficialDeletion(president, byPresident)).toBe(false);
+    expect(P.canConfirmOfficialDeletion(president, byLegal)).toBe(true);
+    expect(P.canConfirmOfficialDeletion(maintainer, byLegal)).toBe(true);
+    expect(P.canConfirmOfficialDeletion(legalHead, byLegal)).toBe(false);
+    expect(P.canConfirmOfficialDeletion(dotoodHead, byPresident)).toBe(false);
+  });
+});
